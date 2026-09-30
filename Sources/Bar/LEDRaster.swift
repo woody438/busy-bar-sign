@@ -134,7 +134,9 @@ final class LEDRaster {
 
     func render(_ frame: LEDFrame, dim: Double = 1) {
         let p = pitch, rowBytes = width * 4, tileRow = p * 4
-        guard let base = pixels.baseAddress else { return }
+        guard let start = pixels.baseAddress else { return }
+        // Shared across the row workers: each writes only its own rows.
+        nonisolated(unsafe) let base = start
         DispatchQueue.concurrentPerform(iterations: LEDFrame.rows) { ly in
             let cache = caches[ly]
             if cache.tiles.count > 400 { cache.tiles.removeAll(keepingCapacity: true) }   // ~1.6 MB per row at 4K

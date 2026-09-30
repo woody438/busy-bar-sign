@@ -69,7 +69,10 @@ jobs:
           Needs macOS 14.4 or later."
 
       - name: Checks (parity, geometry, frame time, detector)
-        run: Checks/run.sh
+        run: |
+          set -o pipefail
+          Checks/run.sh 2>&1 | tee checks.log
+          grep -q "^all checks passed" checks.log      # every check ran to the end
 
       - name: Keep the build log
         if: always()
