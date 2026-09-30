@@ -135,6 +135,11 @@ the screen on two lines, then draws up into the pill as the clock rises),
 Do Not Disturb (its countdown takes the time's place), and double-clicking.
 **Wide bar** stays the default, and the floating window always uses it.
 
+Stacked is made for small screens, where it's cheap to draw (under 1 ms a
+frame at 960 × 540). You can use it on a big screen too; on 4K it draws 7
+million pixels, and during the second or so of a change's shockwave a slower
+Mac may drop below 60 frames a second (never below 30).
+
 ## Do Not Disturb
 
 ![DO NOT DISTURB with its countdown](docs/busy-bar-dnd.png)
@@ -273,7 +278,8 @@ errors or warnings in its code.
 - **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
   2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
   and 2×, with the whole device inside the window. (This check caught a real bug.)
-- **A frame takes 2.6 ms** at 4K in the worst case, on four slow virtual
+- **A frame takes under 3 ms** for the wide bar at 4K in the worst case, and
+  under 1 ms for the stacked layout at 960 × 540, on four slow virtual
   cores — the display allows 16.7 ms.
 - **The call detector makes the right decisions** on a scripted 40 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;

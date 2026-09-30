@@ -47,7 +47,13 @@ final class LEDRaster {
     private let glassAdd: [Float]        // per pixel row: white reflection, premultiplied
 
     private struct TileKey: Hashable { let rgb: UInt64 }
-    private final class RowCache { var tiles: [TileKey: [UInt8]] = [:] }
+    private final class RowCache {
+        var tiles: [TileKey: [UInt8]] = [:]
+        /// What each LED in the row showed last frame: an LED that hasn't
+        /// changed is already in `pixels`, so it isn't written again.
+        var shown: [UInt64]
+        init(cols: Int) { shown = [UInt64](repeating: .max, count: cols) }
+    }
     private let caches: [RowCache]
 
     init(pitch: Int, cols: Int = LEDFrame.cols, rows: Int = LEDFrame.rows, look: Look = Look()) {
@@ -63,7 +69,7 @@ final class LEDRaster {
         self.pixels = UnsafeMutableRawBufferPointer.allocate(byteCount: width * height * 4, alignment: 16)
         self.pixels.initializeMemory(as: UInt8.self, repeating: 0)
         self.mask = LEDRaster.makeMask(pitch: p, look: look)
-        self.caches = (0..<rows).map { _ in RowCache() }
+        self.caches = (0..<rows).map { _ in RowCache(cols: cols) }
 
         // The glass: a faint reflection across the top, shading toward the bottom.
         var alpha = [Float](repeating: 0, count: height)
@@ -121,23 +127,39 @@ final class LEDRaster {
         return q(c.x) << 32 | q(c.y) << 16 | q(c.z)
     }
 
-    private func makeTile(_ c: SIMD3<Double>, row ly: Int) -> [UInt8] {
+    /// Draws one LED's p x p pixels into `out`, `stride` bytes per row.
+    @inline(__always)
+    private func drawTile(_ c: SIMD3<Double>, row ly: Int, into out: UnsafeMutablePointer<UInt8>, stride: Int) {
         let p = pitch
         let cr = Float(c.x), cg = Float(c.y), cb = Float(c.z)
-        var t = [UInt8](repeating: 255, count: p * p * 4)
-        for py in 0..<p {
-            let y = ly * p + py
-            let keep = 1 - glassAlpha[y], add = glassAdd[y]
-            for px in 0..<p {
-                let k = mask[py * p + px] * keep
-                let o = (py * p + px) * 4
-                t[o] = UInt8(min(255, max(0, (cr * k + add) * 255 + 0.5)))
-                t[o + 1] = UInt8(min(255, max(0, (cg * k + add) * 255 + 0.5)))
-                t[o + 2] = UInt8(min(255, max(0, (cb * k + add) * 255 + 0.5)))
+        mask.withUnsafeBufferPointer { m in
+            for py in 0..<p {
+                let y = ly * p + py
+                let keep = 1 - glassAlpha[y], add = glassAdd[y]
+                let line = out + py * stride
+                for px in 0..<p {
+                    let k = m[py * p + px] * keep
+                    let o = px * 4
+                    line[o] = UInt8(min(255, max(0, (cr * k + add) * 255 + 0.5)))
+                    line[o + 1] = UInt8(min(255, max(0, (cg * k + add) * 255 + 0.5)))
+                    line[o + 2] = UInt8(min(255, max(0, (cb * k + add) * 255 + 0.5)))
+                    line[o + 3] = 255
+                }
             }
         }
+    }
+
+    private func makeTile(_ c: SIMD3<Double>, row ly: Int) -> [UInt8] {
+        var t = [UInt8](repeating: 255, count: pitch * pitch * 4)
+        t.withUnsafeMutableBufferPointer { drawTile(c, row: ly, into: $0.baseAddress!, stride: pitch * 4) }
         return t
     }
+
+    /// Tiles kept per row: about 24 MB in all, whatever the size.
+    private var maxTilesPerRow: Int { max(16, 24_000_000 / rows / (pitch * pitch * 4)) }
+    /// New tiles cached per row per frame. When nearly every LED changes (the
+    /// shockwave), the rest are drawn straight in rather than cached unused.
+    private let newTilesPerFrame = 12
 
     func render(_ frame: LEDFrame, dim: Double = 1) {
         let p = pitch, rowBytes = width * 4, tileRow = p * 4
@@ -146,16 +168,24 @@ final class LEDRaster {
         nonisolated(unsafe) let base = start
         DispatchQueue.concurrentPerform(iterations: rows) { ly in
             let cache = caches[ly]
-            if cache.tiles.count > 400 { cache.tiles.removeAll(keepingCapacity: true) }   // ~1.6 MB per row at 4K
+            if cache.tiles.count > maxTilesPerRow { cache.tiles.removeAll(keepingCapacity: true) }
+            var added = 0
             for lx in 0..<cols {
                 let c = ledColour(frame.get(lx, ly), dim: dim)
                 let key = TileKey(rgb: LEDRaster.quantise(c))
+                if cache.shown[lx] == key.rgb { continue }          // already on screen
+                cache.shown[lx] = key.rgb
                 let tile: [UInt8]
                 if let cached = cache.tiles[key] {
                     tile = cached
-                } else {
+                } else if added < newTilesPerFrame {
                     tile = makeTile(c, row: ly)
                     cache.tiles[key] = tile
+                    added += 1
+                } else {
+                    drawTile(c, row: ly, into: (base + ly * p * rowBytes + lx * tileRow).assumingMemoryBound(to: UInt8.self),
+                             stride: rowBytes)
+                    continue
                 }
                 tile.withUnsafeBytes { src in
                     guard let s = src.baseAddress else { return }
