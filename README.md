@@ -34,7 +34,9 @@ As a floating window (the simulator's **Floating window** button shows this):
    software, because it isn't notarised by Apple. Click **Done**, then go to
    System Settings ▸ Privacy & Security, scroll down, and click **Open Anyway**.
    (Or in Terminal: `xattr -dr com.apple.quarantine /Applications/StudioCallSign.app`.)
-3. Its icon appears in the menu bar; everything is controlled from there.
+3. The full-screen display opens on your second monitor, and a **controls
+   window** opens on your main one. Click the app's Dock icon to bring the
+   controls back at any time.
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `busy-bar` rebuilds it on GitHub's Mac runners
@@ -82,8 +84,8 @@ open build/Build/Products/Release/StudioCallSign.app
   land on whole pixels and may shimmer. The menu warns you if this is the case.
 - On first launch the bar opens on whichever display *isn't* your main
   (menu-bar) display, and remembers that monitor. If the wall monitor isn't
-  connected yet, it shows on the main display until it is. Menu ▸ **Show on**
-  moves it.
+  connected yet, it shows on the main display until it is. To move it, pick
+  another **Monitor** in the controls window (**Show on** in the menus).
 - If the wall monitor sleeps, switches off or is unplugged, the bar waits for
   it rather than jumping onto your desk monitor, and comes back when it does.
 - On a secondary display the bar sits above that display's menu bar and Dock,
@@ -98,8 +100,8 @@ As well as the full-screen display — or instead of it — the bar can float on
 your desk screen: just the device, in a window that stays above other windows
 and on every Space, including full-screen apps.
 
-- Turn it on with Menu ▸ **Floating window**. **Full-screen display** is a
-  separate switch, so you can have either or both.
+- Turn it on with **Floating window** in the controls window or either menu.
+  **Full-screen display** is a separate switch, so you can have either or both.
 - **Drag it anywhere.** It never takes focus, so moving it mid-call leaves
   you in the call app.
 - **Floating size** — Small, Medium or Large (600, 900 or 1200 points wide).
@@ -108,9 +110,18 @@ and on every Space, including full-screen apps.
 - It remembers where it was, its size, and which views were on when you quit.
   First launch opens the full-screen display only.
 
-## The menu
+## The controls
 
-Everything lives in the menu-bar icon (a circle when free, radio waves on a call):
+The same controls are in three places:
+
+- **The controls window** — click the app's Dock icon, or press ⌘, while the
+  app is in front. It opens by itself on first launch.
+- **The Dock icon's right-click menu** — full-screen on/off, which monitor,
+  floating on/off.
+- **The menu-bar icon** — a tick when free, a microphone on a call. On a
+  crowded menu bar macOS may hide it; the other two always work.
+
+The full menu:
 
 - **Status** — what the detector sees, e.g. "Source — zoom.us · mic active · cam active".
 - **Sign** — Automatic, or force ON A CALL / FREE (for in-person meetings, recording).
@@ -118,9 +129,10 @@ Everything lives in the menu-bar icon (a circle when free, radio waves on a call
 - **Microphone** — every app holding the mic right now, each with an
   **Ignore** toggle. If something that isn't a call lights the sign, ignore it
   here; it's remembered.
-- **Full-screen display** (on/off) and **Show on** (which monitor).
+- **Full-screen display** (on/off) and **Show on** (which monitor; the
+  controls window calls it Monitor).
 - **Floating window** (on/off) and **Floating size**.
-- **Quit** (⌘Q). Opening the app again with nothing showing brings the
+- **Settings…** (⌘,) opens the controls window; **Quit** (⌘Q). Opening the app again with nothing showing brings the
   full-screen display back.
 
 ## How it decides you're on a call

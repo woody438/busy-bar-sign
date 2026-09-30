@@ -34,12 +34,17 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
     /// size that isn't the panel's own pixels, or exactly half of them). Then
     /// macOS resamples everything and the LEDs can't land on whole pixels.
     @Published private(set) var onScaledScreen = false
+    /// The monitor the display is on, or is waiting for (see `identifier(for:)`).
+    @Published private(set) var screenID: String? = UserDefaults.standard.string(forKey: "wallScreen")
 
     /// Which monitor to use. (A new key: version 1 saved a bare display
     /// number under a different one, which can't identify a monitor reliably.)
     private var preferredScreenID: String? {
         get { UserDefaults.standard.string(forKey: "wallScreen") }
-        set { UserDefaults.standard.set(newValue, forKey: "wallScreen") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "wallScreen")
+            if screenID != newValue { screenID = newValue }
+        }
     }
 
     init(detector: CallDetector) {
@@ -72,6 +77,12 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
             return
         }
         NSApp.activate()
+    }
+
+    /// Show the display on the monitor with this identifier, if it's connected.
+    func show(onScreenID id: String) {
+        guard let screen = NSScreen.screens.first(where: { Self.identifier(for: $0) == id }) else { return }
+        show(on: screen)
     }
 
     /// `remember: false` when quitting, so it comes back next launch.
@@ -128,6 +139,8 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         }
 
         waitingForScreen = false
+        let id = Self.identifier(for: target)
+        if screenID != id { screenID = id }
         let scaled = Self.isScaledMode(target)
         if scaled != onScaledScreen { onScaledScreen = scaled }
 

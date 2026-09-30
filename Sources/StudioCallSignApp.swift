@@ -6,9 +6,16 @@ struct StudioCallSignApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(detector: delegate.detector, window: delegate.window, floating: delegate.floating)
+            MenuContent(detector: delegate.detector, window: delegate.window, floating: delegate.floating,
+                        openControls: { delegate.controls.show() })
         } label: {
             MenuBarIcon(detector: delegate.detector)
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { delegate.controls.show() }
+                    .keyboardShortcut(",")
+            }
         }
     }
 }
@@ -18,19 +25,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let detector = CallDetector()
     lazy var window = DisplayWindow(detector: detector)
     lazy var floating = FloatingWindow(detector: detector)
+    lazy var controls = ControlsWindow(detector: detector, wall: window, floating: floating)
 
     /// Opens whichever views were up last time — the full-screen display on
-    /// first launch.
+    /// first launch, with the controls window so they're easy to find.
     func applicationDidFinishLaunching(_ notification: Notification) {
         detector.start()
         if DisplayWindow.wasShown { window.show() }
         if FloatingWindow.wasShown { floating.show() }
+        if ControlsWindow.neverShown { controls.show() }
     }
 
-    /// Opening the app again with nothing showing brings the display back.
+    /// Clicking the Dock icon, or opening the app again, brings up the controls.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !window.wantsVisible && !floating.isShown { window.show() }
-        return true
+        controls.show()
+        return false
+    }
+
+    /// Right-clicking the Dock icon.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        let wall = NSMenuItem(title: "Full-Screen Display", action: #selector(toggleWall), keyEquivalent: "")
+        wall.state = window.wantsVisible ? .on : .off
+        menu.addItem(wall)
+
+        let showOn = NSMenuItem(title: "Show On", action: nil, keyEquivalent: "")
+        let screens = NSMenu()
+        for screen in NSScreen.screens {
+            let id = DisplayWindow.identifier(for: screen)
+            let item = NSMenuItem(title: screen.localizedName, action: #selector(showOnScreen(_:)), keyEquivalent: "")
+            item.representedObject = id
+            item.state = window.wantsVisible && window.screenID == id ? .on : .off
+            screens.addItem(item)
+        }
+        showOn.submenu = screens
+        menu.addItem(showOn)
+
+        let float = NSMenuItem(title: "Floating Window", action: #selector(toggleFloating), keyEquivalent: "")
+        float.state = floating.isShown ? .on : .off
+        menu.addItem(float)
+
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openControls), keyEquivalent: ""))
+        for item in menu.items + screens.items where item.action != nil { item.target = self }
+        return menu
+    }
+
+    @objc private func toggleWall() { window.wantsVisible ? window.hide() : window.show() }
+    @objc private func toggleFloating() { floating.isShown ? floating.hide() : floating.show() }
+    @objc private func openControls() { controls.show() }
+    @objc private func showOnScreen(_ item: NSMenuItem) {
+        if let id = item.representedObject as? String { window.show(onScreenID: id) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -44,7 +89,8 @@ private struct MenuBarIcon: View {
     @ObservedObject var detector: CallDetector
 
     var body: some View {
-        Image(systemName: detector.isOnCall ? "dot.radiowaves.left.and.right" : "circle")
+        // the pill's own marks: a microphone on a call, a tick when free
+        Image(systemName: detector.isOnCall ? "mic.circle.fill" : "checkmark.circle")
     }
 }
 
@@ -52,6 +98,7 @@ private struct MenuContent: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var window: DisplayWindow
     @ObservedObject var floating: FloatingWindow
+    let openControls: () -> Void
 
     var body: some View {
         Text(detector.isOnCall ? "On a call" : "Free")
@@ -77,9 +124,11 @@ private struct MenuContent: View {
         Toggle("Full-screen display", isOn: Binding(
             get: { window.wantsVisible },
             set: { $0 ? window.show() : window.hide() }))
-        Menu("Show on") {
+        Picker("Show on", selection: Binding(
+            get: { window.screenID ?? "" },
+            set: { id in if !id.isEmpty { window.show(onScreenID: id) } })) {
             ForEach(window.screens, id: \.self) { screen in
-                Button(screen.localizedName) { window.show(on: screen) }
+                Text(screen.localizedName).tag(DisplayWindow.identifier(for: screen))
             }
         }
         Toggle("Floating window", isOn: Binding(
@@ -91,6 +140,8 @@ private struct MenuContent: View {
 
         Divider()
 
+        Button("Settings…") { openControls() }
+            .keyboardShortcut(",")
         Button("Quit") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
