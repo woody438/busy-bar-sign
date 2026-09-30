@@ -39,14 +39,14 @@ struct LEDPanelView: NSViewRepresentable {
         let view = LEDPanelNSView(frame: .zero)
         view.model = model
         view.pitchPixels = pitchPixels
-        view.layout = layout
+        view.barLayout = layout
         return view
     }
 
     func updateNSView(_ view: LEDPanelNSView, context: Context) {
         view.model = model
         view.pitchPixels = pitchPixels
-        view.layout = layout
+        view.barLayout = layout
     }
 }
 
@@ -55,11 +55,12 @@ final class LEDPanelNSView: NSView {
     var pitchPixels = 0 {
         didSet { if pitchPixels != oldValue { raster = nil; needsLayout = true } }
     }
-    var layout: BarLayout = .wide {
+    /// (Not `layout`: that's NSView's layout pass.)
+    var barLayout: BarLayout = .wide {
         didSet {
-            guard layout != oldValue else { return }
+            guard barLayout != oldValue else { return }
             raster = nil
-            frameBuffer = LEDFrame(w: layout.cols, h: layout.rows)
+            frameBuffer = LEDFrame(w: barLayout.cols, h: barLayout.rows)
             needsLayout = true
         }
     }
@@ -156,7 +157,7 @@ final class LEDPanelNSView: NSView {
 
     private func renderFrame() {
         guard let model, pitchPixels > 1 else { return }
-        if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: layout.cols, rows: layout.rows) }
+        if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: barLayout.cols, rows: barLayout.rows) }
         guard let raster else { return }
 
         let date = Date()
@@ -165,7 +166,7 @@ final class LEDPanelNSView: NSView {
             let end = Calendar.current.dateComponents([.hour, .minute], from: until)
             timer = DNDTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
         }
-        switch layout {
+        switch barLayout {
         case .wide:
             BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
                              prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
