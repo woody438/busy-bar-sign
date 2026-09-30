@@ -1,0 +1,9 @@
+# Xcode — the project is generated from project.yml
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+.swiftpm/
+
+# macOS
+.DS_Store

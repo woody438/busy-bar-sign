@@ -1,0 +1,627 @@
+<title>Studio Call Sign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Martian+Mono:wght@300..800&display=swap">
+
+<style>
+  :root{
+    --wall:#07080A;
+    --panel:#0D0F13;
+    --bezel-hi:#3A3F49;
+    --bezel-lo:#16181D;
+    --ink:#EDE8DE;
+    --ink-dim:#75706A;
+    --ink-faint:#3B3934;
+    --led:#FF9E1B;
+    --red:#FF3A21;
+    --red-off:#1E0906;
+    --green:#23D97C;
+    --green-off:#0B1C14;
+    --state:var(--red);
+    --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--wall);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- the wall ---------- */
+  .wall{
+    position:relative;
+    min-height:100svh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:28px;
+    padding:28px 20px 36px;
+    overflow:hidden;
+  }
+  /* bounce light the sign throws onto the wall */
+  .bounce{
+    position:absolute;
+    inset:-25%;
+    pointer-events:none;
+    background:radial-gradient(52% 46% at 68% 46%, var(--state) 0%, transparent 62%);
+    opacity:.16;
+    filter:blur(90px);
+    transition:opacity .7s ease, background .7s ease;
+  }
+  .grain{
+    position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:radial-gradient(120% 90% at 50% 30%, transparent 40%, rgba(0,0,0,.75) 100%);
+  }
+
+  /* ---------- 1920x1080 stage, scaled to fit ---------- */
+  .fit{ position:relative; z-index:2; }
+  .stage{
+    width:1920px; height:1080px;
+    transform-origin:top left;
+    background:linear-gradient(168deg,#0E1116 0%, #08090C 55%, #0B0D11 100%);
+    border-radius:10px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.05), 0 40px 120px rgba(0,0,0,.7);
+    padding:78px 80px 72px;
+    display:flex; flex-direction:column; gap:26px;
+    overflow:hidden;
+  }
+
+  .strip{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-weight:500;
+    letter-spacing:.2em; text-transform:uppercase;
+    color:var(--ink-dim);
+    flex:0 0 auto;
+  }
+  .strip--top{ font-size:22px; padding-bottom:22px; border-bottom:1px solid rgba(237,232,222,.07); }
+  .strip--bot{ font-size:19px; padding-top:22px; border-top:1px solid rgba(237,232,222,.07); }
+  .strip b{ color:var(--ink); font-weight:600; }
+  #elapsed{ color:var(--ink-faint); }
+  .dot{
+    display:inline-block; width:11px; height:11px; border-radius:50%;
+    background:var(--state); margin-right:12px; vertical-align:middle;
+    box-shadow:0 0 14px var(--state);
+    transition:background .5s ease, box-shadow .5s ease;
+  }
+
+  .main{ flex:1 1 auto; display:flex; gap:74px; align-items:stretch; }
+
+  /* ---------- clock ---------- */
+  .clock{ flex:0 0 auto; width:776px; height:776px; display:block; }
+
+  /* ---------- sign ---------- */
+  .sign{
+    flex:1 1 auto; position:relative; border-radius:12px;
+    background:linear-gradient(155deg,#22262E 0%, #14171C 42%, #1B1F26 100%);
+    padding:12px;
+    box-shadow:0 22px 60px rgba(0,0,0,.6);
+  }
+  .sign__face{
+    height:100%; border-radius:6px;
+    background:radial-gradient(120% 100% at 50% 40%, #101318 0%, #08090C 100%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,255,255,.045);
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:space-evenly; padding:56px 40px;
+  }
+  .legend{
+    font-family:var(--sans);
+    font-weight:800; font-stretch:125%;
+    font-size:118px; line-height:1;
+    letter-spacing:.02em; text-transform:uppercase;
+    white-space:nowrap;
+    transition:color .45s ease, text-shadow .45s ease, opacity .45s ease;
+  }
+  .rule{ width:74%; height:1px; background:linear-gradient(90deg,transparent,rgba(237,232,222,.14),transparent); }
+
+  /* unlit legends: engraved into the acrylic */
+  .legend--call{ color:var(--red-off); text-shadow:0 1px 0 rgba(255,255,255,.055); }
+  .legend--free{ color:var(--green-off); text-shadow:0 1px 0 rgba(255,255,255,.055); }
+
+  /* lit */
+  [data-state="call"] .legend--call{
+    color:var(--red);
+    text-shadow:0 0 18px rgba(255,58,33,.85), 0 0 58px rgba(255,58,33,.55), 0 0 110px rgba(255,58,33,.35);
+  }
+  [data-state="free"] .legend--free{
+    color:var(--green);
+    text-shadow:0 0 18px rgba(35,217,124,.8), 0 0 58px rgba(35,217,124,.5), 0 0 110px rgba(35,217,124,.3);
+  }
+
+  /* corner screws */
+  .screw{
+    position:absolute; width:15px; height:15px; border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #575D68 0%, #2B3038 55%, #14171C 100%);
+    box-shadow:inset 0 -1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.06);
+  }
+  .screw::after{
+    content:""; position:absolute; inset:0; margin:auto;
+    width:9px; height:1.5px; background:rgba(0,0,0,.55); border-radius:1px;
+    transform:rotate(34deg);
+  }
+  .screw--tl{top:14px;left:14px} .screw--tr{top:14px;right:14px}
+  .screw--bl{bottom:14px;left:14px} .screw--br{bottom:14px;right:14px}
+
+  /* lamp strike on state change */
+  @keyframes strike{
+    0%{opacity:.15} 8%{opacity:1} 14%{opacity:.2} 22%{opacity:1}
+    30%{opacity:.35} 40%{opacity:1} 100%{opacity:1}
+  }
+  .striking .legend--call, .striking .legend--free{ animation:strike .5s steps(1,end); }
+
+  /* ---------- controls ---------- */
+  .controls{
+    position:relative; z-index:2;
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center;
+  }
+  .chip{
+    font-family:var(--mono); font-size:12px; font-weight:500;
+    letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink-dim);
+    background:linear-gradient(#181C22,#0E1116);
+    border:1px solid rgba(237,232,222,.1);
+    border-radius:5px; padding:11px 18px; cursor:pointer;
+    transition:color .2s ease, border-color .2s ease, background .2s ease;
+  }
+  .chip:hover{ color:var(--ink); border-color:rgba(237,232,222,.24); }
+  .chip:focus-visible{ outline:2px solid var(--led); outline-offset:2px; }
+  .chip[aria-pressed="true"]{
+    color:#0A0B0E; background:linear-gradient(#EDE8DE,#C9C4BA);
+    border-color:transparent; font-weight:700;
+  }
+
+  /* ---------- notes ---------- */
+  .notes{
+    position:relative; z-index:2;
+    max-width:1120px; margin:0 auto; padding:0 24px 96px;
+  }
+  .notes__lead{
+    font-size:17px; line-height:1.65; color:#A8A29A;
+    max-width:62ch; margin:0 0 44px;
+  }
+  .notes__lead strong{ color:var(--ink); font-weight:600; }
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; font-weight:500;
+    letter-spacing:.22em; text-transform:uppercase; color:var(--led);
+    margin:0 0 18px;
+  }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1px; background:rgba(237,232,222,.09); border:1px solid rgba(237,232,222,.09); border-radius:8px; overflow:hidden; }
+  .cell{ background:#0B0D11; padding:26px 24px 28px; }
+  .cell h3{
+    font-size:14px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    margin:0 0 12px; color:var(--ink);
+  }
+  .cell p{ font-size:14.5px; line-height:1.62; color:#938E86; margin:0; }
+  .cell code{ font-family:var(--mono); font-size:11.5px; color:var(--led); background:rgba(255,158,27,.08); padding:1px 5px; border-radius:3px; }
+
+  @media (prefers-reduced-motion:reduce){
+    .striking .legend--call, .striking .legend--free{ animation:none; }
+    *{ transition-duration:.01ms !important; }
+  }
+</style>
+
+<div class="wall" id="wall">
+  <div class="bounce" id="bounce"></div>
+  <div class="grain"></div>
+
+  <div class="fit" id="fit">
+    <div class="stage" id="stage" data-state="call">
+
+      <div class="strip strip--top">
+        <span id="dateline">Wednesday 26 August 2026</span>
+        <span><span id="cityline">London&nbsp;·&nbsp;</span><b id="tzline">BST</b></span>
+      </div>
+
+      <div class="main">
+        <canvas class="clock" id="clock" width="776" height="776" role="img"
+                aria-label="Broadcast studio clock"></canvas>
+
+        <div class="sign">
+          <span class="screw screw--tl"></span><span class="screw screw--tr"></span>
+          <span class="screw screw--bl"></span><span class="screw screw--br"></span>
+          <div class="sign__face">
+            <div class="legend legend--call">On a call</div>
+            <div class="rule"></div>
+            <div class="legend legend--free">Free</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="strip strip--bot">
+        <span><span class="dot"></span><b id="statusline">On a call</b><span id="elapsed"></span></span>
+        <span id="sourceline">Source — zoom.us · mic active · cam active</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="chip" id="btn-auto" aria-pressed="true">Auto demo</button>
+    <button class="chip" id="btn-call" aria-pressed="false">On a call</button>
+    <button class="chip" id="btn-free" aria-pressed="false">Free</button>
+    <button class="chip" id="btn-full" aria-pressed="false">Full screen</button>
+  </div>
+</div>
+
+<section class="notes">
+  <p class="eyebrow">What you're looking at</p>
+  <p class="notes__lead">A visual mock of the wall display at true full-screen proportions — the clock is running on your machine's real time, and the sign is on an eight-second demo cycle. <strong>The detection is faked here.</strong> In the Mac app that bottom line is driven by CoreAudio, and the sign follows it.</p>
+
+  <div class="grid">
+    <div class="cell">
+      <h3>The second ring</h3>
+      <p>Sixty amber segments fill clockwise across each minute and reset at the top — the studio-clock convention, which is why there's no second hand. The leading segment fades up across its own second, so the sweep reads as smooth from across a room.</p>
+    </div>
+    <div class="cell">
+      <h3>The LED module</h3>
+      <p>Real seven-segment digits, drawn segment by segment with mitred ends — the unlit ones stay faintly visible the way they do on an actual module. Hours and minutes run large, seconds smaller on the same baseline, colon blinking at 1&nbsp;Hz behind a smoked acrylic window.</p>
+    </div>
+    <div class="cell">
+      <h3>Two legends, one lit</h3>
+      <p>Both words are always on the panel; only one is powered. The dark one stays visible as engraved acrylic, the way a real on-air sign does. Switching strikes the lamp with a short flicker before it settles.</p>
+    </div>
+    <div class="cell">
+      <h3>The bottom line</h3>
+      <p>Live detection state — which app holds the microphone and whether the camera is up. Fed by <code>kAudioProcessPropertyIsRunningInput</code>, so dictation and music apps can be filtered out rather than lighting the sign.</p>
+    </div>
+    <div class="cell">
+      <h3>Manual override</h3>
+      <p>Auto-detection is the default, not the only option. A menu-bar item and a hotkey force the sign on or off — for an in-person meeting, a recording session, or an afternoon you'd rather not be interrupted.</p>
+    </div>
+    <div class="cell">
+      <h3>Living on a wall</h3>
+      <p>Built to run unattended: display sleep inhibited, a dim schedule after hours, and slow sub-pixel drift so nothing burns in. The bounce light behind the panel shifts with the state, like a real lamp throwing colour into the room.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const stage   = document.getElementById('stage');
+  const fit     = document.getElementById('fit');
+  const bounce  = document.getElementById('bounce');
+  const canvas  = document.getElementById('clock');
+  const ctx     = canvas.getContext('2d');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const SIZE = 776;
+  const RED = '#FF3A21', GREEN = '#23D97C';
+
+  /* ---- scale the 1920x1080 stage to fit ---- */
+  function layout(){
+    const availW = Math.min(window.innerWidth - 40, 1920);
+    const availH = window.innerHeight - 150;
+    const s = Math.min(availW / 1920, availH / 1080, 1);
+    stage.style.transform = 'scale(' + s + ')';
+    fit.style.width  = (1920 * s) + 'px';
+    fit.style.height = (1080 * s) + 'px';
+
+    const px = Math.min(3, (window.devicePixelRatio || 1) * s);
+    canvas.width  = Math.round(SIZE * px);
+    canvas.height = Math.round(SIZE * px);
+    ctx.setTransform(px, 0, 0, px, 0, 0);
+  }
+
+  /* ---- state ---- */
+  let mode = 'auto';          // auto | call | free
+  let state = 'call';         // call | free
+  let lastFlip = performance.now();
+
+  const btns = {
+    auto: document.getElementById('btn-auto'),
+    call: document.getElementById('btn-call'),
+    free: document.getElementById('btn-free')
+  };
+
+  function setMode(m){
+    mode = m;
+    for (const k in btns) btns[k].setAttribute('aria-pressed', String(k === m));
+    if (m === 'call' || m === 'free') setState(m);
+    lastFlip = performance.now();
+  }
+
+  function setState(s){
+    if (s === state) return;
+    state = s;
+    stage.dataset.state = s;
+    const c = s === 'call' ? RED : GREEN;
+    document.documentElement.style.setProperty('--state', c);
+    bounce.style.background =
+      'radial-gradient(52% 46% at 68% 46%, ' + c + ' 0%, transparent 62%)';
+    bounce.style.opacity = s === 'call' ? '.18' : '.13';
+
+    stateSince = Date.now();
+    elapsedShown = '';
+    document.getElementById('statusline').textContent = s === 'call' ? 'On a call' : 'Free';
+    document.getElementById('sourceline').textContent = s === 'call'
+      ? 'Source — zoom.us · mic active · cam active'
+      : 'Mic idle · cam idle';
+
+    if (!reduced){
+      stage.classList.remove('striking');
+      void stage.offsetWidth;
+      stage.classList.add('striking');
+    }
+  }
+
+  btns.auto.addEventListener('click', () => setMode('auto'));
+  btns.call.addEventListener('click', () => setMode('call'));
+  btns.free.addEventListener('click', () => setMode('free'));
+  document.getElementById('btn-full').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.getElementById('wall').requestFullscreen?.();
+  });
+
+  /* ---- clock ---- */
+  const cx = SIZE / 2, cy = SIZE / 2, R = SIZE / 2;
+
+  function ring(r0, r1, a0, a1){
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, a0, a1);
+    ctx.arc(cx, cy, r0, a1, a0, true);
+    ctx.closePath();
+  }
+
+  function hand(angle, len, wBase, wTip, color){
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(-wBase / 2, R * 0.10);
+    ctx.lineTo(-wTip / 2, -len);
+    ctx.lineTo(0, -len - wTip * 0.9);
+    ctx.lineTo(wTip / 2, -len);
+    ctx.lineTo(wBase / 2, R * 0.10);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.shadowColor = 'rgba(0,0,0,.85)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 3;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---- seven-segment LED module ---- */
+  const SEGMAP = {
+    '0':'abcdef', '1':'bc',     '2':'abged',   '3':'abgcd',  '4':'fgbc',
+    '5':'afgcd',  '6':'afgecd', '7':'abc',     '8':'abcdefg','9':'abcdfg'
+  };
+  const LED_ON = '#FFB43A', LED_OFF = 'rgba(255,158,27,.065)';
+
+  function poly(pts){
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+  }
+  /* mitred bars, the way a real segment is cut */
+  function hBar(x0, x1, y0, t){
+    return [[x0,y0],[x0+t/2,y0-t/2],[x1-t/2,y0-t/2],[x1,y0],[x1-t/2,y0+t/2],[x0+t/2,y0+t/2]];
+  }
+  function vBar(y0, y1, x0, t){
+    return [[x0,y0],[x0+t/2,y0+t/2],[x0+t/2,y1-t/2],[x0,y1],[x0-t/2,y1-t/2],[x0-t/2,y0+t/2]];
+  }
+
+  function digit(ch, x, y, w, h, t){
+    const gp = t * 0.16;
+    const xa = x + t/2 + gp, xb = x + w - t/2 - gp;
+    const bars = {
+      a: hBar(xa, xb, y + t/2, t),
+      g: hBar(xa, xb, y + h/2, t),
+      d: hBar(xa, xb, y + h - t/2, t),
+      f: vBar(y + t/2 + gp,        y + h/2 - t/2 - gp, x + t/2,     t),
+      b: vBar(y + t/2 + gp,        y + h/2 - t/2 - gp, x + w - t/2, t),
+      e: vBar(y + h/2 + t/2 + gp,  y + h - t/2 - gp,   x + t/2,     t),
+      c: vBar(y + h/2 + t/2 + gp,  y + h - t/2 - gp,   x + w - t/2, t)
+    };
+    const on = SEGMAP[ch] || '';
+    for (const k in bars){
+      poly(bars[k]);
+      if (on.indexOf(k) >= 0){
+        ctx.fillStyle = LED_ON;
+        ctx.shadowColor = 'rgba(255,158,27,.85)';
+        ctx.shadowBlur = t * 1.9;
+      } else {
+        ctx.fillStyle = LED_OFF;   /* dark segments stay visible, as they do on real modules */
+        ctx.shadowBlur = 0;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function colonDots(x, y, h, t, alpha){
+    ctx.fillStyle   = 'rgba(255,180,58,' + alpha.toFixed(2) + ')';
+    ctx.shadowColor = 'rgba(255,158,27,' + (alpha * 0.8).toFixed(2) + ')';
+    ctx.shadowBlur  = t * 1.7;
+    [0.34, 0.68].forEach(function(f){
+      ctx.beginPath(); ctx.arc(x, y + h * f, t * 0.52, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  function drawModule(hr, min, sec, ms){
+    const h1 = R * 0.175, w1 = h1 * 0.58, t1 = h1 * 0.15;
+    const g1 = h1 * 0.16,  cw = h1 * 0.26, gBig = h1 * 0.30;
+    const h2 = h1 * 0.56, w2 = h2 * 0.58, t2 = h2 * 0.15, g2 = h2 * 0.16;
+
+    const total = w1 * 4 + cw + g1 * 4 + gBig + w2 * 2 + g2;
+    let x = cx - total / 2;
+    const yTop = cy + R * 0.33 - h1 / 2;
+
+    /* smoked acrylic window the module sits behind */
+    const padX = h1 * 0.34, padY = h1 * 0.28;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x - padX, yTop - padY, total + padX*2, h1 + padY*2, h1 * 0.13);
+    else               ctx.rect(x - padX, yTop - padY, total + padX*2, h1 + padY*2);
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(237,232,222,.07)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const p  = function(n){ return String(n).padStart(2, '0'); };
+    const hh = p(hr), mm = p(min), ss = p(sec);
+
+    digit(hh[0], x, yTop, w1, h1, t1); x += w1 + g1;
+    digit(hh[1], x, yTop, w1, h1, t1); x += w1 + g1;
+    colonDots(x + cw/2, yTop, h1, t1, reduced ? 1 : (ms < 500 ? 1 : 0.35));
+    x += cw + g1;
+    digit(mm[0], x, yTop, w1, h1, t1); x += w1 + g1;
+    digit(mm[1], x, yTop, w1, h1, t1); x += w1 + gBig;
+
+    /* seconds run smaller, sitting on the same baseline */
+    const y2 = yTop + h1 - h2;
+    digit(ss[0], x, y2, w2, h2, t2); x += w2 + g2;
+    digit(ss[1], x, y2, w2, h2, t2);
+  }
+
+  function draw(){
+    const now = new Date();
+    const ms  = now.getMilliseconds();
+    const sec = now.getSeconds();
+    const min = now.getMinutes();
+    const hr  = now.getHours();
+
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    /* brushed bezel */
+    if (ctx.createConicGradient){
+      const g = ctx.createConicGradient(-Math.PI / 2, cx, cy);
+      for (let i = 0; i <= 12; i++){
+        g.addColorStop(i / 12, i % 2 ? '#171A20' : '#414652');
+      }
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = '#2C313A';
+    }
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+
+    /* bezel inner shadow + face */
+    ring(R * 0.885, R * 0.93, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
+
+    const face = ctx.createRadialGradient(cx, cy - R * 0.25, R * 0.05, cx, cy, R * 0.92);
+    face.addColorStop(0, '#14171D');
+    face.addColorStop(1, '#07080B');
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.9, 0, Math.PI * 2);
+    ctx.fillStyle = face; ctx.fill();
+
+    /* 60 LED segments */
+    const step = Math.PI * 2 / 60;
+    const gap  = step * 0.19;
+    for (let i = 0; i < 60; i++){
+      const major = i % 5 === 0;
+      const a0 = -Math.PI / 2 + i * step + gap / 2;
+      const a1 = -Math.PI / 2 + (i + 1) * step - gap / 2;
+      const r1 = R * 0.868;
+      const r0 = R * (major ? 0.788 : 0.818);
+
+      let lit = 0;
+      if (i < sec) lit = 1;
+      else if (i === sec) lit = reduced ? 1 : 0.25 + 0.75 * (ms / 1000);
+
+      ring(r0, r1, a0, a1);
+      if (lit > 0.02){
+        ctx.fillStyle = 'rgba(255,158,27,' + (0.28 + 0.72 * lit).toFixed(3) + ')';
+        ctx.shadowColor = 'rgba(255,158,27,' + (0.7 * lit).toFixed(3) + ')';
+        ctx.shadowBlur = major ? 22 : 15;
+      } else {
+        ctx.fillStyle = major ? '#33260F' : '#231A0C';
+        ctx.shadowBlur = 0;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    /* numerals */
+    ctx.fillStyle = '#EDE8DE';
+    ctx.font = '700 44px Archivo, Helvetica Neue, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const nr = R * 0.655;
+    [['12', 0], ['3', 90], ['6', 180], ['9', 270]].forEach(function(n){
+      const a = (n[1] - 90) * Math.PI / 180;
+      ctx.fillText(n[0], cx + Math.cos(a) * nr, cy + Math.sin(a) * nr + 2);
+    });
+
+    /* fine hour pips */
+    for (let i = 0; i < 12; i++){
+      if (i % 3 === 0) continue;
+      const a = -Math.PI / 2 + i * (Math.PI / 6);
+      ring(R * 0.70, R * 0.745, a - 0.012, a + 0.012);
+      ctx.fillStyle = 'rgba(237,232,222,.34)';
+      ctx.fill();
+    }
+
+    /* inset seven-segment module */
+    drawModule(hr, min, sec, ms);
+
+    /* hands */
+    const mAng = (min + sec / 60) * Math.PI / 30;
+    const hAng = ((hr % 12) + min / 60) * Math.PI / 6;
+    hand(hAng, R * 0.44, 22, 11, '#EDE8DE');
+    hand(mAng, R * 0.70, 17, 8,  '#EDE8DE');
+
+    /* centre cap */
+    ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.fillStyle = '#EDE8DE'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#0A0B0E'; ctx.fill();
+  }
+
+  /* ---- date strip ---- */
+  function stamp(){
+    const d = new Date();
+    document.getElementById('dateline').textContent =
+      d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const tz = new Intl.DateTimeFormat(undefined, { timeZoneName:'short' })
+      .formatToParts(d).find(function(x){ return x.type === 'timeZoneName'; });
+    if (tz) document.getElementById('tzline').textContent = tz.value;
+    /* "Europe/London" -> "London"; a bare zone like "UTC" has no city, so drop the half */
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const city = document.getElementById('cityline');
+    if (zone.indexOf('/') > -1){
+      city.textContent = zone.split('/').pop().replace(/_/g, ' ') + '\u00A0·\u00A0';
+      city.style.display = '';
+    } else {
+      city.style.display = 'none';
+    }
+  }
+
+  /* how long we've been in the current state */
+  let stateSince = Date.now();
+  let elapsedShown = '';
+  function tickElapsed(){
+    const secs = Math.floor((Date.now() - stateSince) / 1000);
+    const txt = secs < 60 ? '\u2003' + secs + ' sec'
+              : '\u2003' + Math.floor(secs / 60) + ' min';
+    if (txt !== elapsedShown){
+      elapsedShown = txt;
+      document.getElementById('elapsed').textContent = txt;
+    }
+  }
+
+  /* ---- loop ---- */
+  function frame(t){
+    draw();
+    tickElapsed();
+    if (mode === 'auto' && t - lastFlip > 8000){
+      lastFlip = t;
+      setState(state === 'call' ? 'free' : 'call');
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', layout);
+  layout();
+  stamp();
+  setInterval(stamp, 60000);
+  document.documentElement.style.setProperty('--state', RED);
+  requestAnimationFrame(frame);
+})();
+</script>

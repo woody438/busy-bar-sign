@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>            <string>Studio Call Sign</string>
+  <key>CFBundleIdentifier</key>      <string>com.woodall.StudioCallSign</string>
+  <key>CFBundleShortVersionString</key> <string>1.0</string>
+  <key>CFBundleVersion</key>         <string>1</string>
+  <key>LSMinimumSystemVersion</key>  <string>14.4</string>
+  <key>NSHighResolutionCapable</key> <true/>
+  <!-- Not requested at launch. Only needed if you turn on the optional
+       window-title confirmation in Preferences. -->
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Used only to confirm which meeting window is frontmost.</string>
+</dict>
+</plist>
