@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics      // CGRect's initialisers live here on macOS
+#endif
 // Checks BarGeometry puts the LED field on whole device pixels on common displays.
 // (description, points wide, points high, backing scale)
 let screens: [(String, CGFloat, CGFloat, CGFloat)] = [

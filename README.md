@@ -24,12 +24,27 @@ As a floating window (the simulator's **Floating window** button shows this):
 
 ![The bar as a floating window at the top right of a desktop](docs/busy-bar-floating.png)
 
-> **This has never been built on a Mac.** It was written overnight on Linux.
-> The drawing engine, fonts, layout maths and call-detection rules have been
-> compiled and tested there; the AppKit, SwiftUI and Core Audio code has only
-> been reviewed. See [What's been verified](#whats-been-verified--and-what-hasnt).
+## Download
 
-## Build and run
+**[Download the latest build](https://github.com/woody438/studio-call-sign/releases/latest)**
+(`StudioCallSign.zip`; you need to be signed in to GitHub, as the repo is private).
+
+1. Unzip it and drag **StudioCallSign** into Applications.
+2. Open it. The first time, macOS says it can't check the app for malicious
+   software, because it isn't notarised by Apple. Click **Done**, then go to
+   System Settings ▸ Privacy & Security, scroll down, and click **Open Anyway**.
+   (Or in Terminal: `xattr -dr com.apple.quarantine /Applications/StudioCallSign.app`.)
+3. Its icon appears in the menu bar; everything is controlled from there.
+
+It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
+to `busy-bar` rebuilds it on GitHub's Mac runners
+(`.github/workflows/build.yml`) and replaces the release.
+
+> **Built, but not yet run.** It compiles cleanly with Xcode 16.4 (no errors,
+> no warnings) and its checks pass on macOS, but nobody has yet opened it on a
+> real screen. See [What's been verified](#whats-been-verified--and-what-hasnt).
+
+## Build it yourself
 
 You need macOS 14.4 or later, **Xcode 15.3 or later** (the Core Audio process
 API it uses first appears in the macOS 14.4 SDK; older Xcode won't compile it),
@@ -186,7 +201,11 @@ In the code:
 
 ## What's been verified — and what hasn't
 
-**Verified by running**, with Swift 6.0.3 on Linux (`Checks/run.sh`):
+**Built on macOS** by GitHub Actions with Xcode 16.4 (Swift 6.1.2): the whole
+app, as a universal (Apple silicon + Intel) binary, ad-hoc signed; no compiler
+errors or warnings in its code.
+
+**Verified by running**, with Swift 6.0.3 on Linux and again on macOS (`Checks/run.sh`):
 
 - **The Swift engine matches the simulator LED for LED** across 17 moments —
   the press, shockwave, announcement, collapse, slide-in, both states, cold
@@ -204,14 +223,15 @@ In the code:
   Chrome helper does light it.
 - The pixel fonts decode correctly, and every source file parses.
 
-**Reviewed, not compiled:** the AppKit, SwiftUI and Core Audio code —
+**Compiled, not yet run:** the AppKit, SwiftUI and Core Audio code —
 `DisplayWindow`, `FloatingWindow`, `StudioCallSignApp`, `LEDPanelView`, `BarDisplayView`,
-`AudioProbe`, `CameraProbe`. Independent review passes found no definite
-compile errors, and fixed a number of runtime problems. Still, expect the first
-build to surface something; these are the likeliest places:
+`AudioProbe`, `CameraProbe`. If something misbehaves on first launch, these
+are the likeliest places:
 
-1. `AudioProbe.swift` — `proc_pidpath` and the Core Audio process properties.
-2. `DisplayWindow.swift` — the scaled-mode check (`CGDisplayCopyAllDisplayModes`).
+1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
+   Microphone list show the app you're calling from?
+2. `DisplayWindow.swift` — placement on the wall screen, and the scaled-mode
+   warning (`CGDisplayCopyAllDisplayModes`).
 3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
 4. `FloatingWindow.swift` — the window's shadow, traced from the device's
    outline; if it's missing or boxy, that's where to look.
@@ -226,10 +246,10 @@ Checks/run.sh          # needs swiftc (Xcode) and node
 
 From the project directory run `claude`, then:
 
-> This SwiftUI macOS app has never been compiled — read README.md. Run
-> `xcodegen generate`, build with xcodebuild, and fix any compile errors,
-> starting with AudioProbe.swift. Then run Checks/run.sh, launch the app, and
-> compare it against simulator/index.html.
+> This SwiftUI macOS app builds but hasn't been tried on a real screen — read
+> README.md. Run `xcodegen generate`, build with xcodebuild, run
+> Checks/run.sh, then launch the app and compare it against
+> simulator/index.html.
 
 ## Credits and licences
 

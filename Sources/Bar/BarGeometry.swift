@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics      // CGRect's initialisers live here on macOS
+#endif
 
 /*
  * Where the bar goes on a screen, in points.
