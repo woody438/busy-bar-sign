@@ -15,8 +15,8 @@ Teams, Google Meet, FaceTime, or anything else.
 app, on your real clock; double-click it for Do Not Disturb.
 
 The first version — a broadcast studio clock beside an on-air-style sign,
-called Studio Call Sign — is kept at the [`v1`](../../tree/v1) tag; its mock is
-`mock.html`.
+called Studio Call Sign — is kept on the
+[`v1-studio-call-sign`](../../tree/v1-studio-call-sign) branch; its mock is `mock.html`.
 
 | ON A CALL | FREE |
 |---|---|
