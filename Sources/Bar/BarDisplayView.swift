@@ -18,6 +18,8 @@ struct BarDisplayView: View {
     @ObservedObject var detector: CallDetector
     let style: BarStyle
     @StateObject private var bar = BarModel()
+    /// The full-screen display's layout, from the controls. Wide unless chosen.
+    @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
     @Environment(\.displayScale) private var displayScale
 
     init(detector: CallDetector, style: BarStyle = .wall) {
@@ -32,16 +34,18 @@ struct BarDisplayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let g = BarGeometry(size: geo.size, scale: displayScale)
+            let layout = style == .wall ? wallLayout : .wide
+            let g = BarGeometry(size: geo.size, scale: displayScale, layout: layout)
             ZStack(alignment: .topLeading) {
                 if style == .wall {
                     Color.black
-                    Spill(state: bar.state, g: g)
+                    if layout == .wide { Spill(state: bar.state, g: g) }
                 } else {
                     Color.clear
                 }
-                DeviceBody(g: g, castsShadow: style == .wall)
-                LEDPanelView(model: bar, pitchPixels: g.pitchPixels)
+                // the stacked layout is just the LEDs: small screens have their own bezel
+                if layout == .wide { DeviceBody(g: g, castsShadow: style == .wall) }
+                LEDPanelView(model: bar, pitchPixels: g.pitchPixels, layout: layout)
                     .frame(width: g.field.width, height: g.field.height)
                     .offset(x: g.field.minX, y: g.field.minY)
             }

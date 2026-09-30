@@ -39,5 +39,27 @@ for (name, w, h, s) in screens {
     print(line)
     if !(aligned && exact && fits) { ok = false }
 }
+// The stacked layout, for small screens: every LED on whole pixels, the
+// whole panel on screen.
+print("\nstacked layout")
+let smallScreens: [(String, CGFloat, CGFloat, CGFloat)] = [
+    ("960x540 mini monitor, 1x", 960, 540, 1),
+    ("800x480, 1x", 800, 480, 1),
+    ("1024x600, 1x", 1024, 600, 1),
+    ("1280x720, 1x", 1280, 720, 1),
+    ("1920x1080, 1x", 1920, 1080, 1),
+    ("4K, default HiDPI (looks like 1920x1080)", 1920, 1080, 2),
+]
+for (name, w, h, s) in smallScreens {
+    let g = BarGeometry(size: CGSize(width: w, height: h), scale: s, layout: .stacked)
+    let fieldPxW = g.field.width * s, fieldPxH = g.field.height * s
+    let aligned = [g.field.minX * s, g.field.minY * s, fieldPxW, fieldPxH].allSatisfy { abs($0 - $0.rounded()) < 1e-6 }
+    let exact = abs(fieldPxW - CGFloat(84 * g.pitchPixels)) < 1e-6 && abs(fieldPxH - CGFloat(44 * g.pitchPixels)) < 1e-6
+    let fits = g.field.minX >= 0 && g.field.maxX <= w && g.field.minY >= 0 && g.field.maxY <= h
+    print(String(format: "%-44@ pitch %2d px  panel %4.0f x %4.0f pt  %4.1f%% tall  aligned:%@ exact:%@ fits:%@",
+                 name as NSString, g.pitchPixels, g.field.width, g.field.height, g.field.height / h * 100,
+                 aligned ? "yes" : "NO", exact ? "yes" : "NO", fits ? "yes" : "NO"))
+    if !(aligned && exact && fits) { ok = false }
+}
 print(ok ? "\nall layouts pixel-exact" : "\nLAYOUT PROBLEMS ABOVE")
 exit(ok ? 0 : 1)

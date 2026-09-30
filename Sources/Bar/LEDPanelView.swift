@@ -33,17 +33,20 @@ struct LEDPanelView: NSViewRepresentable {
     let model: BarModel
     /// Device pixels per LED. Whole pixels, so every dot lands on the grid.
     let pitchPixels: Int
+    var layout: BarLayout = .wide
 
     func makeNSView(context: Context) -> LEDPanelNSView {
         let view = LEDPanelNSView(frame: .zero)
         view.model = model
         view.pitchPixels = pitchPixels
+        view.layout = layout
         return view
     }
 
     func updateNSView(_ view: LEDPanelNSView, context: Context) {
         view.model = model
         view.pitchPixels = pitchPixels
+        view.layout = layout
     }
 }
 
@@ -51,6 +54,14 @@ final class LEDPanelNSView: NSView {
     var model: BarModel?
     var pitchPixels = 0 {
         didSet { if pitchPixels != oldValue { raster = nil; needsLayout = true } }
+    }
+    var layout: BarLayout = .wide {
+        didSet {
+            guard layout != oldValue else { return }
+            raster = nil
+            frameBuffer = LEDFrame(w: layout.cols, h: layout.rows)
+            needsLayout = true
+        }
     }
 
     private var raster: LEDRaster?
@@ -145,7 +156,7 @@ final class LEDPanelNSView: NSView {
 
     private func renderFrame() {
         guard let model, pitchPixels > 1 else { return }
-        if raster == nil { raster = LEDRaster(pitch: pitchPixels) }
+        if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: layout.cols, rows: layout.rows) }
         guard let raster else { return }
 
         let date = Date()
@@ -154,15 +165,21 @@ final class LEDPanelNSView: NSView {
             let end = Calendar.current.dateComponents([.hour, .minute], from: until)
             timer = DNDTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
         }
-        BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
-                         prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
+        switch layout {
+        case .wide:
+            BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
+                             prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
+        case .stacked:
+            BarEngine.renderStacked(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
+                                    prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
+        }
         raster.render(frameBuffer)
 
         let panel = image(from: UnsafeRawBufferPointer(raster.pixels), width: raster.width,
                           height: raster.height, bytesPerRow: raster.bytesPerRow)
         let halo = raster.glow(frameBuffer).withUnsafeBytes { bytes in
-            image(from: bytes, width: LEDRaster.glowWidth, height: LEDRaster.glowHeight,
-                  bytesPerRow: LEDRaster.glowWidth * 4)
+            image(from: bytes, width: raster.glowWidth, height: raster.glowHeight,
+                  bytesPerRow: raster.glowWidth * 4)
         }
 
         CATransaction.begin()

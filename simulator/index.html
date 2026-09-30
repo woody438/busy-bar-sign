@@ -60,6 +60,9 @@
     radial-gradient(90% 80% at 95% -10%,#1f5a7a 0%,rgba(31,90,122,0) 60%),
     linear-gradient(160deg,#1a2238,#2b2146 55%,#15141f)}
   .floating .desk{display:block}
+  /* stacked layout: just the LED panel, filling the screen */
+  .stacked .device > *:not(.window){display:none}
+  .stacked .spill{display:none}
   .floating .spill{display:none}
   .desk > *{position:absolute}
   .menubar{left:0;right:0;top:0;background:rgba(20,20,26,.55);backdrop-filter:blur(20px)}
@@ -122,6 +125,7 @@
     <button class="chip" id="b-dnd" aria-pressed="false">Do not disturb</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-float" aria-pressed="false">Floating window</button>
+    <button class="chip" id="b-stack" aria-pressed="false">Stacked layout</button>
     <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
   </div>
   <p class="caption" id="caption">3840 × 2160 monitor · bar 3840 × 664 (31%) · 118 × 16 LEDs at 32 px</p>
@@ -176,14 +180,17 @@
   const win = document.getElementById('window');
   const spill = document.getElementById('spill');
   const canvas = document.getElementById('leds');
-  const painter = new window.LedPainter(canvas, E.COLS, E.ROWS);
-  const frame = new E.Frame();
+  const WIDE = { painter: new window.LedPainter(canvas, E.COLS, E.ROWS), frame: new E.Frame() };
+  const STACK = { painter: new window.LedPainter(canvas, E.STACKED.cols, E.STACKED.rows),
+                  frame: new E.Frame(E.STACKED.cols, E.STACKED.rows) };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Floating window: the device alone, over a desktop that looks like
   // 2560 x 1440 points, at the app's Small / Medium / Large widths.
   const params = new URLSearchParams(location.search);
   let floating = params.get('view') === 'floating';
+  // the stacked layout, for small screens such as 960 x 540 (full screen only)
+  let stacked = params.get('layout') === 'stacked' && !floating;
   const DESK_PT = 2560, FLOAT_PT = { small: 600, medium: 900, large: 1200 }[params.get('size')] || 900;
   const caption = document.getElementById('caption');
   const wallCaption = caption.textContent;
@@ -196,7 +203,21 @@
     const mw = SCREEN_W * ms, mh = SCREEN_H * ms;
     if (!full) { monitor.style.width = mw + 'px'; monitor.style.height = mh + 'px'; }
     monitor.classList.toggle('floating', floating);
+    monitor.classList.toggle('stacked', stacked);
     let s = ms, top, left;
+    if (stacked) {
+      // whole-pixel LEDs with a one-LED margin, centred — as the app does it
+      const P = Math.floor(Math.min(SCREEN_W / (E.STACKED.cols + 2), SCREEN_H / (E.STACKED.rows + 2)));
+      const fw = E.STACKED.cols * P, fh = E.STACKED.rows * P;
+      const W = full ? innerWidth : mw, H = full ? innerHeight : mh;
+      Object.assign(device.style, { left: (W - fw * s) / 2 + 'px', top: (H - fh * s) / 2 + 'px',
+        width: fw * s + 'px', height: fh * s + 'px' });
+      Object.assign(win.style, { left: '0px', top: '0px', width: fw * s + 'px', height: fh * s + 'px' });
+      caption.textContent = `Stacked layout, for small screens such as 960 × 540 · ${E.STACKED.cols} × ${E.STACKED.rows} LEDs, ${P / 4} px each at 960 wide`;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      STACK.painter.resize(fw * s * dpr, fh * s * dpr);
+      return;
+    }
     if (floating) {
       const W = full ? innerWidth : mw, H = full ? innerHeight : mh;
       const pt = W / DESK_PT;                              // CSS px per desktop point
@@ -221,7 +242,7 @@
     Object.assign(spill.style, { left: left + SCREEN_W * s * 0.1 + 'px', width: SCREEN_W * s * 0.8 + 'px',
       top: top - CASE_H * s * 0.2 + 'px', height: CASE_H * s * 1.4 + 'px' });
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    painter.resize(FIELD_W * s * dpr, FIELD_H * s * dpr);
+    WIDE.painter.resize(FIELD_W * s * dpr, FIELD_H * s * dpr);
   }
   addEventListener('resize', layout);
   document.addEventListener('fullscreenchange', layout);
@@ -255,7 +276,15 @@
   document.getElementById('b-again').onclick = () => { prev = state === 'call' ? 'free' : 'call'; since = now(); lastFlip = now(); };
   const fbtn = document.getElementById('b-float');
   fbtn.setAttribute('aria-pressed', String(floating));
-  fbtn.onclick = () => { floating = !floating; fbtn.setAttribute('aria-pressed', String(floating)); layout(); };
+  const sbtn = document.getElementById('b-stack');
+  const pressLayout = () => {
+    fbtn.setAttribute('aria-pressed', String(floating));
+    sbtn.setAttribute('aria-pressed', String(stacked));
+    layout();
+  };
+  fbtn.onclick = () => { floating = !floating; if (floating) stacked = false; pressLayout(); };
+  sbtn.onclick = () => { stacked = !stacked; if (stacked) floating = false; pressLayout(); };
+  sbtn.setAttribute('aria-pressed', String(stacked));
   document.getElementById('b-full').onclick = () => {
     if (document.fullscreenElement) document.exitFullscreen(); else monitor.requestFullscreen && monitor.requestFullscreen();
   };
@@ -275,8 +304,9 @@
     const end = new Date(dndUntil);
     const timer = { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() };
     if (state === 'dnd' && timer.left <= 0) setMode('free');
-    E.render(frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
-    painter.paint(frame);
+    const L = stacked ? STACK : WIDE;
+    (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
+    L.painter.paint(L.frame);
     spill.style.opacity = '.12';
     requestAnimationFrame(tick);
   }

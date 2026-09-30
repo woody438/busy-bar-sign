@@ -110,6 +110,7 @@ private struct MenuContent: View {
     @ObservedObject var window: DisplayWindow
     @ObservedObject var floating: FloatingWindow
     let openControls: () -> Void
+    @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
     var body: some View {
         switch detector.sign {
@@ -153,6 +154,9 @@ private struct MenuContent: View {
             ForEach(window.screens, id: \.self) { screen in
                 Text(screen.localizedName).tag(DisplayWindow.identifier(for: screen))
             }
+        }
+        Picker("Layout", selection: $wallLayout) {
+            ForEach(BarLayout.allCases) { Text($0.label).tag($0) }
         }
         Toggle("Floating window", isOn: Binding(
             get: { floating.isShown },

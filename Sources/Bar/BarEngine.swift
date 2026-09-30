@@ -89,17 +89,25 @@ private let white = RGB(1, 1, 1)
 // MARK: - Framebuffer
 
 struct LEDFrame {
+    /// The wide bar's size.
     static let cols = 118
     static let rows = 16
 
-    var px = [Double](repeating: 0, count: cols * rows * 3)
+    /// This frame's size: the wide bar's, or the stacked layout's.
+    let w: Int, h: Int
+    var px: [Double]
+
+    init(w: Int = LEDFrame.cols, h: Int = LEDFrame.rows) {
+        self.w = w; self.h = h
+        px = [Double](repeating: 0, count: w * h * 3)
+    }
 
     @inline(__always) private func inBounds(_ x: Int, _ y: Int) -> Bool {
-        x >= 0 && y >= 0 && x < Self.cols && y < Self.rows
+        x >= 0 && y >= 0 && x < w && y < h
     }
 
     func get(_ x: Int, _ y: Int) -> RGB {
-        let i = (y * Self.cols + x) * 3
+        let i = (y * w + x) * 3
         return RGB(px[i], px[i + 1], px[i + 2])
     }
 
@@ -109,7 +117,7 @@ struct LEDFrame {
 
     mutating func set(_ x: Int, _ y: Int, _ c: RGB) {
         guard inBounds(x, y) else { return }
-        let i = (y * Self.cols + x) * 3
+        let i = (y * w + x) * 3
         px[i] = c.x; px[i + 1] = c.y; px[i + 2] = c.z
     }
 
@@ -117,7 +125,7 @@ struct LEDFrame {
     mutating func blend(_ x: Int, _ y: Int, _ c: RGB, _ alpha: Double) {
         guard alpha > 0, inBounds(x, y) else { return }
         let a = min(alpha, 1)
-        let i = (y * Self.cols + x) * 3
+        let i = (y * w + x) * 3
         px[i] += (c.x - px[i]) * a
         px[i + 1] += (c.y - px[i + 1]) * a
         px[i + 2] += (c.z - px[i + 2]) * a
@@ -126,7 +134,7 @@ struct LEDFrame {
     /// Add light — how the firmware's transition overlays combine with the screen.
     mutating func add(_ x: Int, _ y: Int, _ c: RGB, _ k: Double) {
         guard k > 0, inBounds(x, y) else { return }
-        let i = (y * Self.cols + x) * 3
+        let i = (y * w + x) * 3
         px[i] = min(1, px[i] + c.x * k)
         px[i + 1] = min(1, px[i + 1] + c.y * k)
         px[i + 2] = min(1, px[i + 2] + c.z * k)
@@ -134,7 +142,7 @@ struct LEDFrame {
 
     mutating func multiply(_ x: Int, _ y: Int, _ k: Double) {
         guard inBounds(x, y) else { return }
-        let i = (y * Self.cols + x) * 3
+        let i = (y * w + x) * 3
         px[i] *= k; px[i + 1] *= k; px[i + 2] *= k
     }
 }
@@ -175,6 +183,7 @@ struct TextStyle {
     var space: Int? = nil
     var tracking = 0
     var clip: (lo: Int, hi: Int)? = nil
+    var clipY: (lo: Int, hi: Int)? = nil
 }
 
 // MARK: - Engine
@@ -359,8 +368,8 @@ enum BarEngine {
     /// Move everything down by `dy` rows (the firmware's press effect).
     static func shiftDown(_ f: inout LEDFrame, _ dy: Int) {
         guard dy > 0 else { return }
-        for y in stride(from: rows - 1, through: 0, by: -1) {
-            for x in 0..<cols {
+        for y in stride(from: f.h - 1, through: 0, by: -1) {
+            for x in 0..<f.w {
                 f.set(x, y, y - dy >= 0 ? f.get(x, y - dy) : RGB(0, 0, 0))
             }
         }
@@ -368,7 +377,7 @@ enum BarEngine {
 
     /// A soft band of light crosses the pill every 8 s — the firmware's
     /// indicator_busy loop does the same over 20 s.
-    static func sheenAt(_ now: Double) -> Sheen {
+    static func sheenAt(_ now: Double, cols: Int = BarEngine.cols) -> Sheen {
         let cycle = 8.0
         let pos = (now.truncatingRemainder(dividingBy: cycle) / cycle) * Double(cols + 50) - 25
         return Sheen(pos: pos, width: 6, strength: 0.18)
@@ -470,10 +479,13 @@ enum BarEngine {
      * firmware's timer screen — with its end time beneath at half brightness.
      * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
      */
-    static func drawCountdown(_ f: inout LEDFrame, clock: ClockReading, timer: DNDTimer, slide: Int, minX: Int) {
+    static func countdownText(_ timer: DNDTimer) -> (mmss: String, until: String) {
         let secs = min(max(Int((timer.left - 1e-9).rounded(.up)), 0), 99 * 60 + 59)
-        let mmss = String(format: "%02d:%02d", secs / 60, secs % 60)
-        let until = String(format: "TILL %02d:%02d", timer.h, timer.m)
+        return (String(format: "%02d:%02d", secs / 60, secs % 60), String(format: "TILL %02d:%02d", timer.h, timer.m))
+    }
+
+    static func drawCountdown(_ f: inout LEDFrame, clock: ClockReading, timer: DNDTimer, slide: Int, minX: Int) {
+        let (mmss, until) = countdownText(timer)
         let tw = clockTextWidth(Layout.timeFont, mmss)
         let uw = textWidth(Layout.dateFont, until)
         let x0 = Layout.clockX + slide
@@ -544,7 +556,9 @@ enum BarEngine {
      * lighter bottom rim, and a pale 1-LED edge — the BUSY pill's vertical
      * profile, stretched to any width.
      */
-    static func drawPill(_ f: inout LEDFrame, x0: Double, w: Double, pal: BarPalette, sheen: Sheen? = nil) {
+    static func drawPill(_ f: inout LEDFrame, x0: Double, w: Double, pal: BarPalette, sheen: Sheen? = nil,
+                         h rowsTall: Int = LEDFrame.rows) {
+        let rows = rowsTall                              // rows 0..h-1: 16, or taller in the stacked layout
         let y0 = 0.0, h = Double(rows), r = 2.6
         let xs = Int(x0.rounded(.down)) - 1
         let xe = Int((x0 + w).rounded(.up)) + 1
@@ -607,6 +621,7 @@ enum BarEngine {
                         let gx = pen + g.ox + c + pass.dx
                         let gy = baseY - g.oy - g.h + 1 + r + pass.dy   // oy: bottom of box above baseline
                         if let clip = style.clip, gx < clip.lo || gx >= clip.hi { continue }
+                    if let clipY = style.clipY, gy < clipY.lo || gy >= clipY.hi { continue }
                         f.blend(gx, gy, pass.c, k * pass.a)
                     }
                 }
@@ -628,18 +643,20 @@ enum BarEngine {
     static func drawShockwave(_ f: inout LEDFrame, progress p: Double, pal: BarPalette) {
         guard p > 0, p < 1 else { return }
         let frame = p * 66
-        let cx = Double(cols) / 2, cy = -3.5
-        let radius = pow(frame / 11, 1.35) * 34            // reaches the corners around frame 11
+        let aspect = 1.65                                  // the ring reads as an oval on a wide panel
+        let cx = Double(f.w) / 2, cy = -3.5
+        // on a taller panel the ring travels further, so it still reaches the corners on cue
+        let reach = hypot(Double(f.w) / 2 / aspect, Double(f.h) - cy) / hypot(Double(cols) / 2 / aspect, Double(rows) - cy)
+        let radius = pow(frame / 11, 1.35) * 34 * reach    // reaches the corners around frame 11
         let band = 3.2 + frame * 0.55                      // ring thickens as it travels
         // colour floods in, peaks at frame 11, then decays the way the firmware's
         // frames do: roughly exponential, half-life about nine frames
         let flood = frame < 11 ? smooth(4, 11, frame)
                                : exp(-(frame - 11) / 13) * (1 - smooth(60, 66, frame))
         let ringLife = 1 - smooth(9, 16, frame)
-        let aspect = 1.65                                  // the ring reads as an oval on a wide panel
         let crestColour = mix(pal.flood, white, 0.72)
-        for y in 0..<rows {
-            for x in 0..<cols {
+        for y in 0..<f.h {
+            for x in 0..<f.w {
                 let dx = (Double(x) + 0.5 - cx) / aspect, dy = Double(y) + 0.5 - cy
                 let d = (dx * dx + dy * dy).squareRoot()
                 let u = (d - radius) / band                 // 0 at the ring's crest
@@ -655,5 +672,118 @@ enum BarEngine {
                 f.add(x, y, mix(pal.flood, pal.highlight, edgeGlow * 0.55), flood * (inside ? 1 : 0.9) * 0.62)
             }
         }
+    }
+    // MARK: - Stacked layout
+
+    /*
+     * For small screens (960 x 540 and the like): an 84 x 44 panel with the
+     * status pill across the top and the clock large beneath it. Same states,
+     * colours, faces and timeline as the bar.
+     *
+     *   rows 0-15    status pill, cols 1-82 (icon + word, as the bar)
+     *   rows 20-33   the time — or Do Not Disturb's countdown — 14 rows
+     *   rows 36-42   the day — or the countdown's end time — half bright
+     */
+    enum Stacked {
+        static let cols = 84, rows = 44
+        static let pillX = 1.0, pillW = 82.0, pillH = 16
+        static let bigFont = "busy_regular_14", smallFont = "busy_bold_7"
+        static let bigBase = 33, smallBase = 42
+        static let slideIn = 24.0      // the clock rises from 24 rows down
+        static let heroGap = 4         // rows between the announcement's lines
+
+        /// The announcement fills the panel, a word or two per line.
+        static func hero(_ state: BarState) -> [String] {
+            switch state {
+            case .call: return ["ON A", "CALL"]
+            case .free: return ["FREE"]
+            case .dnd: return ["DO NOT", "DISTURB"]
+            }
+        }
+    }
+
+    static func renderStacked(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
+                              since: Double, clock: ClockReading, timer: DNDTimer? = nil) {
+        f.clear()
+        let pal = BarPalette.of(state)
+        let e = now - since
+        let collapseStart = Timing.swap + Timing.hold
+        let collapseEnd = collapseStart + Timing.collapse
+
+        if e < Timing.swap {
+            if let prev {
+                drawStackedSteady(&f, now: now, state: prev, clock: clock, timer: timer, slide: 0)
+                shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
+            }
+        } else if e < collapseStart {
+            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: f.h)
+            drawStackedHero(&f, state: state, pal: pal, alpha: 1, clipY: nil)
+            let r = (e - Timing.swap) / Timing.swap
+            if r < 1 { shiftDown(&f, jsRound(Timing.press * (1 - easeOut(r)))) }
+        } else if e < collapseEnd {
+            // the pill draws up from the whole panel to the top band
+            let k = easeInOut((e - collapseStart) / Timing.collapse)
+            let h = jsRound(lerp(Double(f.h), Double(Stacked.pillH), k))
+            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: h)
+            let fadeOut = 1 - smooth(0.08, 0.34, k)
+            let fadeIn = smooth(0.14, 0.4, k)
+            if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1)) }
+            if fadeIn > 0 {
+                drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
+            }
+            // ...and the clock rises into the space it leaves
+            let slide = jsRound(Stacked.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
+            drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: h + 2)
+        } else {
+            drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0)
+        }
+
+        if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
+    }
+
+    static func drawStackedSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
+                                  timer: DNDTimer?, slide: Int) {
+        let pal = BarPalette.of(state)
+        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH)
+        drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
+        drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
+    }
+
+    static func drawStackedHero(_ f: inout LEDFrame, state: BarState, pal: BarPalette, alpha: Double,
+                                clipY: (lo: Int, hi: Int)?) {
+        let lines = Stacked.hero(state)
+        let block = lines.count * 14 + (lines.count - 1) * Stacked.heroGap
+        let top = jsRound(Double(f.h - block) / 2)
+        // the 14-row face, set as the bar's announcement: two-step shadow, trimmed spaces
+        var style = TextStyle(shadow: pal.shadow, shadowDepth: 2, shadowAlpha: 0.9 * alpha, alpha: alpha, space: 6)
+        style.clipY = clipY
+        for (i, line) in lines.enumerated() {
+            let w = Double(textWidth("busy_regular_14", line, space: 6))
+            drawText(&f, font: "busy_regular_14", line, x: Stacked.pillX + (Stacked.pillW - w) / 2 + 0.5,
+                     baseY: top + 13 + i * (14 + Stacked.heroGap), colour: white, style: style)
+        }
+    }
+
+    /// The time and the day — or Do Not Disturb's countdown and its end
+    /// time — centred beneath the pill. `slide` pushes it down (entrance);
+    /// nothing is drawn above row `minY`.
+    static func drawStackedClock(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: DNDTimer?,
+                                 slide: Int, minY: Int) {
+        let big: String, small: String
+        if state == .dnd, let timer {
+            let text = countdownText(timer)
+            big = text.mmss; small = text.until
+        } else {
+            big = String(format: "%02d:%02d", clock.h, clock.m)
+            small = days[((clock.dow % 7) + 7) % 7] + " " + String(clock.date)
+        }
+        let clipY = (lo: minY, hi: f.h)
+        let colon = clock.s % 2 == 1 ? 0.4 : 1.0
+        let bw = clockTextWidth(Stacked.bigFont, big)
+        let sw = textWidth(Stacked.smallFont, small)
+        drawClockText(&f, font: Stacked.bigFont, big, x: jsRound(Double(f.w - bw) / 2), baseY: Stacked.bigBase + slide,
+                      colour: white, style: TextStyle(clipY: clipY), colonAlpha: colon)
+        drawText(&f, font: Stacked.smallFont, small, x: Double(jsRound(Double(f.w - sw) / 2)),
+                 baseY: Stacked.smallBase + slide, colour: white, style: TextStyle(alpha: 0.5, clipY: clipY))
     }
 }

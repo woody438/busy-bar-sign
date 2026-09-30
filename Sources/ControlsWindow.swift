@@ -58,6 +58,8 @@ struct ControlsView: View {
     @ObservedObject var floating: FloatingWindow
     /// Refreshed when monitors come and go.
     @State private var screens = NSScreen.screens
+    /// The full-screen display's layout (BarDisplayView reads the same setting).
+    @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
     var body: some View {
         Form {
@@ -108,6 +110,12 @@ struct ControlsView: View {
                         Text(screenLabel(screen)).tag(DisplayWindow.identifier(for: screen))
                     }
                 }
+                Picker("Layout", selection: $wallLayout) {
+                    ForEach(BarLayout.allCases) { Text($0.label).tag($0) }
+                }
+                Text("Stacked puts the status on top and a big clock beneath, filling small screens such as 960 × 540. The floating window always uses the wide bar.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Floating window") {

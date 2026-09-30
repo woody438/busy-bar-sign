@@ -75,30 +75,34 @@
   /* ------------------------------------------------------------------ *
    * Framebuffer                                                        *
    * ------------------------------------------------------------------ */
-  function Frame() { this.px = new Float32Array(COLS * ROWS * 3); }
+  /* A frame of w x h LEDs — the wide bar's 118 x 16 unless told otherwise. */
+  function Frame(w, h) {
+    this.w = w || COLS; this.h = h || ROWS;
+    this.px = new Float32Array(this.w * this.h * 3);
+  }
   Frame.prototype.get = function (x, y) {
-    const i = (y * COLS + x) * 3; return [this.px[i], this.px[i + 1], this.px[i + 2]];
+    const i = (y * this.w + x) * 3; return [this.px[i], this.px[i + 1], this.px[i + 2]];
   };
   Frame.prototype.set = function (x, y, c) {
-    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
-    const i = (y * COLS + x) * 3; this.px[i] = c[0]; this.px[i + 1] = c[1]; this.px[i + 2] = c[2];
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = (y * this.w + x) * 3; this.px[i] = c[0]; this.px[i + 1] = c[1]; this.px[i + 2] = c[2];
   };
   /* Alpha-blend c over the existing LED. */
   Frame.prototype.blend = function (x, y, c, a) {
-    if (a <= 0 || x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
+    if (a <= 0 || x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     if (a > 1) a = 1;
-    const i = (y * COLS + x) * 3, p = this.px;
+    const i = (y * this.w + x) * 3, p = this.px;
     p[i] += (c[0] - p[i]) * a; p[i + 1] += (c[1] - p[i + 1]) * a; p[i + 2] += (c[2] - p[i + 2]) * a;
   };
   /* Add light — how the firmware's transition overlays combine with the screen. */
   Frame.prototype.add = function (x, y, c, k) {
-    if (k <= 0 || x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
-    const i = (y * COLS + x) * 3, p = this.px;
+    if (k <= 0 || x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = (y * this.w + x) * 3, p = this.px;
     p[i] = Math.min(1, p[i] + c[0] * k); p[i + 1] = Math.min(1, p[i + 1] + c[1] * k); p[i + 2] = Math.min(1, p[i + 2] + c[2] * k);
   };
   Frame.prototype.multiply = function (x, y, k) {
-    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
-    const i = (y * COLS + x) * 3, p = this.px; p[i] *= k; p[i + 1] *= k; p[i + 2] *= k;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = (y * this.w + x) * 3, p = this.px; p[i] *= k; p[i + 1] *= k; p[i + 2] *= k;
   };
 
   /* ------------------------------------------------------------------ *
@@ -121,9 +125,9 @@
    */
   function drawPill(f, x0, w, pal, opts) {
     const o = opts || {};
-    const y0 = 0, h = ROWS, r = 2.6;
+    const y0 = 0, h = o.h || ROWS, r = 2.6;      // rows 0..h-1: 16, or taller in the stacked layout
     const sheen = o.sheen;           // { pos, width, strength } or undefined
-    for (let y = 0; y < ROWS; y++) {
+    for (let y = 0; y < h; y++) {
       for (let x = Math.floor(x0) - 1; x <= Math.ceil(x0 + w) + 1; x++) {
         const d = roundRectSDF(x + 0.5, y + 0.5, x0, y0, w, h, r);
         const cover = clamp(0.5 - d, 0, 1);
@@ -132,14 +136,14 @@
         let c;
         if (y === 0) c = pal.highlight;
         else if (y <= 3) c = pal.top;
-        else if (y === ROWS - 1) c = pal.rimBottom;
-        else c = mix(pal.top, pal.bottom, (y - 3) / (ROWS - 2 - 3));
+        else if (y === h - 1) c = pal.rimBottom;
+        else c = mix(pal.top, pal.bottom, (y - 3) / (h - 2 - 3));
         // pale rim on the rounded ends
         const edge = clamp(1 - Math.abs(d + 0.9), 0, 1);
-        if (edge > 0 && y > 0 && y < ROWS - 1) c = mix(c, pal.edge, edge * 0.85);
+        if (edge > 0 && y > 0 && y < h - 1) c = mix(c, pal.edge, edge * 0.85);
         if (sheen) {
           // a soft diagonal band of light drifting across the pill
-          const u = (x + 0.5 - sheen.pos) + (y - ROWS / 2) * 0.55;
+          const u = (x + 0.5 - sheen.pos) + (y - h / 2) * 0.55;
           const s = Math.exp(-(u * u) / (2 * sheen.width * sheen.width)) * sheen.strength;
           c = mix(c, pal.highlight, s);
         }
@@ -198,6 +202,7 @@
             const gx = pen + g.ox + c + pass.dx;
             const gy = baseY - g.oy - g.h + 1 + r + pass.dy;   // oy: bottom of box above baseline
             if (o.clip && (gx < o.clip[0] || gx >= o.clip[1])) continue;
+            if (o.clipY && (gy < o.clipY[0] || gy >= o.clipY[1])) continue;
             f.blend(gx, gy, pass.c, k * pass.a);
           }
         }
@@ -221,16 +226,18 @@
   function drawShockwave(f, p, pal) {
     if (p <= 0 || p >= 1) return;
     const frame = p * 66;
-    const cx = COLS / 2, cy = -3.5;
-    const radius = Math.pow(frame / 11, 1.35) * 34;      // reaches the corners around frame 11
+    const aspect = 1.65;                                  // the ring reads as an oval on a wide panel
+    const cx = f.w / 2, cy = -3.5;
+    // on a taller panel the ring travels further, so it still reaches the corners on cue
+    const reach = Math.hypot(f.w / 2 / aspect, f.h - cy) / Math.hypot(COLS / 2 / aspect, ROWS - cy);
+    const radius = Math.pow(frame / 11, 1.35) * 34 * reach;   // reaches the corners around frame 11
     const band = 3.2 + frame * 0.55;                      // ring thickens as it travels
     // colour floods in, peaks at frame 11, then decays the way the firmware's
     // frames do: roughly exponential, half-life about nine frames
     const flood = frame < 11 ? smooth(4, 11, frame) : Math.exp(-(frame - 11) / 13) * (1 - smooth(60, 66, frame));
     const ringLife = 1 - smooth(9, 16, frame);
-    const aspect = 1.65;                                  // the ring reads as an oval on a wide panel
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
+    for (let y = 0; y < f.h; y++) {
+      for (let x = 0; x < f.w; x++) {
         const dx = (x + 0.5 - cx) / aspect, dy = (y + 0.5 - cy);
         const d = Math.hypot(dx, dy);
         const u = (d - radius) / band;                    // 0 at the ring's crest
@@ -378,7 +385,7 @@
   /* Move everything down by dy rows (the firmware's press effect). */
   function shiftDown(f, dy) {
     if (dy <= 0) return;
-    for (let y = ROWS - 1; y >= 0; y--) for (let x = 0; x < COLS; x++) {
+    for (let y = f.h - 1; y >= 0; y--) for (let x = 0; x < f.w; x++) {
       f.set(x, y, y - dy >= 0 ? f.get(x, y - dy) : [0, 0, 0]);
     }
   }
@@ -437,11 +444,11 @@
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
-  function sheenAt(now) {
+  function sheenAt(now, cols) {
     // a soft band of light crosses the pill every 8 s — the firmware's
     // indicator_busy loop does the same over 20 s
     const cycle = 8.0;
-    return { pos: ((now % cycle) / cycle) * (COLS + 50) - 25, width: 6, strength: 0.18 };
+    return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
   }
 
   function drawHero(f, now, state, pal) {
@@ -520,11 +527,15 @@
    * firmware's timer screen — with its end time beneath at half brightness.
    * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
    */
-  function drawCountdown(f, clock, timer, slide, minX) {
+  function countdownText(timer) {
     const pad = (n) => (n < 10 ? '0' : '') + n;
     const secs = Math.min(Math.max(Math.ceil(timer.left - 1e-9), 0), 99 * 60 + 59);
-    const mmss = pad(Math.floor(secs / 60)) + ':' + pad(secs % 60);
-    const until = 'TILL ' + pad(timer.h) + ':' + pad(timer.m);
+    return { mmss: pad(Math.floor(secs / 60)) + ':' + pad(secs % 60), until: 'TILL ' + pad(timer.h) + ':' + pad(timer.m) };
+  }
+
+  function drawCountdown(f, clock, timer, slide, minX) {
+    const text = countdownText(timer);
+    const mmss = text.mmss, until = text.until;
     const tw = clockTextWidth(LAYOUT.timeFont, mmss);
     const uw = textWidth(LAYOUT.dateFont, until);
     const x0 = LAYOUT.clockX + slide;
@@ -536,7 +547,112 @@
       PALETTE.white, { alpha: 0.5, clip: clip });
   }
 
+  /* ------------------------------------------------------------------ *
+   * Stacked layout — for small screens (960 x 540 and the like): an     *
+   * 84 x 44 panel with the status pill across the top and the clock    *
+   * large beneath it. Same states, colours, faces and timeline.         *
+   *                                                                     *
+   *   rows 0-15    status pill, cols 1-82 (icon + word, as the bar)    *
+   *   rows 20-33   the time — or Do Not Disturb's countdown — 14 rows   *
+   *   rows 36-42   the day — or the countdown's end time — half bright  *
+   * ------------------------------------------------------------------ */
+  const STACKED = {
+    cols: 84, rows: 44,
+    pillX: 1, pillW: 82, pillH: 16,
+    bigFont: 'busy_regular_14', smallFont: 'busy_bold_7',
+    bigBase: 33, smallBase: 42,
+    slideIn: 24,                   // the clock rises from 24 rows down
+    heroGap: 4                     // rows between the announcement's lines
+  };
+  /* The announcement fills the panel, a word or two per line. */
+  const STACKED_HERO = {
+    call: ['ON A', 'CALL'],
+    free: ['FREE'],
+    dnd: ['DO NOT', 'DISTURB']
+  };
+
+  function renderStacked(f, now, state, prev, since, clock, timer) {
+    f.px.fill(0);
+    const S = STACKED, pal = PALETTE[state];
+    const e = now - since;
+    const collapseStart = T.swap + T.hold;
+    const collapseEnd = collapseStart + T.collapse;
+
+    if (e < T.swap) {
+      if (prev) {
+        drawStackedSteady(f, now, prev, clock, timer, 0);
+        shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
+      }
+    } else if (e < collapseStart) {
+      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: f.h });
+      drawStackedHero(f, state, pal, 1, null);
+      const r = (e - T.swap) / T.swap;
+      if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
+    } else if (e < collapseEnd) {
+      // the pill draws up from the whole panel to the top band
+      const k = easeInOut((e - collapseStart) / T.collapse);
+      const h = Math.round(lerp(f.h, S.pillH, k));
+      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: h });
+      const out = 1 - smooth(0.08, 0.34, k);
+      const inn = smooth(0.14, 0.4, k);
+      if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1]);
+      if (inn > 0) drawStatusContent(f, state, pal, S.pillX, S.pillW, inn);
+      // ...and the clock rises into the space it leaves
+      const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
+      drawStackedClock(f, state, clock, timer, slide, h + 2);
+    } else {
+      drawStackedSteady(f, now, state, clock, timer, 0);
+    }
+
+    if (e < T.wave) drawShockwave(f, e / T.wave, pal);
+  }
+
+  function drawStackedSteady(f, now, state, clock, timer, slide) {
+    const S = STACKED, pal = PALETTE[state];
+    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH });
+    drawStatusContent(f, state, pal, S.pillX, S.pillW, 1);
+    drawStackedClock(f, state, clock, timer, slide, 0);
+  }
+
+  function drawStackedHero(f, state, pal, alpha, clipY) {
+    const S = STACKED, lines = STACKED_HERO[state];
+    const block = lines.length * 14 + (lines.length - 1) * S.heroGap;
+    const top = Math.round((f.h - block) / 2);
+    // the 14-row face, set as the wide bar's announcement: two-step shadow, trimmed spaces
+    const style = { shadow: pal.shadow, shadowDepth: 2, space: 6, alpha: alpha, shadowAlpha: 0.9 * alpha, clipY: clipY };
+    for (let i = 0; i < lines.length; i++) {
+      const w = textWidth('busy_regular_14', lines[i], 0, style.space);
+      drawText(f, 'busy_regular_14', lines[i], S.pillX + (S.pillW - w) / 2 + 0.5,
+        top + 13 + i * (14 + S.heroGap), PALETTE.white, style);
+    }
+  }
+
+  /* The time and the day — or Do Not Disturb's countdown and its end
+     time — centred beneath the pill. `slide` pushes it down (entrance);
+     nothing is drawn above row `minY`. */
+  function drawStackedClock(f, state, clock, timer, slide, minY) {
+    const S = STACKED;
+    const pad = (n) => (n < 10 ? '0' : '') + n;
+    let big, small;
+    if (state === 'dnd' && timer) {
+      const text = countdownText(timer);
+      big = text.mmss; small = text.until;
+    } else {
+      big = pad(clock.h) + ':' + pad(clock.m);
+      small = DAYS[clock.dow] + ' ' + clock.date;
+    }
+    const clipY = [minY || 0, f.h];
+    const colon = clock.s % 2 === 1 ? 0.4 : 1;
+    const bw = clockTextWidth(S.bigFont, big);
+    const sw = textWidth(S.smallFont, small);
+    drawClockText(f, S.bigFont, big, Math.round((f.w - bw) / 2), S.bigBase + slide, PALETTE.white,
+      { clipY: clipY }, colon);
+    drawText(f, S.smallFont, small, Math.round((f.w - sw) / 2), S.smallBase + slide, PALETTE.white,
+      { alpha: 0.5, clipY: clipY });
+  }
+
   root.BusyEngine = {
+    STACKED: STACKED, renderStacked: renderStacked,
     clockTextWidth: clockTextWidth, ICONS: ICONS, statusContentWidth: statusContentWidth,
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,

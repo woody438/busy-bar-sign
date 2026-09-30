@@ -31,8 +31,11 @@ final class LEDRaster {
     }
 
     let pitch: Int
+    /// LEDs across and down: the wide bar's 118 x 16, or the stacked layout's.
+    let cols: Int, rows: Int
     let width: Int
     let height: Int
+    let glowWidth: Int, glowHeight: Int
     let look: Look
 
     /// RGBA8, row-major, alpha always 255. Valid until the next `render`.
@@ -47,16 +50,20 @@ final class LEDRaster {
     private final class RowCache { var tiles: [TileKey: [UInt8]] = [:] }
     private let caches: [RowCache]
 
-    init(pitch: Int, look: Look = Look()) {
+    init(pitch: Int, cols: Int = LEDFrame.cols, rows: Int = LEDFrame.rows, look: Look = Look()) {
         let p = max(2, pitch)
         self.pitch = p
+        self.cols = cols
+        self.rows = rows
         self.look = look
-        self.width = LEDFrame.cols * p
-        self.height = LEDFrame.rows * p
+        self.width = cols * p
+        self.height = rows * p
+        self.glowWidth = (cols + 1) / 2
+        self.glowHeight = (rows + 1) / 2
         self.pixels = UnsafeMutableRawBufferPointer.allocate(byteCount: width * height * 4, alignment: 16)
         self.pixels.initializeMemory(as: UInt8.self, repeating: 0)
         self.mask = LEDRaster.makeMask(pitch: p, look: look)
-        self.caches = (0..<LEDFrame.rows).map { _ in RowCache() }
+        self.caches = (0..<rows).map { _ in RowCache() }
 
         // The glass: a faint reflection across the top, shading toward the bottom.
         var alpha = [Float](repeating: 0, count: height)
@@ -134,13 +141,13 @@ final class LEDRaster {
 
     func render(_ frame: LEDFrame, dim: Double = 1) {
         let p = pitch, rowBytes = width * 4, tileRow = p * 4
-        guard let start = pixels.baseAddress else { return }
+        guard frame.w == cols, frame.h == rows, let start = pixels.baseAddress else { return }
         // Shared across the row workers: each writes only its own rows.
         nonisolated(unsafe) let base = start
-        DispatchQueue.concurrentPerform(iterations: LEDFrame.rows) { ly in
+        DispatchQueue.concurrentPerform(iterations: rows) { ly in
             let cache = caches[ly]
             if cache.tiles.count > 400 { cache.tiles.removeAll(keepingCapacity: true) }   // ~1.6 MB per row at 4K
-            for lx in 0..<LEDFrame.cols {
+            for lx in 0..<cols {
                 let c = ledColour(frame.get(lx, ly), dim: dim)
                 let key = TileKey(rgb: LEDRaster.quantise(c))
                 let tile: [UInt8]
@@ -161,18 +168,15 @@ final class LEDRaster {
         }
     }
 
-    static let glowWidth = (LEDFrame.cols + 1) / 2     // 59
-    static let glowHeight = (LEDFrame.rows + 1) / 2    // 8
-
     /// The light that spills into the gaps and onto the face: only the
     /// brighter LEDs, at half resolution (as the simulator's wide glow),
     /// RGBA8. The GPU scales it up smoothly and adds it over the panel.
     func glow(_ frame: LEDFrame, dim: Double = 1) -> [UInt8] {
-        let gw = LEDRaster.glowWidth, gh = LEDRaster.glowHeight
+        let gw = glowWidth, gh = glowHeight
         var sum = [SIMD3<Double>](repeating: .zero, count: gw * gh)
         var count = [Double](repeating: 0, count: gw * gh)
-        for y in 0..<LEDFrame.rows {
-            for x in 0..<LEDFrame.cols {
+        for y in 0..<min(rows, frame.h) {
+            for x in 0..<min(cols, frame.w) {
                 let c = frame.get(x, y) * dim
                 let g = SIMD3<Double>(pow(max(c.x, 0), look.gamma), pow(max(c.y, 0), look.gamma),
                                       pow(max(c.z, 0), look.gamma))

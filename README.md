@@ -113,6 +113,22 @@ and on every Space, including full-screen apps.
 - It remembers where it was, its size, and which views were on when you quit.
   First launch opens the full-screen display only.
 
+## Small screens: the Stacked layout
+
+![The Stacked layout on a 960 x 540 screen](docs/busy-bar-stacked.png)
+
+For a small monitor — say a 960 × 540 desk display — set **Layout** to
+**Stacked (small screens)** in the controls window or the menu-bar menu. The
+status pill runs across the top, the time sits beneath it in 14-row digits
+with the day under that, and the LEDs fill the screen with no case around
+them (a small monitor has its own bezel). On 960 × 540 each LED is 11 pixels
+and the panel fills 90% of the screen's height.
+
+Everything else works the same: the change animation (the announcement fills
+the screen on two lines, then draws up into the pill as the clock rises),
+Do Not Disturb (its countdown takes the time's place), and double-clicking.
+**Wide bar** stays the default, and the floating window always uses it.
+
 ## Do Not Disturb
 
 ![DO NOT DISTURB with its countdown](docs/busy-bar-dnd.png)
@@ -152,8 +168,9 @@ The full menu:
 - **Microphone** — every app holding the mic right now, each with an
   **Ignore** toggle. If something that isn't a call lights the sign, ignore it
   here; it's remembered.
-- **Full-screen display** (on/off) and **Show on** (which monitor; the
-  controls window calls it Monitor).
+- **Full-screen display** (on/off), **Show on** (which monitor; the
+  controls window calls it Monitor) and **Layout** (Wide bar, or Stacked
+  for small screens).
 - **Floating window** (on/off) and **Floating size**.
 - **Settings…** (⌘,) opens the controls window; **Quit** (⌘Q). Opening the app again with nothing showing brings the
   full-screen display back.

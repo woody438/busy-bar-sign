@@ -18,6 +18,13 @@ let change = time("state change (engine + raster)", 264) { i in
     BarEngine.render(into: &f, now: 1000 + Double(i % 264) / 60, state: .call, prev: .free, since: 1000, clock: clock)
     raster.render(f)
 }
-let worst = max(steady, change)
+// the stacked layout on a 4K screen: 84 x 44 LEDs at 44 px, the most pixels either layout draws
+let stackedRaster = LEDRaster(pitch: 44, cols: 84, rows: 44)
+var sf = LEDFrame(w: 84, h: 44)
+let stacked = time("stacked, 4K (engine + raster)", 132) { i in
+    BarEngine.renderStacked(into: &sf, now: 1000 + Double(i % 264) / 60, state: .call, prev: .free, since: 1000, clock: clock)
+    stackedRaster.render(sf)
+}
+let worst = max(steady, change, stacked)
 print(worst < 8 ? "\nfast enough (worst \(String(format: "%.1f", worst)) ms of a 16.7 ms frame)" : "\nTOO SLOW")
 exit(worst < 8 ? 0 : 1)
