@@ -1,4 +1,6 @@
-# Studio Call Sign
+# Busy Bar Sign
+
+<img src="docs/icon.png" width="128" align="right" alt="The app icon: a red LED pill with a microphone">
 
 ![The bar changing from FREE to ON A CALL](docs/busy-bar-change.gif)
 
@@ -27,13 +29,14 @@ As a floating window (the simulator's **Floating window** button shows this):
 ## Download
 
 **[Download the latest build](https://github.com/woody438/studio-call-sign/releases/latest)**
-(`StudioCallSign.zip`; you need to be signed in to GitHub, as the repo is private).
+(`BusyBarSign.zip`; you need to be signed in to GitHub, as the repo is private).
 
-1. Unzip it and drag **StudioCallSign** into Applications.
+1. Unzip it and drag **Busy Bar Sign** into Applications. (If you have the
+   older **StudioCallSign** there, delete it: that was this app's old name.)
 2. Open it. The first time, macOS says it can't check the app for malicious
    software, because it isn't notarised by Apple. Click **Done**, then go to
    System Settings ▸ Privacy & Security, scroll down, and click **Open Anyway**.
-   (Or in Terminal: `xattr -dr com.apple.quarantine /Applications/StudioCallSign.app`.)
+   (Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/Busy Bar Sign.app"`.)
 3. The full-screen display opens on your second monitor, and a **controls
    window** opens on your main one. Click the app's Dock icon to bring the
    controls back at any time.
@@ -58,15 +61,15 @@ cd studio-call-sign
 git checkout busy-bar
 brew install xcodegen
 xcodegen generate
-open StudioCallSign.xcodeproj        # then Product ▸ Run (⌘R)
+open BusyBarSign.xcodeproj           # then Product ▸ Run (⌘R)
 ```
 
 Or without opening Xcode:
 
 ```sh
-xcodebuild -project StudioCallSign.xcodeproj -scheme StudioCallSign \
+xcodebuild -project BusyBarSign.xcodeproj -scheme BusyBarSign \
   -configuration Release -derivedDataPath build build
-open build/Build/Products/Release/StudioCallSign.app
+open "build/Build/Products/Release/Busy Bar Sign.app"
 ```
 
 - It signs with **Sign to Run Locally**, so no Apple developer account is needed.
@@ -207,7 +210,8 @@ In the code:
 | `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
-| `Sources/StudioCallSignApp.swift` | The menu. |
+| `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
+| `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
 | `simulator/` | The browser version, where the look is designed. |
 | `Checks/` | Tests that run anywhere Swift does. |
 
@@ -236,7 +240,7 @@ errors or warnings in its code.
 - The pixel fonts decode correctly, and every source file parses.
 
 **Compiled, not yet run:** the AppKit, SwiftUI and Core Audio code —
-`DisplayWindow`, `FloatingWindow`, `StudioCallSignApp`, `LEDPanelView`, `BarDisplayView`,
+`DisplayWindow`, `FloatingWindow`, `ControlsWindow`, `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`,
 `AudioProbe`, `CameraProbe`. If something misbehaves on first launch, these
 are the likeliest places:
 
@@ -270,4 +274,5 @@ From the project directory run `claude`, then:
   under the SIL Open Font License 1.1 (`LICENSES/OFL-1.1.txt`).
 - The transitions are original code, modelled on the firmware's CC BY-SA 4.0
   animations; no animation frames are included.
-- Not affiliated with or endorsed by Flipper Devices.
+- BUSY Bar is a product of Flipper Devices; the name is used here to say what
+  this imitates. Not affiliated with or endorsed by Flipper Devices.

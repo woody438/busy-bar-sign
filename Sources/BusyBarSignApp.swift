@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct StudioCallSignApp: App {
+struct BusyBarSignApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {

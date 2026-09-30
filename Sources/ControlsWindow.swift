@@ -30,7 +30,7 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
                              styleMask: [.titled, .closable, .miniaturizable],
                              backing: .buffered, defer: false)
-            w.title = "Studio Call Sign"
+            w.title = "Busy Bar Sign"
             w.contentView = hosting
             w.setContentSize(hosting.fittingSize)
             w.isReleasedWhenClosed = false

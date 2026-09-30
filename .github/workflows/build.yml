@@ -32,39 +32,41 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          xcodebuild -project StudioCallSign.xcodeproj -scheme StudioCallSign \
+          xcodebuild -project BusyBarSign.xcodeproj -scheme BusyBarSign \
             -configuration Release -derivedDataPath build \
             -destination 'generic/platform=macOS' \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/)|BUILD (SUCCEEDED|FAILED)" || true
-          test -d build/Build/Products/Release/StudioCallSign.app
+          test -d "build/Build/Products/Release/Busy Bar Sign.app"
 
       - name: Package
         run: |
-          APP=build/Build/Products/Release/StudioCallSign.app
+          APP="build/Build/Products/Release/Busy Bar Sign.app"
           codesign --verify --deep --strict --verbose=2 "$APP"
-          lipo -info "$APP/Contents/MacOS/StudioCallSign"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" StudioCallSign.zip
-          ls -l StudioCallSign.zip
+          lipo -info "$APP/Contents/MacOS/Busy Bar Sign"
+          test -f "$APP/Contents/Resources/AppIcon.icns"                 # the icon made it in
+          plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" BusyBarSign.zip
+          ls -l BusyBarSign.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: StudioCallSign
-          path: StudioCallSign.zip
+          name: BusyBarSign
+          path: BusyBarSign.zip
 
       - name: Publish as the latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest StudioCallSign.zip \
+          gh release create latest BusyBarSign.zip \
             --target "$GITHUB_SHA" \
-            --title "Studio Call Sign — latest build" \
+            --title "Busy Bar Sign — latest build" \
             --notes "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
 
-          **Install:** download StudioCallSign.zip, double-click to unzip, drag **StudioCallSign** to Applications.
+          **Install:** download BusyBarSign.zip, double-click to unzip, drag **Busy Bar Sign** to Applications.
 
-          **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. (Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/StudioCallSign.app\`.)
+          **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. (Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/Busy\\ Bar\\ Sign.app\`.)
 
           Needs macOS 14.4 or later."
 

@@ -149,7 +149,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         if activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(
                 options: [.idleDisplaySleepDisabled, .idleSystemSleepDisabled],
-                reason: "Studio Call Sign is on the wall")
+                reason: "Busy Bar Sign is on the wall")
         }
     }
 
