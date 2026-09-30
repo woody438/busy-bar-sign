@@ -1,100 +1,209 @@
 # Studio Call Sign
 
-A full-screen macOS wall display: a broadcast studio clock with an inset
-seven-segment LED module, and an illuminated **ON A CALL / FREE** sign that
-follows whether you're actually in a call.
+![The bar changing from FREE to ON A CALL](docs/busy-bar-change.gif)
 
-`mock.html` is the visual reference — open it in any browser to see the target.
+A full-screen wall display for a Mac: a pixel-LED status bar in the style of
+Flipper's BUSY Bar, showing **ON A CALL** or **FREE** beside a clock. The
+state is detected automatically from which app has your microphone — Zoom,
+Teams, Google Meet, FaceTime, or anything else.
 
-> **This source has never been compiled.** It was written in a Linux container
-> with no Xcode, so treat the first build as a debugging session rather than a
-> clean run. See *Known risks* below for where breakage is most likely.
+This is **version 2**, on the `busy-bar` branch. Version 1 — a broadcast studio
+clock beside an on-air-style sign — is on `main`, and its mock is `mock.html`.
 
-## Build
+**See it without building anything:** open `simulator/index.html` in a
+browser, or the [hosted preview](https://claude.ai/artifact/XHq4RQY4TnYKvfqn9SbRrF)
+(private to your claude.ai account). It runs the same drawing engine as the
+app, on your real clock.
 
-Requires macOS 14.4 or later (the CoreAudio process API arrived in 14.4) and Xcode 15+.
+| ON A CALL | FREE |
+|---|---|
+| ![](docs/busy-bar-call.png) | ![](docs/busy-bar-free.png) |
 
-### With XcodeGen (fastest)
+> **This has never been built on a Mac.** It was written overnight on Linux.
+> The drawing engine, fonts, layout maths and call-detection rules have been
+> compiled and tested there; the AppKit, SwiftUI and Core Audio code has only
+> been reviewed. See [What's been verified](#whats-been-verified--and-what-hasnt).
+
+## Build and run
+
+You need macOS 14.4 or later, **Xcode 15.3 or later** (the Core Audio process
+API it uses first appears in the macOS 14.4 SDK; older Xcode won't compile it),
+and [Homebrew](https://brew.sh).
 
 ```sh
+git clone https://github.com/woody438/studio-call-sign
+cd studio-call-sign
+git checkout busy-bar
 brew install xcodegen
 xcodegen generate
-open StudioCallSign.xcodeproj
+open StudioCallSign.xcodeproj        # then Product ▸ Run (⌘R)
 ```
 
-### Without XcodeGen
+Or without opening Xcode:
 
-1. Xcode → File → New → Project → macOS → App. Name it `StudioCallSign`,
-   interface SwiftUI, language Swift.
-2. Delete the generated `ContentView.swift` and `StudioCallSignApp.swift`.
-3. Drag everything in `Sources/` into the project.
-4. Target → General → set Minimum Deployment to macOS 14.4.
-5. Target → Signing & Capabilities → pick your personal team. No notarisation
-   is needed for an app you only run yourself.
-
-Then just hit Run. No TCC permission prompt should appear at launch — the
-detection reads device and process *state*, it doesn't capture audio.
-
-## How the detection works
-
-| Layer | Signal | Notes |
-|---|---|---|
-| Primary | `kAudioProcessPropertyIsRunningInput` per process | Tells you *which app* has the mic, so dictation can be filtered out |
-| Fallback | `kAudioDevicePropertyDeviceIsRunningSomewhere` | Used automatically if the process API returns nothing. No attribution |
-| Corroborating | `kCMIODevicePropertyDeviceIsRunningSomewhere` | Camera state, shown on the bottom strip |
-
-Both are polled once a second. Property listeners would be tidier, but polling
-is far harder to get subtly wrong, and 1 Hz costs nothing.
-
-**Debounce:** 2 s before the sign lights, 10 s before it goes dark. A wall sign
-that flickers is worse than no sign. Zoom and Teams mute in software and keep
-the stream open, so the sign correctly stays lit while you're muted.
-
-**Policy** (menu bar → Detect):
-- *Any app except ignored* (default) — catches meeting apps nobody has heard of
-  yet. `KnownApps.ignored` in `CallDetector.swift` filters out dictation,
-  Voice Memos, music and DAW apps. **Wispr Flow is in that list** — without it
-  the sign would light every time you dictated.
-- *Known call apps only* — stricter, fewer false positives, but a new app won't
-  register until you add its bundle ID to `KnownApps.calls`.
-
-To find an app's bundle ID: `osascript -e 'id of app "Zoom"'`
-
-**Manual override** (menu bar → Sign): Automatic / Force ON A CALL / Force FREE.
-
-## Known risks on first build
-
-1. **CoreAudio process symbols.** `kAudioHardwarePropertyProcessObjectList`,
-   `kAudioProcessPropertyPID`, `kAudioProcessPropertyBundleID` and
-   `kAudioProcessPropertyIsRunningInput` are 14.4+. If any fail to resolve, the
-   device-level fallback in `AudioProbe` already handles it — you'd just lose
-   per-app attribution, and dictation would start lighting the sign.
-2. **`CMIOObjectGetPropertyData` argument order** differs from the CoreAudio
-   equivalent (it takes `dataUsed` as an inout). Worth checking against the
-   headers if `CameraProbe` misbehaves.
-3. **Sign text width.** `SignView` hard-codes 118 pt with `minimumScaleFactor`,
-   tuned for a 912 pt panel. Fine on 16:9; check it if your monitor is wider.
-4. **`MenuBarExtra` icon reactivity** — the symbol is read off the delegate and
-   may not re-render on every state change. Cosmetic.
-
-## Still to wire up
-
-- Launch at login (`SMAppService.mainApp.register()`)
-- The after-hours dim schedule — the burn-in drift is in `DisplayView`, the
-  dimming isn't
-- A Preferences window; everything is currently menu-bar only
-
-## Handing this to a local Claude Code session
-
-From the project directory:
-
-```
-claude
+```sh
+xcodebuild -project StudioCallSign.xcodeproj -scheme StudioCallSign \
+  -configuration Release -derivedDataPath build build
+open build/Build/Products/Release/StudioCallSign.app
 ```
 
-then:
+- It signs with **Sign to Run Locally**, so no Apple developer account is needed.
+- Change build settings in `project.yml`, not in Xcode — `xcodegen generate`
+  replaces the project, including anything changed in its settings screens.
+  Re-run it after adding or removing source files.
+- There are no permission prompts: the app checks whether devices are *in use*;
+  it never records.
 
-> This is an uncompiled SwiftUI macOS app — read README.md. Build it with
-> xcodegen + xcodebuild, fix the compile errors, run it, and screenshot the
-> window so we can compare it against mock.html. Start with AudioProbe.swift,
-> which is the part most likely to be wrong.
+## Setting up the wall display
+
+- **Use the display's default "looks like 1920 × 1080", or its native
+  resolution** (System Settings ▸ Displays). A scaled mode such as "looks like
+  2560 × 1440" makes macOS resample the whole screen, so the LED dots can't
+  land on whole pixels and may shimmer. The menu warns you if this is the case.
+- On first launch the bar opens on whichever display *isn't* your main
+  (menu-bar) display, and remembers it. Menu ▸ **Show on** moves it.
+- If the wall monitor sleeps, switches off or is unplugged, the bar waits for
+  it rather than jumping onto your desk monitor, and comes back when it does.
+- On a secondary display the bar sits above that display's menu bar and Dock,
+  so nothing covers it while you're in another app.
+- While it's showing, the Mac won't let displays sleep. macOS applies that to
+  every display, not just the wall.
+
+## The menu
+
+Everything lives in the menu-bar icon (a circle when free, radio waves on a call):
+
+- **Status** — what the detector sees, e.g. "Source — zoom.us · mic active · cam active".
+- **Sign** — Automatic, or force ON A CALL / FREE (for in-person meetings, recording).
+- **Detect** — *Any app except ignored* (default) or *Known call apps only*.
+- **Microphone** — every app holding the mic right now, each with an
+  **Ignore** toggle. If something that isn't a call lights the sign, ignore it
+  here; it's remembered.
+- **Show on**, **Hide display**, **Show display**, **Quit** (⌘Q).
+
+## How it decides you're on a call
+
+Once a second it asks Core Audio which processes have microphone input
+running (`kAudioProcessPropertyIsRunningInput`, macOS 14.2+). For each one:
+
+1. **Helpers count as their app.** Browsers and Electron apps capture audio in
+   helper processes, so each process is traced to the outermost `.app` it runs
+   from: Meet in a Chrome helper counts as Chrome.
+2. **Dictation and audio tools are ignored** — Wispr Flow, superwhisper,
+   MacWhisper, Talon, Krisp, DAWs, OBS — by bundle ID, and dictation tools by
+   name too, in case the bundle ID is one it doesn't know.
+3. **Apple's own processes are ignored** — Siri, Dictation, Live Captions,
+   Sound Recognition (which listens all the time) — **except** FaceTime (whose
+   audio runs in `avconferenced`) and Safari (whose audio runs in WebKit).
+4. **Anything else counts**, under the default policy. *Known call apps only*
+   restricts it to a list in `CallDetector.swift`.
+
+The sign follows only once a change has held: **2 seconds** before it lights,
+**10 seconds** before it goes dark, so a moment's silence never flickers it.
+Zoom, Teams and Meet keep the mic open while you're muted, so the sign stays
+lit through mute.
+
+Worth knowing:
+
+- Some apps release the mic when you mute (Slack huddles and Discord, reportedly).
+  During a long mute in those, the sign returns to FREE after 10 seconds.
+- The Wispr Flow bundle IDs in the ignore list are best guesses. If dictation
+  lights the sign, use **Microphone ▸ Ignore Wispr Flow** once.
+- If Core Audio's per-process API ever fails to answer, it falls back to "is
+  the default input device in use by anyone" — which can't tell dictation
+  from a call. The status line then says "unattributed".
+
+## How the display works
+
+The bar is **118 × 16 LEDs**. Sixteen rows is what gives the BUSY Bar's type its
+chunk, so that's kept; the real device is 72 columns, too narrow to set
+"ON A CALL" beside a clock, so this one runs wider. At 32 pixels per LED it
+spans a 4K screen exactly: full width, 31% tall, every LED on whole pixels.
+
+Almost everything comes from the BUSY Bar's own open-source firmware:
+
+- **Pixel fonts** — decoded from the firmware (OFL-licensed): `busy_bold_10`
+  for the status, `busy_regular_14` for the announcement, `busy_bold_7` and
+  `busy_regular_5` for the clock, as the firmware's clock app uses them.
+- **Colours** — sampled from its animation frames: the pill's red and green
+  gradients, highlight row and rim.
+- **Dots** — Flipper's own preview shader: rounded squares at 85% of the
+  pitch, shading toward their corners; unlit LEDs vanish into the black face.
+  Colours are corrected for the firmware's LED gamma (value^2.6–2.8).
+- **Layout** — its timer screen: lit pill on the left; time in white on black
+  to the right, day beneath at half brightness; colon dimming on odd seconds.
+- **A change of state** — as the device does it: the old screen presses down,
+  a ring bursts from the top edge and floods the panel, and the new screen
+  springs up. The status fills the bar in 14-row capitals for a few seconds,
+  then the pill draws back and the time slides in beside it.
+
+The words are **ON A CALL** rather than the firmware's own "ON CALL", which in
+British English means on standby. The mic pictogram echoes the firmware's
+on-call theme; the tick is the "available" mark meeting apps use.
+
+In the code:
+
+| | |
+|---|---|
+| `Sources/Bar/BarEngine.swift` | Decides every LED's colour for a moment in time. A line-for-line port of `simulator/engine.js`. |
+| `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. |
+| `Sources/Bar/LEDPanelView.swift` | Runs engine and raster on each display refresh and hands the pixels to a layer. |
+| `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body and where the LEDs go. |
+| `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
+| `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
+| `Sources/DisplayWindow.swift`, `StudioCallSignApp.swift` | The window and the menu. |
+| `simulator/` | The browser version, where the look is designed. |
+| `Checks/` | Tests that run anywhere Swift does. |
+
+## What's been verified — and what hasn't
+
+**Verified by running**, with Swift 6.0.3 on Linux (`Checks/run.sh`):
+
+- **The Swift engine matches the simulator LED for LED** across 17 moments —
+  the press, shockwave, announcement, collapse, slide-in, both states, cold
+  start — to within float rounding. What you see in the simulator is what the
+  app draws.
+- **Every LED lands on whole pixels** on eight common displays: 4K at 1× and
+  2×, 1080p, 1440p, 5K, 6K, ultrawide. (This check caught a real bug.)
+- **A frame takes 2.6 ms** at 4K in the worst case, on four slow virtual
+  cores — the display allows 16.7 ms.
+- **The call detector makes the right decisions** on a scripted 40 seconds:
+  Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
+  dictation through a helper, an always-listening Apple process and a
+  one-second blip don't light it; both overrides are instant; Meet in a
+  Chrome helper does light it.
+- The pixel fonts decode correctly, and every source file parses.
+
+**Reviewed, not compiled:** the AppKit, SwiftUI and Core Audio code —
+`DisplayWindow`, `StudioCallSignApp`, `LEDPanelView`, `BarDisplayView`,
+`AudioProbe`, `CameraProbe`. Independent review passes found no definite
+compile errors, and fixed a number of runtime problems. Still, expect the first
+build to surface something; these are the likeliest places:
+
+1. `AudioProbe.swift` — `proc_pidpath` and the Core Audio process properties.
+2. `DisplayWindow.swift` — the scaled-mode check (`CGDisplayCopyAllDisplayModes`).
+3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
+
+## Running the checks
+
+```sh
+Checks/run.sh          # needs swiftc (Xcode) and node
+```
+
+## Handing this to Claude Code on your Mac
+
+From the project directory run `claude`, then:
+
+> This SwiftUI macOS app has never been compiled — read README.md. Run
+> `xcodegen generate`, build with xcodebuild, and fix any compile errors,
+> starting with AudioProbe.swift. Then run Checks/run.sh, launch the app, and
+> compare it against simulator/index.html.
+
+## Credits and licences
+
+- Pixel fonts from the [BUSY Status Bar firmware](https://github.com/busy-app/busybar-firmware)
+  — © 2021 TakWolf ([Ark Pixel](https://ark-pixel-font.takwolf.com/)), © 2024–2026 Flipper FZCO —
+  under the SIL Open Font License 1.1 (`LICENSES/OFL-1.1.txt`).
+- The transitions are original code, modelled on the firmware's CC BY-SA 4.0
+  animations; no animation frames are included.
+- Not affiliated with or endorsed by Flipper Devices.
