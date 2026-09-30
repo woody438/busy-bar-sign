@@ -26,12 +26,7 @@
       bottom:    hex(0x6E0002),   // row 14
       rimBottom: hex(0x7C191B),   // row 15
       edge:      hex(0xD14C58),   // 1-LED rim on the left/right ends
-      outline:   hex(0xE35A68),   // compact pill outline
       shadow:    hex(0x4A0006),   // text drop shadow on the lit pill
-      darkTop:   hex(0x382E2E),   // dark pill / particle field
-      darkBot:   hex(0x211C1C),
-      spark:     hex(0xFD929A),   // brightest particle
-      sparkDim:  hex(0xC7767C),
       flood:     hex(0xBC2525)    // the colour the shockwave floods to
     },
     free: {
@@ -40,16 +35,10 @@
       bottom:    hex(0x03603F),
       rimBottom: hex(0x0D7B55),
       edge:      hex(0x5CD69A),
-      outline:   hex(0x4FD08E),
       shadow:    hex(0x013A24),
-      darkTop:   hex(0x30392F),
-      darkBot:   hex(0x1C211D),
-      spark:     hex(0x96F7C7),
-      sparkDim:  hex(0x6AA889),
       flood:     hex(0x2A9E63)
     },
-    white: [1, 1, 1],
-    clockDim: hex(0x3A3A3A)
+    white: [1, 1, 1]
   };
 
   /* ------------------------------------------------------------------ *
@@ -58,10 +47,10 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
   const mix = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
-  const scale = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
   const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
   const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  const easeIn = (t) => t * t * t;
 
   /* Deterministic hash → 0..1. Same integer in, same number out, in any language. */
   function hash(n) {
@@ -118,14 +107,10 @@
    * A lit pill: highlight top row, bright band, linear fall to a deep base,
    * lighter bottom rim, and a pale 1-LED edge — exactly the BUSY pill's
    * vertical profile, stretched to any width.
-   *
-   * `fillTo` lets the collapse animation drain the colour: columns right of
-   * it render as the dark pill instead.
    */
   function drawPill(f, x0, w, pal, opts) {
     const o = opts || {};
     const y0 = 0, h = ROWS, r = 2.6;
-    const fillTo = o.fillTo === undefined ? x0 + w : o.fillTo;
     const sheen = o.sheen;           // { pos, width, strength } or undefined
     for (let y = 0; y < ROWS; y++) {
       for (let x = Math.floor(x0) - 1; x <= Math.ceil(x0 + w) + 1; x++) {
@@ -133,27 +118,19 @@
         const cover = clamp(0.5 - d, 0, 1);
         if (cover <= 0) continue;
 
-        const lit = x + 0.5 < fillTo;
         let c;
-        if (lit) {
-          if (y === 0) c = pal.highlight;
-          else if (y <= 3) c = pal.top;
-          else if (y === ROWS - 1) c = pal.rimBottom;
-          else c = mix(pal.top, pal.bottom, (y - 3) / (ROWS - 2 - 3));
-          // pale rim on the rounded ends
-          const edge = clamp(1 - Math.abs(d + 0.9), 0, 1);
-          if (edge > 0 && y > 0 && y < ROWS - 1) c = mix(c, pal.edge, edge * 0.85);
-          if (sheen) {
-            // a soft diagonal band of light drifting across the pill
-            const u = (x + 0.5 - sheen.pos) + (y - ROWS / 2) * 0.55;
-            const s = Math.exp(-(u * u) / (2 * sheen.width * sheen.width)) * sheen.strength;
-            c = mix(c, pal.highlight, s);
-          }
-        } else {
-          c = mix(pal.darkTop, pal.darkBot, clamp((y - 1) / 7, 0, 1));
-          if (y === ROWS - 1) c = mix(pal.darkBot, [0.3, 0.29, 0.29], 0.35);
-          const edge = clamp(1 - Math.abs(d + 0.9), 0, 1);
-          if (edge > 0) c = mix(c, pal.outline, edge * (o.outline === undefined ? 0.8 : o.outline));
+        if (y === 0) c = pal.highlight;
+        else if (y <= 3) c = pal.top;
+        else if (y === ROWS - 1) c = pal.rimBottom;
+        else c = mix(pal.top, pal.bottom, (y - 3) / (ROWS - 2 - 3));
+        // pale rim on the rounded ends
+        const edge = clamp(1 - Math.abs(d + 0.9), 0, 1);
+        if (edge > 0 && y > 0 && y < ROWS - 1) c = mix(c, pal.edge, edge * 0.85);
+        if (sheen) {
+          // a soft diagonal band of light drifting across the pill
+          const u = (x + 0.5 - sheen.pos) + (y - ROWS / 2) * 0.55;
+          const s = Math.exp(-(u * u) / (2 * sheen.width * sheen.width)) * sheen.strength;
+          c = mix(c, pal.highlight, s);
         }
         f.blend(x, y, c, cover);
       }
@@ -223,32 +200,6 @@
    * ------------------------------------------------------------------ */
 
   /*
-   * Drifting sparks over a dark field, after the firmware's particles_busy /
-   * particles_rest loops. Each spark is seeded, so the field is identical on
-   * every platform, and it's always moving — good for a panel that never
-   * switches off.
-   */
-  function drawParticles(f, x0, x1, t, pal, density) {
-    const n = Math.round((x1 - x0) * (density || 0.28));
-    for (let i = 0; i < n; i++) {
-      const seed = i * 7919 + 17;
-      const px = x0 + hash(seed) * (x1 - x0);
-      const speed = 0.6 + hash(seed + 1) * 1.4;          // LEDs per second, upward
-      const life = 2.2 + hash(seed + 2) * 2.8;           // seconds
-      const phase = hash(seed + 3) * life;
-      const age = ((t + phase) % life) / life;           // 0..1
-      const py = ROWS - 1 - age * speed * life + hash(seed + 4) * 4;
-      const wobble = Math.sin((t + phase) * (1.3 + hash(seed + 5))) * 0.6;
-      const x = Math.round(px + wobble), y = Math.round(py);
-      if (x < x0 || x >= x1 || y < 1 || y > ROWS - 2) continue;
-      const fade = Math.sin(age * Math.PI);                // in and out
-      const twinkle = 0.65 + 0.35 * Math.sin((t + phase) * 9 + i);
-      const c = hash(seed + 6) > 0.55 ? pal.spark : pal.sparkDim;
-      f.blend(x, y, c, fade * twinkle);
-    }
-  }
-
-  /*
    * The firmware's "select" transition, rebuilt procedurally so it fits any
    * width: a white ring bursts from just above top-centre with a dark leading
    * edge, the state colour floods in behind it, the panel flashes, then the
@@ -287,28 +238,65 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Layout — 118 x 16                                                   *
+   * Layout — 118 x 16, after the firmware's timer screen: a lit pill on  *
+   * the left, the time in white on black to its right, a dim word below. *
    *                                                                     *
-   *   col 0      margin                                                 *
-   *   cols 1-71  status pill   (lit, the sign itself)                   *
-   *   cols 72-73 gap                                                    *
-   *   cols 74-116 clock pill   (dark field, sparks, time)               *
-   *   col 117    margin                                                 *
+   *   col 0        margin                                               *
+   *   cols 1-80    status pill  (icon + word, lit)                      *
+   *   cols 81-83   gap                                                  *
+   *   cols 84-116  clock        (time rows 1-7, date rows 10-14)        *
+   *   col 117      margin                                               *
    * ------------------------------------------------------------------ */
   const LAYOUT = {
-    statusX: 1, statusW: 71,
-    clockX: 74, clockW: 43,
+    statusX: 1, statusW: 80,
+    clockX: 84, clockW: 33,
     heroX: 1, heroW: COLS - 2,
     heroFont: 'busy_regular_14',   // 14-row capitals: the announcement
     statusFont: 'busy_bold_10',    // the face of the firmware's BUSY pill
-    clockFont: 'busy_bold_10',
+    timeFont: 'busy_bold_7',       // the firmware's clock app face
+    dateFont: 'busy_regular_5',
     heroBase: 14,                  // baseline rows (bottom row of capitals)
     statusBase: 12,
-    clockBase: 12,
-    secondsRow: 14
+    timeBase: 7,                   // rows 1-7, as the firmware's timer label
+    dateBase: 14,                  // rows 10-14
+    iconGap: 4,
+    slideIn: 40                    // the time slides in from 40 LEDs right
   };
 
   const WORDS = { call: 'ON A CALL', free: 'FREE' };
+  const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  /* Pictograms, drawn in the firmware's style: white, hard shadow. The mic
+     echoes the firmware's on_call theme; the tick is the "available" mark
+     every meeting app uses. Rows top to bottom; bottom row sits on the
+     status baseline. */
+  const ICONS = {
+    call: [
+      '...###...',
+      '..#####..',
+      '..#####..',
+      '..#####..',
+      '..#####..',
+      '#.#####.#',
+      '#.#####.#',
+      '#..###..#',
+      '.#.....#.',
+      '..#####..',
+      '....#....',
+      '..#####..'
+    ],
+    free: [
+      '........##',
+      '.......###',
+      '......###.',
+      '.....###..',
+      '##..###...',
+      '######....',
+      '.####.....',
+      '..##......'
+    ]
+  };
+  const ICON_LIFT = { call: -1, free: 1 };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
      twice the scale: a two-step shadow, and word spaces trimmed to match. */
@@ -319,23 +307,56 @@
   }
   function heroWidth(state) { return textWidth(LAYOUT.heroFont, WORDS[state], 0, HERO_SPACE); }
 
+  function drawIcon(f, rows, x, bottomY, colour, shadow, alpha, clip) {
+    const h = rows.length;
+    const passes = [{ d: 1, c: shadow, a: 0.9 * alpha }, { d: 0, c: colour, a: alpha }];
+    for (const pass of passes) {
+      for (let r = 0; r < h; r++) for (let c = 0; c < rows[r].length; c++) {
+        if (rows[r][c] !== '#') continue;
+        const gx = x + c + pass.d, gy = bottomY - h + 1 + r + pass.d;
+        if (clip && (gx < clip[0] || gx >= clip[1])) continue;
+        f.blend(gx, gy, pass.c, pass.a);
+      }
+    }
+  }
+
+  /* Icon + word, centred as one unit in a pill of width w starting at x0. */
+  function statusContentWidth(state) {
+    return ICONS[state][0].length + LAYOUT.iconGap + textWidth(LAYOUT.statusFont, WORDS[state]);
+  }
+  function drawStatusContent(f, state, pal, x0, w, alpha, clip) {
+    const cw = statusContentWidth(state);
+    const x = Math.round(x0 + (w - cw) / 2);
+    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow, alpha, clip);
+    drawText(f, LAYOUT.statusFont, WORDS[state], x + ICONS[state][0].length + LAYOUT.iconGap,
+      LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
+  }
+
   /* ------------------------------------------------------------------ *
    * Timeline (seconds from the moment the state changes)                *
    * ------------------------------------------------------------------ */
   const T = {
-    wave: 1.10,        // the shockwave, 66 frames at 60 fps
-    swap: 0.18,        // frame 11: the flood peaks and hides the switch underneath
-    hold: 3.4,         // the announcement stays up this long after the swap
-    collapse: 0.68,    // 41 frames, like the firmware's label transition
-    clockIn: 0.5
+    wave: 1.10,        // the shockwave: 66 frames at 60 fps
+    swap: 0.10,        // the firmware cuts to the new screen at 100 ms
+    press: 3,          // ...having pressed the old one down 3 rows, then springs the new one up
+    hold: 3.4,         // the announcement stays up this long after the cut
+    collapse: 0.667    // 41 frames, as indicator_busy_transition
   };
+
+  /* Move everything down by dy rows (the firmware's press effect). */
+  function shiftDown(f, dy) {
+    if (dy <= 0) return;
+    for (let y = ROWS - 1; y >= 0; y--) for (let x = 0; x < COLS; x++) {
+      f.set(x, y, y - dy >= 0 ? f.get(x, y - dy) : [0, 0, 0]);
+    }
+  }
 
   /*
    * The scene at a moment.
    *   now   — seconds, monotonic (drives ambient motion)
    *   state — 'call' | 'free';  prev — the state before it (or null)
    *   since — `now` at which `state` began
-   *   clock — { h, m, s, ms } wall-clock time to show
+   *   clock — { h, m, s, ms, dow, date } wall-clock time to show
    */
   function render(f, now, state, prev, since, clock) {
     f.px.fill(0);
@@ -345,20 +366,22 @@
     const collapseEnd = collapseStart + T.collapse;
 
     if (e < T.swap) {
-      // the old screen, about to be wiped by the wave
-      if (prev) drawSteady(f, now, prev, clock, 1);
+      // the old screen, pressed down as the wave hits it
+      if (prev) {
+        drawSteady(f, now, prev, clock, 0);
+        shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
+      }
     } else if (e < collapseStart) {
       drawHero(f, now, state, pal);
+      // ...and the new one springs back up
+      const r = (e - T.swap) / T.swap;
+      if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
     } else if (e < collapseEnd) {
       const k = easeInOut((e - collapseStart) / T.collapse);
       const w = lerp(LAYOUT.heroW, LAYOUT.statusW, k);
       const edge = LAYOUT.heroX + w;
-      // the clock pill is revealed behind the retreating edge
-      if (edge < LAYOUT.clockX + LAYOUT.clockW) {
-        drawClockPill(f, now, pal, clock, 0, { from: Math.max(LAYOUT.clockX, edge + 2) });
-      }
       drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now) });
-      // the announcement face gives way to the status face as the pill shrinks:
+      // the announcement face gives way to icon + status face as the pill shrinks:
       // out before the big word can outgrow the pill, in once there's room
       const out = 1 - smooth(0.0, 0.28, k);
       const inn = smooth(0.3, 0.62, k);
@@ -368,14 +391,13 @@
         drawText(f, LAYOUT.heroFont, WORDS[state], LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
           LAYOUT.heroBase, PALETTE.white, Object.assign(heroStyle(pal, out), { clip: clip }));
       }
-      if (inn > 0) {
-        const sw = textWidth(LAYOUT.statusFont, WORDS[state]);
-        drawText(f, LAYOUT.statusFont, WORDS[state], LAYOUT.heroX + (w - sw) / 2 + 0.5,
-          LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: inn, shadowAlpha: 0.9 * inn, clip: clip });
-      }
+      if (inn > 0) drawStatusContent(f, state, pal, LAYOUT.heroX, w, inn, clip);
+      // the time slides in from the right as the pill makes room, as the
+      // firmware's timer label does
+      const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
+      drawClock(f, clock, slide, Math.ceil(edge) + 2);
     } else {
-      const clockAlpha = easeOut(clamp((e - collapseEnd) / T.clockIn, 0, 1));
-      drawSteady(f, now, state, clock, clockAlpha);
+      drawSteady(f, now, state, clock, 0);
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
@@ -395,17 +417,15 @@
       LAYOUT.heroBase, PALETTE.white, heroStyle(pal));
   }
 
-  function drawSteady(f, now, state, clock, clockAlpha) {
+  function drawSteady(f, now, state, clock, slide) {
     const pal = PALETTE[state];
     drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now) });
-    const w = textWidth(LAYOUT.statusFont, WORDS[state]);
-    drawText(f, LAYOUT.statusFont, WORDS[state], LAYOUT.statusX + (LAYOUT.statusW - w) / 2 + 0.5,
-      LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow });
-    drawClockPill(f, now, pal, clock, clockAlpha);
+    drawStatusContent(f, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
+    drawClock(f, clock, slide, 0);
   }
 
-  /* Tabular digits: every digit takes the widest digit's advance, centred,
-     so the clock doesn't shuffle sideways when a 1 comes round. */
+  /* Tabular digits: every digit takes the widest digit's advance, so the
+     clock doesn't shuffle sideways as the minutes turn. */
   function drawClockText(f, fontName, str, x, base, colour, opts, colonAlpha) {
     const font = FONTS[fontName]; if (!font) return 0;
     let cell = 0;
@@ -418,8 +438,7 @@
         drawText(f, fontName, ch, pen + inset, base, colour, opts);
         pen += cell;
       } else {
-        const o = Object.assign({}, opts, { alpha: (opts.alpha === undefined ? 1 : opts.alpha) * colonAlpha,
-          shadowAlpha: (opts.shadowAlpha === undefined ? 0.85 : opts.shadowAlpha) * colonAlpha });
+        const o = Object.assign({}, opts, { alpha: (opts.alpha === undefined ? 1 : opts.alpha) * colonAlpha });
         drawText(f, fontName, ch, pen, base, colour, o);
         pen += g.adv;
       }
@@ -436,42 +455,31 @@
     return w;
   }
 
-  function drawClockPill(f, now, pal, clock, alpha, opts) {
-    const o = opts || {};
-    const x0 = LAYOUT.clockX, x1 = LAYOUT.clockX + LAYOUT.clockW;
-    const from = o.from === undefined ? x0 : o.from;
-    if (from >= x1) return;
-    // dark field with sparks, as behind the firmware's timer
-    const tmp = new Frame();
-    drawPill(tmp, x0, LAYOUT.clockW, pal, { fillTo: -1, outline: 0.55 });
-    drawParticles(tmp, x0 + 1, x1 - 1, now, pal, 0.42);
-    if (alpha > 0) {
-      const pad = (n) => (n < 10 ? '0' : '') + n;
-      const hhmm = pad(clock.h) + ':' + pad(clock.m);
-      const w = clockTextWidth(LAYOUT.clockFont, hhmm);
-      const colon = clock.ms < 500 ? 1 : 0.35;          // 1 Hz, like the v1 module
-      drawClockText(tmp, LAYOUT.clockFont, hhmm, x0 + Math.round((LAYOUT.clockW - w) / 2), LAYOUT.clockBase,
-        PALETTE.white, { shadow: [0, 0, 0], shadowAlpha: 0.75 * alpha, alpha: alpha }, colon);
-      // seconds: a bar filling along the bottom, a nod to the v1 second ring
-      const bx0 = x0 + 3, bx1 = x1 - 3;
-      const span = bx1 - bx0;
-      const filled = ((clock.s + clock.ms / 1000) / 60) * span;
-      for (let x = bx0; x < bx1; x++) {
-        const k = clamp(filled - (x - bx0), 0, 1);
-        tmp.blend(x, LAYOUT.secondsRow, mix(pal.sparkDim, pal.spark, 0.5), (0.12 + 0.78 * k) * alpha);
-      }
-    }
-    // copy the revealed part across
-    for (let y = 0; y < ROWS; y++) for (let x = Math.max(0, Math.floor(from)); x < x1 + 1 && x < COLS; x++) {
-      const c = tmp.get(x, y); if (c[0] + c[1] + c[2] > 0) f.set(x, y, c);
-    }
+  /*
+   * The time, white on black, with the day beneath at half brightness —
+   * the firmware's clock app. Colons drop to 40% on odd seconds.
+   * `slide` pushes it right (entrance); nothing is drawn left of `minX`.
+   */
+  function drawClock(f, clock, slide, minX) {
+    const pad = (n) => (n < 10 ? '0' : '') + n;
+    const hhmm = pad(clock.h) + ':' + pad(clock.m);
+    const day = DAYS[clock.dow] + ' ' + clock.date;
+    const tw = clockTextWidth(LAYOUT.timeFont, hhmm);
+    const dw = textWidth(LAYOUT.dateFont, day);
+    const x0 = LAYOUT.clockX + slide;
+    const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
+    const colon = clock.s % 2 === 1 ? 0.4 : 1;
+    drawClockText(f, LAYOUT.timeFont, hhmm, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
+      PALETTE.white, { clip: clip }, colon);
+    drawText(f, LAYOUT.dateFont, day, x0 + Math.round((LAYOUT.clockW - dw) / 2), LAYOUT.dateBase,
+      PALETTE.white, { alpha: 0.5, clip: clip });
   }
 
   root.BusyEngine = {
-    clockTextWidth: clockTextWidth,
+    clockTextWidth: clockTextWidth, ICONS: ICONS, statusContentWidth: statusContentWidth,
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
-    drawPill: drawPill, drawText: drawText, drawParticles: drawParticles, drawShockwave: drawShockwave,
+    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave,
     hash: hash
   };
 })(typeof window !== 'undefined' ? window : globalThis);

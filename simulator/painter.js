@@ -9,12 +9,16 @@
 (function (root) {
   'use strict';
 
+  /* Dot geometry and shading follow Flipper's own LED shader (the one their
+     web app uses to preview the display): rounded squares at 85% of the
+     pitch, corner radius 0.30 of the pitch, each dot falling to 85% at its
+     corners, and unlit LEDs invisible against the black face. */
   const DEFAULTS = {
-    ledFill: 0.80,        // LED width as a fraction of pitch; the rest is gap
-    ledRadius: 0.22,      // corner radius as a fraction of the LED
-    unlit: [0.055, 0.052, 0.054],   // an off LED behind the diffuser: visible, barely
-    bloomNear: 0.32,      // tight halo strength
-    bloomFar: 0.30,       // wide glow strength
+    ledFill: 0.85,        // LED width as a fraction of pitch; the rest is gap
+    ledRadius: 0.353,     // corner radius as a fraction of the LED (0.30 of the pitch)
+    unlit: [0.018, 0.018, 0.02],    // off LEDs all but disappear into the glossy face
+    bloomNear: 0.0,       // Flipper's shader draws no halo on the dots
+    bloomFar: 0.07,       // just the soft spill the device throws on its face
     bloomFrom: 0.35,      // only LEDs brighter than this give off glow
     gamma: 1.25,          // monitor transfer: lets dim LEDs recede as they do in a room
     glass: 0.05           // top reflection strength
@@ -54,10 +58,11 @@
     const x = c.getContext('2d');
     x.fillStyle = '#000'; x.fillRect(0, 0, size, size);
     const led = size * this.o.ledFill, off = (size - led) / 2, r = led * this.o.ledRadius;
-    const g = x.createRadialGradient(size / 2, size / 2 - led * 0.08, led * 0.08, size / 2, size / 2, led * 0.72);
+    // Flipper's shader: full brightness out to 30% of the cell, 85% by 70%
+    const g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.7);
     g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.75, '#e4e4e4');
-    g.addColorStop(1, '#b8b8b8');
+    g.addColorStop(0.3 / 0.7, '#ffffff');
+    g.addColorStop(1, '#d9d9d9');
     x.fillStyle = g;
     x.beginPath();
     if (x.roundRect) x.roundRect(off, off, led, led, r); else x.rect(off, off, led, led);
@@ -118,8 +123,10 @@
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.globalAlpha = o.bloomNear;
-    ctx.drawImage(this.glow, -pitch * 0.15, -pitch * 0.15, W + pitch * 0.3, H + pitch * 0.3);
+    if (o.bloomNear > 0) {
+      ctx.globalAlpha = o.bloomNear;
+      ctx.drawImage(this.glow, -pitch * 0.15, -pitch * 0.15, W + pitch * 0.3, H + pitch * 0.3);
+    }
     ctx.globalAlpha = o.bloomFar;
     ctx.drawImage(this.half, -pitch * 1.2, -pitch * 1.2, W + pitch * 2.4, H + pitch * 2.4);
 

@@ -29,12 +29,30 @@
     box-shadow:0 0 0 1px rgba(255,255,255,.06),0 0 0 9px #0d0d0f,0 0 0 10px rgba(255,255,255,.05),0 40px 120px rgba(0,0,0,.8);
     overflow:hidden}
   .monitor:fullscreen{border-radius:0;box-shadow:none;width:100vw!important;height:100vh!important;background:#000}
-  .device{position:absolute;left:0;right:0}
-  .case{position:absolute;inset:0;border-radius:var(--case-r);
-    background:linear-gradient(180deg,#1d1e21 0%,#141517 18%,#0f1012 70%,#0b0b0d 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -1px 0 rgba(0,0,0,.6)}
-  .window{position:absolute;border-radius:var(--win-r);background:#000;overflow:hidden;
-    box-shadow:0 0 0 1px rgba(0,0,0,.9),0 -1px 0 1px rgba(0,0,0,.4),0 1px 0 1px rgba(255,255,255,.05)}
+  /* The device, black edition, drawn in 4K pixels times --s. After the
+     firmware's own bezel art: glossy black face in a thin metal rim, a
+     sensor notch, and the controls along the top. */
+  .device{position:absolute;--u:calc(var(--s) * 1px)}
+  .device > *{position:absolute}
+  .case{border-radius:calc(var(--u) * 96);
+    background:linear-gradient(180deg,#5b5f63 0%,#34373a 6%,#222427 50%,#17181a 94%,#3a3d40 100%);
+    box-shadow:0 calc(var(--u) * 30) calc(var(--u) * 80) rgba(0,0,0,.65)}
+  .face{border-radius:calc(var(--u) * 86);background:#000;
+    box-shadow:inset 0 calc(var(--u) * 2) calc(var(--u) * 3) rgba(0,0,0,.9)}
+  .face::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 32%,rgba(255,255,255,0) 80%,rgba(255,255,255,.025) 100%)}
+  .sensor{background:#0d0d0e;border-radius:0 0 calc(var(--u) * 10) calc(var(--u) * 10);
+    box-shadow:inset 0 calc(var(--u) * -1) 0 rgba(255,255,255,.05)}
+  .knob{border-radius:calc(var(--u) * 14) calc(var(--u) * 14) 0 0;
+    background:linear-gradient(90deg,#141517 0%,#34373b 24%,#26282b 46%,#161719 78%,#0f1011 100%)}
+  .knob::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(var(--u) * 7);border-radius:inherit;
+    background:linear-gradient(90deg,#2a2c2f,#4a4d51 30%,#2c2e31 70%,#1c1d1f)}
+  .knob.knurl{background:repeating-linear-gradient(90deg,#1a1b1d 0 calc(var(--u) * 9),#2f3135 calc(var(--u) * 9) calc(var(--u) * 14)),
+    linear-gradient(90deg,#141517,#303236 30%,#141517)}
+  .plate{border-radius:calc(var(--u) * 8);background:linear-gradient(180deg,#3b3e42,#26282b 60%,#1c1d20)}
+  .plate-base{background:linear-gradient(180deg,#141516,#0b0b0c)}
+  .button{border-radius:calc(var(--u) * 6) calc(var(--u) * 6) 0 0;background:linear-gradient(90deg,#1b1c1e,#2e3033,#18191b)}
+  .window{border-radius:calc(var(--u) * 6);overflow:hidden;background:#000}
   .window canvas{display:block;width:100%;height:100%}
   .spill{position:absolute;pointer-events:none;border-radius:50%;filter:blur(40px);opacity:.0;transition:opacity .6s ease,background .6s ease}
 
@@ -67,7 +85,14 @@
   <div class="monitor" id="monitor" aria-label="Preview of the 4K wall monitor">
     <div class="spill" id="spill"></div>
     <div class="device" id="device">
-      <div class="case"></div>
+      <div class="knob" id="knob-l"></div>
+      <div class="plate-base" id="plate-base"></div>
+      <div class="plate" id="plate"></div>
+      <div class="button" id="button"></div>
+      <div class="knob knurl" id="knob-r"></div>
+      <div class="case" id="case"></div>
+      <div class="face" id="face"></div>
+      <div class="sensor" id="sensor"></div>
       <div class="window" id="window"><canvas id="leds" role="img" aria-label="LED status bar"></canvas></div>
     </div>
   </div>
@@ -79,7 +104,7 @@
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
   </div>
-  <p class="caption" id="caption">3840 × 2160 monitor · bar 3840 × 672 (31%) · 118 × 16 LEDs at 32 px</p>
+  <p class="caption" id="caption">3840 × 2160 monitor · bar 3840 × 664 (31%) · 118 × 16 LEDs at 32 px</p>
 </section>
 
 <section class="notes">
@@ -109,8 +134,22 @@
   const SCREEN_W = 3840, SCREEN_H = 2160;
   const PITCH = 32;
   const FIELD_W = E.COLS * PITCH, FIELD_H = E.ROWS * PITCH;        // 3776 x 512
-  const RIM_X = (SCREEN_W - FIELD_W) / 2, RIM_Y = 80;              // 32, 80
-  const CASE_H = FIELD_H + RIM_Y * 2;                               // 672
+  const RIM_X = (SCREEN_W - FIELD_W) / 2, RIM_Y = 56;              // 32, 56
+  const CASE_H = FIELD_H + RIM_Y * 2;                               // 624
+  const TOP = 40;                                                   // controls stand this far above the case
+  const METAL = 10;                                                 // rim thickness
+  // [id, x, y, w, h] in 4K pixels, y measured from the top of the case
+  const PARTS = [
+    ['knob-l', 330, -TOP, 360, TOP + 6],
+    ['plate-base', 1330, -TOP + 18, 1180, TOP - 12],
+    ['plate', 1290, -TOP, 1260, 26],
+    ['button', 3050, -18, 70, 24],
+    ['knob-r', 3150, -TOP, 360, TOP + 6],
+    ['case', 0, 0, SCREEN_W, CASE_H],
+    ['face', METAL, METAL, SCREEN_W - METAL * 2, CASE_H - METAL * 2],
+    ['sensor', SCREEN_W / 2 - 90, METAL, 180, 18],
+    ['window', RIM_X, RIM_Y, FIELD_W, FIELD_H]
+  ];
 
   const monitor = document.getElementById('monitor');
   const device = document.getElementById('device');
@@ -128,12 +167,14 @@
     const s = Math.min(availW / SCREEN_W, availH / SCREEN_H);
     const mw = SCREEN_W * s, mh = SCREEN_H * s;
     if (!full) { monitor.style.width = mw + 'px'; monitor.style.height = mh + 'px'; }
-    const top = ((full ? innerHeight : mh) - CASE_H * s) / 2;
+    const top = ((full ? innerHeight : mh) - CASE_H * s) / 2 + TOP * s / 2;
     const left = ((full ? innerWidth : mw) - SCREEN_W * s) / 2;
     Object.assign(device.style, { top: top + 'px', left: left + 'px', width: SCREEN_W * s + 'px', height: CASE_H * s + 'px' });
-    device.style.setProperty('--case-r', 40 * s + 'px');
-    device.style.setProperty('--win-r', 10 * s + 'px');
-    Object.assign(win.style, { left: RIM_X * s + 'px', top: RIM_Y * s + 'px', width: FIELD_W * s + 'px', height: FIELD_H * s + 'px' });
+    device.style.setProperty('--s', s);
+    for (const [id, x, y, w, h] of PARTS) {
+      Object.assign(document.getElementById(id).style,
+        { left: x * s + 'px', top: y * s + 'px', width: w * s + 'px', height: h * s + 'px' });
+    }
     Object.assign(spill.style, { left: left + SCREEN_W * s * 0.1 + 'px', width: SCREEN_W * s * 0.8 + 'px',
       top: top - CASE_H * s * 0.2 + 'px', height: CASE_H * s * 1.4 + 'px' });
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -172,7 +213,7 @@
     const t = now();
     if (mode === 'auto' && t - lastFlip > 12) { lastFlip = t; setState(state === 'call' ? 'free' : 'call'); }
     const d = new Date();
-    const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds() };
+    const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds(), dow: d.getDay(), date: d.getDate() };
     // with reduced motion, skip straight to the settled screen
     const s = reduced ? since - 60 : since;
     E.render(frame, reduced ? Math.floor(t) : t, state, prev, s, clock);
