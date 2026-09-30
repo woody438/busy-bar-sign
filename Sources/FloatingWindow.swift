@@ -8,7 +8,7 @@ import SwiftUI
 /// It's a non-activating panel, so dragging it never takes focus from the
 /// call you're on.
 @MainActor
-final class FloatingWindow: NSObject, ObservableObject {
+final class FloatingWindow: NSObject, ObservableObject, NSMenuDelegate {
 
     enum Size: String, CaseIterable, Identifiable {
         case small, medium, large
@@ -81,14 +81,16 @@ final class FloatingWindow: NSObject, ObservableObject {
         p.isReleasedWhenClosed = false
 
         // The bar, with a transparent surface over it that handles the mouse:
-        // drag to move, right-click for sizes.
+        // drag to move, double-click for Do Not Disturb, right-click for sizes.
         let container = NSView(frame: NSRect(origin: .zero, size: contentSize(for: size)))
         let hosting = NSHostingView(rootView: BarDisplayView(detector: detector, style: .floating))
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
         container.addSubview(hosting)
-        let surface = DragSurface(frame: container.bounds)
+        let surface = BarSurface(frame: container.bounds)
         surface.autoresizingMask = [.width, .height]
+        surface.draggable = true
+        surface.onDoubleClick = { [weak self] in self?.detector.toggleDND() }
         surface.menu = contextMenu()
         container.addSubview(surface)
         p.contentView = container
@@ -125,6 +127,12 @@ final class FloatingWindow: NSObject, ObservableObject {
 
     private func contextMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
+        let dnd = NSMenuItem(title: "Do Not Disturb", action: #selector(toggleDND(_:)), keyEquivalent: "")
+        dnd.target = self
+        dnd.tag = 1
+        menu.addItem(dnd)
+        menu.addItem(.separator())
         for s in Size.allCases {
             let item = NSMenuItem(title: s.label, action: #selector(pickSize(_:)), keyEquivalent: "")
             item.target = self
@@ -143,14 +151,16 @@ final class FloatingWindow: NSObject, ObservableObject {
     }
 
     @objc private func close(_ item: NSMenuItem) { hide() }
-}
+    @objc private func toggleDND(_ item: NSMenuItem) { detector.toggleDND() }
 
-/// Covers the floating bar and turns a drag anywhere on it into a window move.
-private final class DragSurface: NSView {
-    override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+    /// Ticks the current size and Do Not Disturb as the menu opens.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        for item in menu.items {
+            if item.tag == 1 {
+                item.title = detector.dndUntil == nil ? "Do Not Disturb (\(Int(detector.dndLength / 60)) min)" : "End Do Not Disturb"
+            } else if let raw = item.representedObject as? String {
+                item.state = raw == size.rawValue ? .on : .off
+            }
+        }
     }
-
-    /// The first click on an inactive window should drag too, not just focus it.
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

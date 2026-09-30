@@ -61,6 +61,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         showOn.submenu = screens
         menu.addItem(showOn)
 
+        let dnd = NSMenuItem(title: detector.dndUntil == nil ? detector.dndStartLabel : "End Do Not Disturb",
+                             action: #selector(toggleDND), keyEquivalent: "")
+        menu.insertItem(dnd, at: 0)
+        menu.insertItem(.separator(), at: 1)
+
         let float = NSMenuItem(title: "Floating Window", action: #selector(toggleFloating), keyEquivalent: "")
         float.state = floating.isShown ? .on : .off
         menu.addItem(float)
@@ -74,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @objc private func toggleWall() { window.wantsVisible ? window.hide() : window.show() }
     @objc private func toggleFloating() { floating.isShown ? floating.hide() : floating.show() }
     @objc private func openControls() { controls.show() }
+    @objc private func toggleDND() { detector.toggleDND() }
     @objc private func showOnScreen(_ item: NSMenuItem) {
         if let id = item.representedObject as? String { window.show(onScreenID: id) }
     }
@@ -89,8 +95,13 @@ private struct MenuBarIcon: View {
     @ObservedObject var detector: CallDetector
 
     var body: some View {
-        // the pill's own marks: a microphone on a call, a tick when free
-        Image(systemName: detector.isOnCall ? "mic.circle.fill" : "checkmark.circle")
+        // the pill's own marks: a microphone on a call, a moon for Do Not
+        // Disturb, a tick when free
+        switch detector.sign {
+        case .call: Image(systemName: "mic.circle.fill")
+        case .dnd: Image(systemName: "moon.circle.fill")
+        case .free: Image(systemName: "checkmark.circle")
+        }
     }
 }
 
@@ -101,7 +112,11 @@ private struct MenuContent: View {
     let openControls: () -> Void
 
     var body: some View {
-        Text(detector.isOnCall ? "On a call" : "Free")
+        switch detector.sign {
+        case .call: Text("On a call")
+        case .dnd: Text(detector.dndStatus() ?? "Do Not Disturb")
+        case .free: Text("Free")
+        }
         Text(detector.detection.sourceLine)
         if window.waitingForScreen {
             Text("Waiting for the wall display to reconnect")
@@ -118,6 +133,14 @@ private struct MenuContent: View {
             ForEach(DetectionPolicy.allCases) { Text($0.label).tag($0) }
         }
         microphone
+
+        Divider()
+
+        if detector.dndUntil == nil {
+            Button(detector.dndStartLabel) { detector.startDND() }
+        } else {
+            Button("End Do Not Disturb") { detector.endDND() }
+        }
 
         Divider()
 

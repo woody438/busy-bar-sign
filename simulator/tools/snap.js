@@ -19,7 +19,7 @@ ts.forEach((tStr, i) => {
   const t = parseFloat(tStr);
   const f = new E.Frame();
   const since = 1000, now = since + t;
-  E.render(f, now, state, prev, since, { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 });
+  E.render(f, now, state, prev, since, { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 }, { left: 1799.4, h: 15, m: 2 });
   const oy = i * (E.ROWS * S + GAP);
   for (let y = 0; y < E.ROWS; y++) for (let x = 0; x < E.COLS; x++) {
     let [r, g, b] = f.get(x, y);

@@ -64,9 +64,9 @@ struct ControlsView: View {
             Section {
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(detector.isOnCall ? Color.red : Color.green)
+                        .fill(signColour)
                         .frame(width: 12, height: 12)
-                    Text(detector.isOnCall ? "On a call" : "Free")
+                    Text(signName)
                         .font(.headline)
                 }
                 Text(detector.detection.sourceLine)
@@ -77,6 +77,21 @@ struct ControlsView: View {
                     Label("The display is in a scaled mode, so the LEDs may shimmer (see README)",
                           systemImage: "exclamationmark.triangle")
                 }
+            }
+
+            Section("Do Not Disturb") {
+                if detector.dndUntil == nil {
+                    Button(detector.dndStartLabel) { detector.startDND() }
+                } else {
+                    // ticks over once a second
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(detector.dndStatus(at: context.date) ?? "")
+                    }
+                    Button("End Do Not Disturb") { detector.endDND() }
+                }
+                Text("Or double-click the bar, full-screen or floating: once to start, again to end. A call still shows ON A CALL; when it ends, the bar goes back to Do Not Disturb for whatever time is left.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Full-screen display") {
@@ -118,7 +133,7 @@ struct ControlsView: View {
             }
 
             Section {
-                Text("These controls are also in the menu-bar icon (a tick, or a microphone during a call) and in the Dock icon's right-click menu. Reopen this window by clicking the Dock icon.")
+                Text("These controls are also in the menu-bar icon (a tick; a microphone during a call; a moon for Do Not Disturb) and in the Dock icon's right-click menu. Reopen this window by clicking the Dock icon.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -128,6 +143,22 @@ struct ControlsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             screens = NSScreen.screens
+        }
+    }
+
+    private var signName: String {
+        switch detector.sign {
+        case .call: return "On a call"
+        case .dnd: return "Do Not Disturb"
+        case .free: return "Free"
+        }
+    }
+
+    private var signColour: Color {
+        switch detector.sign {
+        case .call: return .red
+        case .dnd: return .indigo
+        case .free: return .green
         }
     }
 

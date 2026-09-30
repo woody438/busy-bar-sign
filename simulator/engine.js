@@ -29,6 +29,17 @@
       shadow:    hex(0x4A0006),   // text drop shadow on the lit pill
       flood:     hex(0xBC2525)    // the colour the shockwave floods to
     },
+    // Do Not Disturb: indigo, the colour macOS gives Focus and Do Not
+    // Disturb, on the same vertical profile as the firmware's pills
+    dnd: {
+      highlight: hex(0xB0A8FF),
+      top:       hex(0x5B45FF),
+      bottom:    hex(0x1D1370),
+      rimBottom: hex(0x2C237E),
+      edge:      hex(0x8A80E8),
+      shadow:    hex(0x110A48),
+      flood:     hex(0x4A3DC4)
+    },
     free: {
       highlight: hex(0x8FFFC4),
       top:       hex(0x17EB79),
@@ -263,12 +274,19 @@
     slideIn: 40                    // the time slides in from 40 LEDs right
   };
 
-  const WORDS = { call: 'ON A CALL', free: 'FREE' };
+  const WORDS = { call: 'ON A CALL', free: 'FREE', dnd: 'DND' };
+  /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
+     set in the status face across the whole bar. */
+  const HERO = {
+    call: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    free: { word: 'FREE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined }
+  };
   const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   /* Pictograms, drawn in the firmware's style: white, hard shadow. The mic
      echoes the firmware's on_call theme; the tick is the "available" mark
-     every meeting app uses. Rows top to bottom; bottom row sits on the
+     every meeting app uses; the moon is Do Not Disturb's, as on the Mac. Rows top to bottom; bottom row sits on the
      status baseline. */
   const ICONS = {
     call: [
@@ -285,6 +303,20 @@
       '....#....',
       '..#####..'
     ],
+    dnd: [
+      '....#.......',
+      '..###.......',
+      '.###........',
+      '.###........',
+      '#####.......',
+      '#####.......',
+      '######......',
+      '#######....#',
+      '.##########.',
+      '.##########.',
+      '..########..',
+      '....####....'
+    ],
     free: [
       '........##',
       '.......###',
@@ -296,16 +328,16 @@
       '..##......'
     ]
   };
-  const ICON_LIFT = { call: -1, free: 1 };   // rows above the baseline for the icon's bottom row
+  const ICON_LIFT = { call: -1, free: 1, dnd: -1 };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
      twice the scale: a two-step shadow, and word spaces trimmed to match. */
-  const HERO_SPACE = 6;
-  function heroStyle(pal, alpha) {
+  function heroStyle(state, pal, alpha) {
     const a = alpha === undefined ? 1 : alpha;
-    return { shadow: pal.shadow, shadowDepth: 2, space: HERO_SPACE, alpha: a, shadowAlpha: 0.9 * a };
+    const h = HERO[state];
+    return { shadow: pal.shadow, shadowDepth: h.depth, space: h.space, alpha: a, shadowAlpha: 0.9 * a };
   }
-  function heroWidth(state) { return textWidth(LAYOUT.heroFont, WORDS[state], 0, HERO_SPACE); }
+  function heroWidth(state) { return textWidth(HERO[state].font, HERO[state].word, 0, HERO[state].space); }
 
   function drawIcon(f, rows, x, bottomY, colour, shadow, alpha, clip) {
     const h = rows.length;
@@ -357,8 +389,10 @@
    *   state — 'call' | 'free';  prev — the state before it (or null)
    *   since — `now` at which `state` began
    *   clock — { h, m, s, ms, dow, date } wall-clock time to show
+   *   timer — Do Not Disturb's countdown, { left: seconds, h, m } (the end
+   *           time), shown in place of the clock while the state is 'dnd'
    */
-  function render(f, now, state, prev, since, clock) {
+  function render(f, now, state, prev, since, clock, timer) {
     f.px.fill(0);
     const pal = PALETTE[state];
     const e = now - since;
@@ -368,7 +402,7 @@
     if (e < T.swap) {
       // the old screen, pressed down as the wave hits it
       if (prev) {
-        drawSteady(f, now, prev, clock, 0);
+        drawSteady(f, now, prev, clock, timer, 0);
         shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
       }
     } else if (e < collapseStart) {
@@ -388,16 +422,16 @@
       const clip = [LAYOUT.heroX + 1, Math.floor(edge) - 1];
       if (out > 0) {
         const hw = heroWidth(state);
-        drawText(f, LAYOUT.heroFont, WORDS[state], LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
-          LAYOUT.heroBase, PALETTE.white, Object.assign(heroStyle(pal, out), { clip: clip }));
+        drawText(f, HERO[state].font, HERO[state].word, LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
+          HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
       }
       if (inn > 0) drawStatusContent(f, state, pal, LAYOUT.heroX, w, inn, clip);
       // the time slides in from the right as the pill makes room, as the
       // firmware's timer label does
       const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
-      drawClock(f, clock, slide, Math.ceil(edge) + 2);
+      drawRight(f, state, clock, timer, slide, Math.ceil(edge) + 2);
     } else {
-      drawSteady(f, now, state, clock, 0);
+      drawSteady(f, now, state, clock, timer, 0);
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
@@ -413,15 +447,21 @@
   function drawHero(f, now, state, pal) {
     drawPill(f, LAYOUT.heroX, LAYOUT.heroW, pal, { sheen: sheenAt(now) });
     const w = heroWidth(state);
-    drawText(f, LAYOUT.heroFont, WORDS[state], LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
-      LAYOUT.heroBase, PALETTE.white, heroStyle(pal));
+    drawText(f, HERO[state].font, HERO[state].word, LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
+      HERO[state].base, PALETTE.white, heroStyle(state, pal));
   }
 
-  function drawSteady(f, now, state, clock, slide) {
+  function drawSteady(f, now, state, clock, timer, slide) {
     const pal = PALETTE[state];
     drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now) });
     drawStatusContent(f, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
-    drawClock(f, clock, slide, 0);
+    drawRight(f, state, clock, timer, slide, 0);
+  }
+
+  /* Right of the pill: the clock, or Do Not Disturb's countdown. */
+  function drawRight(f, state, clock, timer, slide, minX) {
+    if (state === 'dnd' && timer) drawCountdown(f, clock, timer, slide, minX);
+    else drawClock(f, clock, slide, minX);
   }
 
   /* Tabular digits: every digit takes the widest digit's advance, so the
@@ -472,6 +512,27 @@
     drawClockText(f, LAYOUT.timeFont, hhmm, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
       PALETTE.white, { clip: clip }, colon);
     drawText(f, LAYOUT.dateFont, day, x0 + Math.round((LAYOUT.clockW - dw) / 2), LAYOUT.dateBase,
+      PALETTE.white, { alpha: 0.5, clip: clip });
+  }
+
+  /*
+   * Do Not Disturb's countdown, in the clock's place and face — the
+   * firmware's timer screen — with its end time beneath at half brightness.
+   * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
+   */
+  function drawCountdown(f, clock, timer, slide, minX) {
+    const pad = (n) => (n < 10 ? '0' : '') + n;
+    const secs = Math.min(Math.max(Math.ceil(timer.left - 1e-9), 0), 99 * 60 + 59);
+    const mmss = pad(Math.floor(secs / 60)) + ':' + pad(secs % 60);
+    const until = 'TILL ' + pad(timer.h) + ':' + pad(timer.m);
+    const tw = clockTextWidth(LAYOUT.timeFont, mmss);
+    const uw = textWidth(LAYOUT.dateFont, until);
+    const x0 = LAYOUT.clockX + slide;
+    const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
+    const colon = clock.s % 2 === 1 ? 0.4 : 1;
+    drawClockText(f, LAYOUT.timeFont, mmss, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
+      PALETTE.white, { clip: clip }, colon);
+    drawText(f, LAYOUT.dateFont, until, x0 + Math.round((LAYOUT.clockW - uw) / 2), LAYOUT.dateBase,
       PALETTE.white, { alpha: 0.5, clip: clip });
   }
 

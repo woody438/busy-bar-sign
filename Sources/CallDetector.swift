@@ -128,8 +128,16 @@ struct Detection: Equatable {
     }
 }
 
+/// What the sign shows. A call outranks Do Not Disturb, which carries on
+/// underneath it: when the call ends the sign goes back to Do Not Disturb
+/// with whatever time is left, or to FREE if it ran out meanwhile.
+enum Sign: Equatable {
+    case call, dnd, free
+}
+
 /// Polls the audio and camera state once a second and debounces it into a
-/// stable on/off the wall can be trusted to show.
+/// stable on/off the wall can be trusted to show. Also keeps the Do Not
+/// Disturb timer.
 @MainActor
 final class CallDetector: ObservableObject {
 
@@ -139,6 +147,13 @@ final class CallDetector: ObservableObject {
 
     @Published var override: Override = .auto { didSet { evaluate(force: true) } }
     @Published var policy: DetectionPolicy = .anyExceptIgnored { didSet { evaluate() } }
+
+    /// When Do Not Disturb ends, or nil when it's off. Kept across relaunches.
+    @Published private(set) var dndUntil: Date? = CallDetector.savedDND()
+    /// How long Do Not Disturb lasts when it's turned on.
+    var dndLength: TimeInterval = 30 * 60
+
+    var sign: Sign { isOnCall ? .call : (dndUntil != nil ? .dnd : .free) }
 
     /// Apps the user has told us to ignore from the menu, by bundle ID.
     @Published private(set) var userIgnored: Set<String> =
@@ -172,6 +187,34 @@ final class CallDetector: ObservableObject {
 
     func stop() { timer?.invalidate(); timer = nil }
 
+    /// Do Not Disturb for `dndLength` from now.
+    func startDND() { setDND(Date().addingTimeInterval(dndLength)) }
+    /// Back to FREE (or ON A CALL, if a call is on).
+    func endDND() { setDND(nil) }
+    /// What a double-click on the bar does: on if it's off, off if it's on.
+    func toggleDND() { dndUntil == nil ? startDND() : endDND() }
+
+    /// "Do Not Disturb (30 min)", for a menu item that turns it on.
+    var dndStartLabel: String { "Do Not Disturb (\(Int(dndLength / 60)) min)" }
+
+    /// "Do Not Disturb · 23 min left, until 14:32", or nil when it's off.
+    func dndStatus(at now: Date = Date()) -> String? {
+        guard let until = dndUntil else { return nil }
+        let minutes = max(Int((until.timeIntervalSince(now) / 60).rounded(.up)), 0)
+        let end = DateFormatter.localizedString(from: until, dateStyle: .none, timeStyle: .short)
+        return "Do Not Disturb · \(minutes) min left, until \(end)"
+    }
+
+    private func setDND(_ until: Date?) {
+        if dndUntil != until { dndUntil = until }
+        UserDefaults.standard.set(until, forKey: "dndUntil")
+    }
+
+    private static func savedDND() -> Date? {
+        guard let until = UserDefaults.standard.object(forKey: "dndUntil") as? Date, until > Date() else { return nil }
+        return until
+    }
+
     func setIgnored(_ bundleID: String, _ ignored: Bool) {
         if ignored { userIgnored.insert(bundleID) } else { userIgnored.remove(bundleID) }
         UserDefaults.standard.set(Array(userIgnored).sorted(), forKey: "ignoredBundleIDs")
@@ -179,6 +222,8 @@ final class CallDetector: ObservableObject {
     }
 
     private func evaluate(force: Bool = false) {
+        if let until = dndUntil, Date() >= until { setDND(nil) }       // time's up
+
         let raw = sample()
         if detection != raw { detection = raw }
 

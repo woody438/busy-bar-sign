@@ -119,6 +119,7 @@
     <button class="chip" id="b-auto" aria-pressed="true">Auto demo</button>
     <button class="chip" id="b-call" aria-pressed="false">On a call</button>
     <button class="chip" id="b-free" aria-pressed="false">Free</button>
+    <button class="chip" id="b-dnd" aria-pressed="false">Do not disturb</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-float" aria-pressed="false">Floating window</button>
     <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
@@ -229,12 +230,16 @@
   const now = () => performance.now() / 1000;
   let state = 'call', prev = null, since = now();
   let mode = 'auto', lastFlip = now();
-  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free' };
+  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd' };
+  const SPILL = { call: '#ff1d35', free: '#17eb79', dnd: '#5b45ff' };
+  const DND_MS = 30 * 60 * 1000;
+  let dndUntil = Date.now() + DND_MS;              // wall-clock end of Do Not Disturb
 
   function setState(next) {
     if (next === state) return;
+    if (next === 'dnd' && state !== 'dnd') dndUntil = Date.now() + DND_MS;
     prev = state; state = next; since = now();
-    spill.style.background = next === 'call' ? '#ff1d35' : '#17eb79';
+    spill.style.background = SPILL[next];
   }
   function setMode(m) {
     mode = m; lastFlip = now();
@@ -244,6 +249,9 @@
   document.getElementById('b-auto').onclick = () => setMode('auto');
   document.getElementById('b-call').onclick = () => setMode('call');
   document.getElementById('b-free').onclick = () => setMode('free');
+  document.getElementById('b-dnd').onclick = () => setMode('dnd');
+  // as in the app: double-click the bar for Do Not Disturb, again to end it
+  monitor.addEventListener('dblclick', () => setMode(state === 'dnd' ? 'free' : 'dnd'));
   document.getElementById('b-again').onclick = () => { prev = state === 'call' ? 'free' : 'call'; since = now(); lastFlip = now(); };
   const fbtn = document.getElementById('b-float');
   fbtn.setAttribute('aria-pressed', String(floating));
@@ -256,12 +264,18 @@
   // --- loop -------------------------------------------------------------
   function tick() {
     const t = now();
-    if (mode === 'auto' && t - lastFlip > 12) { lastFlip = t; setState(state === 'call' ? 'free' : 'call'); }
+    if (mode === 'auto' && t - lastFlip > 12) {
+      lastFlip = t;
+      setState({ call: 'free', free: 'dnd', dnd: 'call' }[state]);
+    }
     const d = new Date();
     const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds(), dow: d.getDay(), date: d.getDate() };
     // with reduced motion, skip straight to the settled screen
     const s = reduced ? since - 60 : since;
-    E.render(frame, reduced ? Math.floor(t) : t, state, prev, s, clock);
+    const end = new Date(dndUntil);
+    const timer = { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() };
+    if (state === 'dnd' && timer.left <= 0) setMode('free');
+    E.render(frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
     painter.paint(frame);
     spill.style.opacity = '.12';
     requestAnimationFrame(tick);

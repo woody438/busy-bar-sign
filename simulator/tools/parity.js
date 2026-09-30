@@ -16,8 +16,11 @@ const CASES = [
   ['call', 'free', 0.5], ['call', 'free', 2.0], ['call', 'free', 3.6], ['call', 'free', 3.75],
   ['call', 'free', 3.9], ['call', 'free', 4.05], ['call', 'free', 9.0],
   ['free', 'call', 0.05], ['free', 'call', 0.3], ['free', 'call', 3.8], ['free', 'call', 9.0],
-  ['call', null, 0.02], ['call', null, 0.4]
+  ['call', null, 0.02], ['call', null, 0.4],
+  ['dnd', 'free', 0.03], ['dnd', 'free', 0.5], ['dnd', 'free', 3.8], ['dnd', 'free', 9.0],
+  ['call', 'dnd', 0.05], ['free', 'dnd', 0.05], ['dnd', 'call', 3.75], ['dnd', null, 0.4]
 ];
+const timer = { left: 1234.4, h: 15, m: 2 };
 const clock = { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 };
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -27,7 +30,7 @@ if (buf.length !== CASES.length * n * 8) { console.error('size mismatch', buf.le
 let worst = 0, failed = 0;
 CASES.forEach(([state, prev, e], i) => {
   const f = new E.Frame();
-  E.render(f, 1000 + e, state, prev, 1000, clock);
+  E.render(f, 1000 + e, state, prev, 1000, clock, timer);
   let maxd = 0, at = -1, bad = 0;
   for (let j = 0; j < n; j++) {
     const s = buf.readDoubleLE((i * n + j) * 8);

@@ -8,12 +8,13 @@ final class BarModel: ObservableObject {
     @Published private(set) var state: BarState = .free
     private(set) var prev: BarState?
     private(set) var since: CFTimeInterval = CACurrentMediaTime()
+    /// When Do Not Disturb ends, for its countdown.
+    var dndUntil: Date?
     private var hasReading = false
 
     /// The first reading sets the state without a transition, so the app
     /// opens with its announcement rather than a flash from the wrong colour.
-    func update(onCall: Bool) {
-        let next: BarState = onCall ? .call : .free
+    func update(_ next: BarState) {
         guard hasReading else {
             hasReading = true
             state = next
@@ -147,8 +148,14 @@ final class LEDPanelNSView: NSView {
         if raster == nil { raster = LEDRaster(pitch: pitchPixels) }
         guard let raster else { return }
 
+        let date = Date()
+        var timer: DNDTimer?
+        if let until = model.dndUntil {
+            let end = Calendar.current.dateComponents([.hour, .minute], from: until)
+            timer = DNDTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
+        }
         BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
-                         prev: model.prev, since: model.since, clock: ClockReading(Date()))
+                         prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
         raster.render(frameBuffer)
 
         let panel = image(from: UnsafeRawBufferPointer(raster.pixels), width: raster.width,

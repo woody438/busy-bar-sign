@@ -50,11 +50,24 @@ struct BarDisplayView: View {
         }
         .background(style == .wall ? Color.black : Color.clear)
         .ignoresSafeArea()
-        .onAppear { bar.update(onCall: detector.isOnCall) }
-        .onChange(of: detector.isOnCall) { _, onCall in bar.update(onCall: onCall) }
+        .onAppear { show(detector.sign, until: detector.dndUntil) }
+        .onChange(of: detector.sign) { _, sign in show(sign, until: detector.dndUntil) }
+        .onChange(of: detector.dndUntil) { _, until in show(detector.sign, until: until) }
         .onReceive(driftTimer) { _ in
             let px = { CGFloat(Int.random(in: -3...3)) / max(displayScale, 1) }
             drift = CGSize(width: px(), height: px())
+        }
+    }
+}
+
+extension BarDisplayView {
+    private func show(_ sign: Sign, until: Date?) {
+        // an ended Do Not Disturb keeps its last countdown for the change animation
+        if let until { bar.dndUntil = until }
+        switch sign {
+        case .call: bar.update(.call)
+        case .dnd: bar.update(.dnd)
+        case .free: bar.update(.free)
         }
     }
 }
@@ -67,13 +80,20 @@ private struct Spill: View {
     var body: some View {
         let r = g.rect(384, -125, 3072, 874)
         Ellipse()
-            .fill(state == .call ? Color(red: 1, green: 0.114, blue: 0.208)
-                                 : Color(red: 0.090, green: 0.922, blue: 0.475))
+            .fill(colour)
             .frame(width: r.width, height: r.height)
             .blur(radius: 100 * g.u)
             .opacity(0.12)
             .offset(x: r.minX, y: r.minY)
             .animation(.easeInOut(duration: 0.6), value: state)
+    }
+
+    private var colour: Color {
+        switch state {
+        case .call: return Color(red: 1, green: 0.114, blue: 0.208)
+        case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
+        case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
+        }
     }
 }
 

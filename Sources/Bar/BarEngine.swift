@@ -22,12 +22,13 @@ extension SIMD3 where Scalar == Double {
 }
 
 enum BarState: String {
-    case call, free
+    case call, free, dnd
 
     var word: String {
         switch self {
         case .call: return "ON A CALL"
         case .free: return "FREE"
+        case .dnd: return "DND"
         }
     }
 }
@@ -47,12 +48,25 @@ struct BarPalette {
         rimBottom: RGB(hex: 0x7C191B), edge: RGB(hex: 0xD14C58), shadow: RGB(hex: 0x4A0006),
         flood: RGB(hex: 0xBC2525))
 
+    /// Do Not Disturb: indigo, the colour macOS gives Focus and Do Not
+    /// Disturb, on the same vertical profile as the firmware's pills.
+    static let dnd = BarPalette(
+        highlight: RGB(hex: 0xB0A8FF), top: RGB(hex: 0x5B45FF), bottom: RGB(hex: 0x1D1370),
+        rimBottom: RGB(hex: 0x2C237E), edge: RGB(hex: 0x8A80E8), shadow: RGB(hex: 0x110A48),
+        flood: RGB(hex: 0x4A3DC4))
+
     static let free = BarPalette(
         highlight: RGB(hex: 0x8FFFC4), top: RGB(hex: 0x17EB79), bottom: RGB(hex: 0x03603F),
         rimBottom: RGB(hex: 0x0D7B55), edge: RGB(hex: 0x5CD69A), shadow: RGB(hex: 0x013A24),
         flood: RGB(hex: 0x2A9E63))
 
-    static func of(_ state: BarState) -> BarPalette { state == .call ? call : free }
+    static func of(_ state: BarState) -> BarPalette {
+        switch state {
+        case .call: return call
+        case .free: return free
+        case .dnd: return dnd
+        }
+    }
 }
 
 // MARK: - Maths
@@ -145,6 +159,12 @@ struct ClockReading {
     }
 }
 
+/// Do Not Disturb's countdown: seconds left, and the end time (hour, minute).
+struct DNDTimer {
+    let left: Double
+    let h: Int, m: Int
+}
+
 struct Sheen { let pos: Double; let width: Double; let strength: Double }
 
 struct TextStyle {
@@ -204,7 +224,8 @@ enum BarEngine {
 
     /// Pictograms, drawn in the firmware's style: white, hard shadow. The mic
     /// echoes the firmware's on_call theme; the tick is the "available" mark
-    /// every meeting app uses. Rows top to bottom.
+    /// every meeting app uses; the moon is Do Not Disturb's, as on the Mac.
+    /// Rows top to bottom.
     static let icons: [BarState: [String]] = [
         .call: [
             "...###...",
@@ -220,6 +241,20 @@ enum BarEngine {
             "....#....",
             "..#####.."
         ],
+        .dnd: [
+            "....#.......",
+            "..###.......",
+            ".###........",
+            ".###........",
+            "#####.......",
+            "#####.......",
+            "######......",
+            "#######....#",
+            ".##########.",
+            ".##########.",
+            "..########..",
+            "....####...."
+        ],
         .free: [
             "........##",
             ".......###",
@@ -232,11 +267,22 @@ enum BarEngine {
         ]
     ]
     /// Rows above the baseline for the icon's bottom row.
-    static let iconLift: [BarState: Int] = [.call: -1, .free: 1]
+    static let iconLift: [BarState: Int] = [.call: -1, .free: 1, .dnd: -1]
 
-    /// busy_regular_14 is busy_regular_7 doubled, so everything about it is at
-    /// twice the scale: a two-step shadow, and word spaces trimmed to match.
-    static let heroSpace = 6
+    /// The announcement. busy_regular_14 is busy_regular_7 doubled, so
+    /// everything about it is at twice the scale: a two-step shadow, and word
+    /// spaces trimmed to match. DO NOT DISTURB is too wide for it, so it's set
+    /// in the status face across the whole bar.
+    struct Hero {
+        let word: String, font: String, base: Int, depth: Int, space: Int?
+    }
+    static func hero(_ state: BarState) -> Hero {
+        switch state {
+        case .call: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .free: return Hero(word: "FREE", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .dnd: return Hero(word: "DO NOT DISTURB", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        }
+    }
 
     /// Deterministic hash to 0...1. Matches engine.js bit for bit.
     static func hash(_ n: Int) -> Double {
@@ -255,9 +301,11 @@ enum BarEngine {
      *   state — current state;  prev — the one before it, if any
      *   since — `now` at which `state` began
      *   clock — the wall-clock time to show
+     *   timer — Do Not Disturb's countdown, shown in place of the clock
+     *           while the state is .dnd
      */
     static func render(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                       since: Double, clock: ClockReading) {
+                       since: Double, clock: ClockReading, timer: DNDTimer? = nil) {
         f.clear()
         let pal = BarPalette.of(state)
         let e = now - since
@@ -267,7 +315,7 @@ enum BarEngine {
         if e < Timing.swap {
             // the old screen, pressed down as the wave hits it
             if let prev {
-                drawSteady(&f, now: now, state: prev, clock: clock, slide: 0)
+                drawSteady(&f, now: now, state: prev, clock: clock, timer: timer, slide: 0)
                 shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
             }
         } else if e < collapseStart {
@@ -287,11 +335,12 @@ enum BarEngine {
             let clip = (lo: Int(Layout.heroX) + 1, hi: Int(edge.rounded(.down)) - 1)
             if fadeOut > 0 {
                 let hw = Double(heroWidth(state))
-                var style = heroStyle(pal, alpha: fadeOut)
+                var style = heroStyle(state, pal, alpha: fadeOut)
                 style.clip = clip
-                drawText(&f, font: Layout.heroFont, state.word,
+                let h = hero(state)
+                drawText(&f, font: h.font, h.word,
                          x: Layout.heroX + (max(w, hw + 6) - hw) / 2 + 0.5,
-                         baseY: Layout.heroBase, colour: white, style: style)
+                         baseY: h.base, colour: white, style: style)
             }
             if fadeIn > 0 {
                 drawStatusContent(&f, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
@@ -299,9 +348,9 @@ enum BarEngine {
             // the time slides in from the right as the pill makes room, as the
             // firmware's timer label does
             let slide = jsRound(Layout.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
-            drawClock(&f, clock: clock, slide: slide, minX: Int(edge.rounded(.up)) + 2)
+            drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: Int(edge.rounded(.up)) + 2)
         } else {
-            drawSteady(&f, now: now, state: state, clock: clock, slide: 0)
+            drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0)
         }
 
         if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
@@ -325,26 +374,40 @@ enum BarEngine {
         return Sheen(pos: pos, width: 6, strength: 0.18)
     }
 
-    static func heroStyle(_ pal: BarPalette, alpha: Double = 1) -> TextStyle {
-        TextStyle(shadow: pal.shadow, shadowDepth: 2, shadowAlpha: 0.9 * alpha, alpha: alpha, space: heroSpace)
+    static func heroStyle(_ state: BarState, _ pal: BarPalette, alpha: Double = 1) -> TextStyle {
+        let h = hero(state)
+        return TextStyle(shadow: pal.shadow, shadowDepth: h.depth, shadowAlpha: 0.9 * alpha, alpha: alpha, space: h.space)
     }
 
     static func heroWidth(_ state: BarState) -> Int {
-        textWidth(Layout.heroFont, state.word, space: heroSpace)
+        let h = hero(state)
+        return textWidth(h.font, h.word, space: h.space)
     }
 
     static func drawHero(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette) {
         drawPill(&f, x0: Layout.heroX, w: Layout.heroW, pal: pal, sheen: sheenAt(now))
         let w = Double(heroWidth(state))
-        drawText(&f, font: Layout.heroFont, state.word, x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
-                 baseY: Layout.heroBase, colour: white, style: heroStyle(pal))
+        let h = hero(state)
+        drawText(&f, font: h.font, h.word, x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
+                 baseY: h.base, colour: white, style: heroStyle(state, pal))
     }
 
-    static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading, slide: Int) {
+    static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
+                           timer: DNDTimer?, slide: Int) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now))
         drawStatusContent(&f, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
-        drawClock(&f, clock: clock, slide: slide, minX: 0)
+        drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
+    }
+
+    /// Right of the pill: the clock, or Do Not Disturb's countdown.
+    static func drawRight(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: DNDTimer?,
+                          slide: Int, minX: Int) {
+        if state == .dnd, let timer {
+            drawCountdown(&f, clock: clock, timer: timer, slide: slide, minX: minX)
+        } else {
+            drawClock(&f, clock: clock, slide: slide, minX: minX)
+        }
     }
 
     // MARK: Status
@@ -399,6 +462,26 @@ enum BarEngine {
         drawClockText(&f, font: Layout.timeFont, hhmm, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
                       baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
         drawText(&f, font: Layout.dateFont, day, x: Double(x0 + jsRound(Double(Layout.clockW - dw) / 2)),
+                 baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
+    }
+
+    /*
+     * Do Not Disturb's countdown, in the clock's place and face — the
+     * firmware's timer screen — with its end time beneath at half brightness.
+     * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
+     */
+    static func drawCountdown(_ f: inout LEDFrame, clock: ClockReading, timer: DNDTimer, slide: Int, minX: Int) {
+        let secs = min(max(Int((timer.left - 1e-9).rounded(.up)), 0), 99 * 60 + 59)
+        let mmss = String(format: "%02d:%02d", secs / 60, secs % 60)
+        let until = String(format: "TILL %02d:%02d", timer.h, timer.m)
+        let tw = clockTextWidth(Layout.timeFont, mmss)
+        let uw = textWidth(Layout.dateFont, until)
+        let x0 = Layout.clockX + slide
+        let clip = (lo: max(minX, Layout.clockX - 3), hi: cols)
+        let colon = clock.s % 2 == 1 ? 0.4 : 1.0
+        drawClockText(&f, font: Layout.timeFont, mmss, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
+                      baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
+        drawText(&f, font: Layout.dateFont, until, x: Double(x0 + jsRound(Double(Layout.clockW - uw) / 2)),
                  baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
     }
 

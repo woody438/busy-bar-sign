@@ -10,8 +10,8 @@ import SwiftUI
 ///   nothing covers the sign while another app is in front.
 /// - Only an explicit "Show on" or launch brings the app forward. Screen
 ///   changes never take focus, or cover what you're working on.
-/// - It ignores the mouse, so a stray click on the wall can't take focus
-///   from a call.
+/// - It's a non-activating panel, so clicking it never takes focus from a
+///   call. A double-click toggles Do Not Disturb; single clicks do nothing.
 @MainActor
 final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
 
@@ -100,13 +100,23 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
     private func place(on target: NSScreen, bringForward: Bool) {
         if window == nil {
             let hosting = NSHostingView(rootView: BarDisplayView(detector: detector))
-            let w = NSWindow(contentRect: target.frame, styleMask: [.borderless], backing: .buffered, defer: false)
-            w.contentView = hosting
+            let w = NSPanel(contentRect: target.frame, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+            w.hidesOnDeactivate = false          // panels hide when their app isn't frontmost by default
+            w.becomesKeyOnlyIfNeeded = true
+            let container = NSView(frame: NSRect(origin: .zero, size: target.frame.size))
+            hosting.frame = container.bounds
+            hosting.autoresizingMask = [.width, .height]
+            container.addSubview(hosting)
+            let surface = BarSurface(frame: container.bounds)
+            surface.autoresizingMask = [.width, .height]
+            surface.onDoubleClick = { [weak self] in self?.detector.toggleDND() }
+            container.addSubview(surface)
+            w.contentView = container
             w.backgroundColor = .black
             w.isOpaque = true
             w.hasShadow = false
             w.isReleasedWhenClosed = false
-            w.ignoresMouseEvents = true
             w.delegate = self
             window = w
         }
