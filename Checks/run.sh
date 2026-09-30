@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds the platform-independent parts of the app (engine, fonts, raster,
-# geometry) and checks them: LED-for-LED parity with the simulator, pixel
-# alignment on common displays, and frame time.
+# Builds the platform-independent parts of the app and checks them:
+# LED-for-LED parity with the simulator, pixel alignment on common displays,
+# frame time, and the call detector's decisions on a scripted afternoon.
 #
 #   Checks/run.sh                 # uses swiftc and node from PATH
 #   SWIFTC=/path/to/swiftc Checks/run.sh
@@ -24,3 +24,15 @@ echo; echo "== geometry"
 echo; echo "== frame time"
 "$SWIFTC" -O $B/BarEngine.swift $B/PixelFonts.swift $B/FontData.swift $B/LEDRaster.swift Checks/raster/main.swift -o "$OUT/raster"
 "$OUT/raster"
+
+echo; echo "== call detection (runs a scripted 40 seconds in real time)"
+LINK=()
+if ! printf 'import Combine\n' | "$SWIFTC" -typecheck - >/dev/null 2>&1; then
+  # no Combine here (Linux): build the two-name stand-in as a module
+  "$SWIFTC" -parse-as-library -emit-library -emit-module -module-name Combine \
+    Checks/detector/CombineStandIn.swift -o "$OUT/libCombine.so" -emit-module-path "$OUT/Combine.swiftmodule"
+  LINK=(-I "$OUT" -L "$OUT" -lCombine)
+  export LD_LIBRARY_PATH="$OUT${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+"$SWIFTC" "${LINK[@]}" Sources/CallDetector.swift Checks/detector/FakeProbes.swift Checks/detector/main.swift -o "$OUT/detector" 2>/dev/null
+"$OUT/detector" | tail -1

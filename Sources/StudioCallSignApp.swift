@@ -5,8 +5,10 @@ struct StudioCallSignApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra("Studio Call Sign", systemImage: delegate.detector.isOnCall ? "dot.radiowaves.left.and.right" : "circle") {
+        MenuBarExtra {
             MenuContent(detector: delegate.detector, window: delegate.window)
+        } label: {
+            MenuBarIcon(detector: delegate.detector)
         }
     }
 }
@@ -21,19 +23,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         window.show()
     }
 
+    /// Clicking the Dock icon brings the display back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        window.show()
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         detector.stop()
         window.hide()
     }
 }
 
+/// Its own view so it redraws when the call state changes.
+private struct MenuBarIcon: View {
+    @ObservedObject var detector: CallDetector
+
+    var body: some View {
+        Image(systemName: detector.isOnCall ? "dot.radiowaves.left.and.right" : "circle")
+    }
+}
+
 private struct MenuContent: View {
     @ObservedObject var detector: CallDetector
-    let window: DisplayWindow
+    @ObservedObject var window: DisplayWindow
 
     var body: some View {
         Text(detector.isOnCall ? "On a call" : "Free")
         Text(detector.detection.sourceLine)
+        if window.onScaledScreen {
+            Text("Display is in a scaled mode — the LEDs may shimmer (see README)")
+        }
 
         Divider()
 
@@ -43,6 +63,7 @@ private struct MenuContent: View {
         Picker("Detect", selection: $detector.policy) {
             ForEach(DetectionPolicy.allCases) { Text($0.label).tag($0) }
         }
+        microphone
 
         Divider()
 
@@ -58,5 +79,28 @@ private struct MenuContent: View {
 
         Button("Quit") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
+    }
+
+    /// What has the microphone right now, and a way to stop an app lighting
+    /// the sign without touching the code.
+    @ViewBuilder private var microphone: some View {
+        let holders = detector.detection.holders.filter { $0.bundleID != nil }
+        if !holders.isEmpty || !detector.userIgnored.isEmpty {
+            Menu("Microphone") {
+                ForEach(holders, id: \.self) { holder in
+                    let id = holder.bundleID ?? ""
+                    Toggle("Ignore \(holder.name)", isOn: Binding(
+                        get: { detector.userIgnored.contains(id) },
+                        set: { detector.setIgnored(id, $0) }))
+                }
+                let away = detector.userIgnored.subtracting(holders.compactMap(\.bundleID)).sorted()
+                if !away.isEmpty {
+                    Divider()
+                    ForEach(away, id: \.self) { id in
+                        Button("Stop ignoring \(id)") { detector.setIgnored(id, false) }
+                    }
+                }
+            }
+        }
     }
 }

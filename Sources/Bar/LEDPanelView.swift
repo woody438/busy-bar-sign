@@ -1,5 +1,4 @@
 import AppKit
-import CoreImage
 import QuartzCore
 import SwiftUI
 
@@ -61,6 +60,9 @@ final class LEDPanelNSView: NSView {
     private let colourSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
 
     /// The light spilling into the gaps: laid over the panel, very faintly.
+    /// Plain blending rather than additive: where the glow is bright it's the
+    /// LED's own colour, so at 7% the two look the same, and it keeps Core
+    /// Image out of the layer tree.
     private let glowStrength: Float = 0.07
 
     override init(frame frameRect: NSRect) {
@@ -69,19 +71,19 @@ final class LEDPanelNSView: NSView {
         let root = CALayer()
         root.backgroundColor = NSColor.black.cgColor
         root.masksToBounds = true
+        root.isOpaque = true
         layer = root
         wantsLayer = true
-        layerUsesCoreImageFilters = true
 
         dots.contentsGravity = .resize
         dots.magnificationFilter = .nearest
         dots.minificationFilter = .nearest
+        dots.isOpaque = true
         root.addSublayer(dots)
 
         glow.contentsGravity = .resize
         glow.magnificationFilter = .linear      // the smooth upscale is the blur
         glow.opacity = glowStrength
-        glow.compositingFilter = CIFilter(name: "CIAdditionCompositing")
         root.addSublayer(glow)
     }
 
@@ -89,11 +91,21 @@ final class LEDPanelNSView: NSView {
 
     override func layout() {
         super.layout()
+        layoutLayers()
+    }
+
+    // SwiftUI sizes the view by setting its frame; lay out then too, rather
+    // than rely on a layout pass being scheduled.
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        layoutLayers()
+    }
+
+    private func layoutLayers() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         dots.frame = bounds
-        let spread = bounds.width / CGFloat(LEDFrame.cols) * 1.2
-        glow.frame = bounds.insetBy(dx: -spread, dy: -spread)
+        glow.frame = bounds
         CATransaction.commit()
     }
 
@@ -101,10 +113,21 @@ final class LEDPanelNSView: NSView {
         super.viewDidMoveToWindow()
         link?.invalidate()
         link = nil
-        guard window != nil else { return }
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
+        guard let window else { return }
         let l = displayLink(target: self, selector: #selector(step(_:)))
+        // Nothing here moves faster than 60 fps; don't run at 120 on a ProMotion panel.
+        l.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
         l.add(to: .main, forMode: .common)
         link = l
+        NotificationCenter.default.addObserver(self, selector: #selector(occlusionChanged),
+                                               name: NSWindow.didChangeOcclusionStateNotification, object: window)
+        occlusionChanged()
+    }
+
+    /// Stop rendering while the window is hidden or its screen is away.
+    @objc private func occlusionChanged() {
+        link?.isPaused = !(window?.occlusionState.contains(.visible) ?? false)
     }
 
     override func viewDidChangeBackingProperties() {

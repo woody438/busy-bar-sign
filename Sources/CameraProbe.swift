@@ -24,7 +24,8 @@ enum CameraProbe {
         var ids = [CMIOObjectID](repeating: 0, count: Int(size) / MemoryLayout<CMIOObjectID>.size)
         var used: UInt32 = 0
         guard CMIOObjectGetPropertyData(system, &addr, 0, nil, size, &used, &ids) == noErr else { return [] }
-        return ids
+        // the list can shrink between the two calls
+        return Array(ids.prefix(Int(used) / MemoryLayout<CMIOObjectID>.stride))
     }
 
     private static func isRunning(_ device: CMIOObjectID) -> Bool {

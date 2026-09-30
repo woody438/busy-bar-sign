@@ -1,37 +1,42 @@
 import AppKit
 import CoreAudio
+import Darwin
 import Foundation
 
-/// One process currently holding an audio input stream.
+/// One process currently holding an audio input stream, and the app it belongs to.
 struct MicUser: Equatable, Hashable {
     let pid: pid_t
-    let bundleID: String?
+    /// As CoreAudio reports it. Often a helper: Chrome, Slack and other
+    /// Electron apps capture audio in `<app>.helper` processes.
+    let rawBundleID: String?
+    /// The app that owns the process — the outermost .app bundle it runs from.
+    let appBundleID: String?
+    let executablePath: String?
     let name: String
 }
 
-/// Reads CoreAudio's process objects (macOS 14.4+) to find out *which*
+/// Reads CoreAudio's process objects (macOS 14.2+) to find out *which*
 /// applications have the microphone open — not merely that something does.
 ///
-/// If the process-object API returns nothing usable, callers should fall back
-/// to `anyInputRunning()`, which only reports that the default input device is
-/// live and cannot attribute it to an app.
+/// If the process-object API doesn't answer, `activeInputProcesses()` returns
+/// nil and callers fall back to `anyInputRunning()`, which only reports that
+/// the default input device is live and can't say who's using it.
 enum AudioProbe {
 
     // MARK: - Process-level (preferred)
 
-    static func activeInputProcesses() -> [MicUser] {
+    /// Processes with input running, or nil when the API isn't answering.
+    static func activeInputProcesses() -> [MicUser]? {
+        guard let objects = processObjects() else { return nil }
         var users: [MicUser] = []
-        for object in processObjects() {
+        for object in objects {
             guard boolProperty(object, kAudioProcessPropertyIsRunningInput) == true else { continue }
             let pid = int32Property(object, kAudioProcessPropertyPID) ?? -1
-            let bundle = stringProperty(object, kAudioProcessPropertyBundleID)
-            users.append(MicUser(pid: pid, bundleID: bundle, name: displayName(pid: pid, bundleID: bundle)))
+            let raw = stringProperty(object, kAudioProcessPropertyBundleID)
+            users.append(Owner.resolve(pid: pid, rawBundleID: raw))
         }
         return users
     }
-
-    /// True when the process-object API is answering at all.
-    static var supportsProcessAttribution: Bool { !processObjects().isEmpty }
 
     // MARK: - Device-level (fallback)
 
@@ -52,13 +57,16 @@ enum AudioProbe {
                                    mElement: kAudioObjectPropertyElementMain)
     }
 
-    private static func processObjects() -> [AudioObjectID] {
+    private static func processObjects() -> [AudioObjectID]? {
         var addr = address(kAudioHardwarePropertyProcessObjectList)
         var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr, size > 0 else { return [] }
-        var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
-        guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &ids) == noErr else { return [] }
-        return ids
+        guard AudioObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr else { return nil }
+        let stride = MemoryLayout<AudioObjectID>.stride
+        var ids = [AudioObjectID](repeating: 0, count: Int(size) / stride)
+        guard !ids.isEmpty else { return [] }
+        guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &ids) == noErr else { return nil }
+        // the list can shrink between the two calls
+        return ids.prefix(Int(size) / stride).filter { $0 != 0 }
     }
 
     private static func defaultInputDevice() -> AudioObjectID? {
@@ -85,26 +93,43 @@ enum AudioProbe {
         return value
     }
 
+    /// CoreAudio hands back a retained CFString; the caller releases it.
     private static func stringProperty(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector) -> String? {
         var addr = address(selector)
-        var value: CFString? = nil
-        var size = UInt32(MemoryLayout<CFString?>.size)
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         let status = withUnsafeMutablePointer(to: &value) { pointer in
             AudioObjectGetPropertyData(object, &addr, 0, nil, &size, pointer)
         }
-        guard status == noErr, let value else { return nil }
-        return value as String
-    }
-
-    private static func displayName(pid: pid_t, bundleID: String?) -> String {
-        if pid > 0, let app = NSRunningApplicationShim.name(forPID: pid) { return app }
-        if let bundleID { return bundleID }
-        return "Unknown"
+        guard status == noErr, let cf = value?.takeRetainedValue() else { return nil }
+        let s = cf as String
+        return s.isEmpty ? nil : s
     }
 }
 
-private enum NSRunningApplicationShim {
-    static func name(forPID pid: pid_t) -> String? {
-        NSRunningApplication(processIdentifier: pid)?.localizedName
+/// Works out which app a process belongs to, so a browser's or Electron
+/// app's audio helper is counted — and ignored — as the app itself.
+private enum Owner {
+    static func resolve(pid: pid_t, rawBundleID: String?) -> MicUser {
+        let path = executablePath(pid)
+        if let path, let appPath = AppPath.outermostApp(path),
+           let bundle = Bundle(path: appPath), let id = bundle.bundleIdentifier {
+            let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                ?? ((appPath as NSString).lastPathComponent as NSString).deletingPathExtension
+            return MicUser(pid: pid, rawBundleID: rawBundleID, appBundleID: id, executablePath: path, name: name)
+        }
+        // Not inside an app bundle: a system service, an XPC service, a tool.
+        let name = NSRunningApplication(processIdentifier: pid)?.localizedName
+            ?? path.map { ($0 as NSString).lastPathComponent }
+            ?? rawBundleID ?? "pid \(pid)"
+        return MicUser(pid: pid, rawBundleID: rawBundleID, appBundleID: rawBundleID, executablePath: path, name: name)
+    }
+
+    static func executablePath(_ pid: pid_t) -> String? {
+        guard pid > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))   // PROC_PIDPATHINFO_MAXSIZE
+        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        return String(cString: buffer)
     }
 }
