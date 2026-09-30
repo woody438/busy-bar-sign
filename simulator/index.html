@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call Sign Bar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Martian+Mono:wght@300..800&display=swap">
+<style>
+  /* A single dark world on purpose: this is a mock of a wall display in a room. */
+  :root{
+    --room:#060607;
+    --ink:#E9E6E1;
+    --ink-dim:#8A857F;
+    --ink-faint:#4A4744;
+    --rule:rgba(233,230,225,.09);
+    --accent:#FF3348;
+    --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--room);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+
+  .hero{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:24px 16px 32px}
+
+  /* the 3840x2160 monitor, scaled to fit */
+  .monitor{position:relative;background:#000;border-radius:6px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.06),0 0 0 9px #0d0d0f,0 0 0 10px rgba(255,255,255,.05),0 40px 120px rgba(0,0,0,.8);
+    overflow:hidden}
+  .monitor:fullscreen{border-radius:0;box-shadow:none;width:100vw!important;height:100vh!important;background:#000}
+  .device{position:absolute;left:0;right:0}
+  .case{position:absolute;inset:0;border-radius:var(--case-r);
+    background:linear-gradient(180deg,#1d1e21 0%,#141517 18%,#0f1012 70%,#0b0b0d 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -1px 0 rgba(0,0,0,.6)}
+  .window{position:absolute;border-radius:var(--win-r);background:#000;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(0,0,0,.9),0 -1px 0 1px rgba(0,0,0,.4),0 1px 0 1px rgba(255,255,255,.05)}
+  .window canvas{display:block;width:100%;height:100%}
+  .spill{position:absolute;pointer-events:none;border-radius:50%;filter:blur(40px);opacity:.0;transition:opacity .6s ease,background .6s ease}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .chip{font:500 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);
+    background:#101012;border:1px solid var(--rule);border-radius:999px;padding:11px 18px;cursor:pointer;
+    transition:color .2s,border-color .2s,background .2s}
+  .chip:hover{color:var(--ink);border-color:rgba(233,230,225,.25)}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .chip[aria-pressed="true"]{color:#0b0b0c;background:var(--ink);border-color:transparent;font-weight:700}
+  .caption{font:400 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink-faint);text-align:center;max-width:70ch}
+
+  .notes{max-width:1080px;margin:0 auto;padding:8px 20px 96px}
+  .eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin:0 0 18px}
+  .lead{font-size:17px;line-height:1.65;color:#A7A29B;max-width:64ch;margin:0 0 40px}
+  .lead strong{color:var(--ink);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+  .cell{background:#0c0c0e;padding:24px 22px 26px}
+  .cell h3{font:700 13px/1.3 var(--sans);letter-spacing:.05em;text-transform:uppercase;margin:0 0 10px}
+  .cell p{font-size:14.5px;line-height:1.6;color:#8F8A84;margin:0}
+  .cell code{font:500 11.5px var(--mono);color:var(--ink);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px}
+  .credit{margin-top:28px;font:400 11.5px/1.6 var(--mono);color:var(--ink-faint)}
+  .credit a{color:var(--ink-dim)}
+  @media (prefers-reduced-motion:reduce){.spill{transition:none}}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="monitor" id="monitor" aria-label="Preview of the 4K wall monitor">
+    <div class="spill" id="spill"></div>
+    <div class="device" id="device">
+      <div class="case"></div>
+      <div class="window" id="window"><canvas id="leds" role="img" aria-label="LED status bar"></canvas></div>
+    </div>
+  </div>
+
+  <div class="controls" role="group" aria-label="Preview controls">
+    <button class="chip" id="b-auto" aria-pressed="true">Auto demo</button>
+    <button class="chip" id="b-call" aria-pressed="false">On a call</button>
+    <button class="chip" id="b-free" aria-pressed="false">Free</button>
+    <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
+    <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
+  </div>
+  <p class="caption" id="caption">3840 × 2160 monitor · bar 3840 × 672 (31%) · 118 × 16 LEDs at 32 px</p>
+</section>
+
+<section class="notes">
+  <p class="eyebrow">What you're looking at</p>
+  <p class="lead">The wall display re-imagined as a pixel LED bar, running on the same detection engine as the original. <strong>Everything on the bar is drawn LED by LED</strong> in the BUSY Bar's own pixel fonts, and the transitions are rebuilt from the frame sequences in its firmware. The clock is your real time; the call state here is a demo.</p>
+  <div class="grid">
+    <div class="cell"><h3>Why 118 × 16</h3><p>Sixteen rows is what gives the type its chunk, so that stays. A real bar is 72 columns — too narrow to set "ON A CALL" beside a clock — so the panel runs wider. At 32 px per LED it lands exactly on a 4K screen's pixels, full width and 31% tall.</p></div>
+    <div class="cell"><h3>The status pill</h3><p>The sign itself: a gradient pill in the firmware's exact reds and greens, with a pale rim and a slow sheen crossing it every eight seconds. It never drains or dims — on this display the status is the point.</p></div>
+    <div class="cell"><h3>A change of state</h3><p>A shockwave bursts from the top edge, clears the old screen and floods the panel in the new colour. The status fills the whole bar in 14-row capitals for a few seconds, then draws back and the clock wipes in behind it.</p></div>
+    <div class="cell"><h3>The clock</h3><p>Hours and minutes in the bold face from the BUSY pill, with tabular digits so nothing shuffles sideways. Seconds fill a bar along the bottom of the pill, and sparks drift up through the dark field so the panel is never static.</p></div>
+    <div class="cell"><h3>Glass and glow</h3><p>Each LED is a rounded emitter with a dark gap; off LEDs stay faintly visible, as they do behind a smoked diffuser. The glow comes from scaling the light up smoothly rather than blurring, which the Mac app can do identically.</p></div>
+    <div class="cell"><h3>Same engine underneath</h3><p>Call detection is unchanged from the original: CoreAudio tells us which app has the microphone, dictation apps are ignored, and the change is debounced so the bar never flickers.</p></div>
+  </div>
+  <p class="credit">Pixel fonts from the BUSY Status Bar firmware — © 2021 TakWolf, © 2024–2026 Flipper FZCO, SIL Open Font License 1.1. Transitions are original code modelled on the firmware's CC BY-SA animations. Not affiliated with Flipper Devices.</p>
+</section>
+
+<script src="fonts.js"></script>
+<script src="engine.js"></script>
+<script src="painter.js"></script>
+<script>
+(function () {
+  'use strict';
+  const E = window.BusyEngine;
+  E.setFonts(window.BUSY_FONTS);
+
+  // Geometry of the real thing, in 4K device pixels.
+  const SCREEN_W = 3840, SCREEN_H = 2160;
+  const PITCH = 32;
+  const FIELD_W = E.COLS * PITCH, FIELD_H = E.ROWS * PITCH;        // 3776 x 512
+  const RIM_X = (SCREEN_W - FIELD_W) / 2, RIM_Y = 80;              // 32, 80
+  const CASE_H = FIELD_H + RIM_Y * 2;                               // 672
+
+  const monitor = document.getElementById('monitor');
+  const device = document.getElementById('device');
+  const win = document.getElementById('window');
+  const spill = document.getElementById('spill');
+  const canvas = document.getElementById('leds');
+  const painter = new window.LedPainter(canvas, E.COLS, E.ROWS);
+  const frame = new E.Frame();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function layout() {
+    const full = document.fullscreenElement === monitor;
+    const availW = full ? innerWidth : Math.min(innerWidth - 32, 1600);
+    const availH = full ? innerHeight : innerHeight - 170;
+    const s = Math.min(availW / SCREEN_W, availH / SCREEN_H);
+    const mw = SCREEN_W * s, mh = SCREEN_H * s;
+    if (!full) { monitor.style.width = mw + 'px'; monitor.style.height = mh + 'px'; }
+    const top = ((full ? innerHeight : mh) - CASE_H * s) / 2;
+    const left = ((full ? innerWidth : mw) - SCREEN_W * s) / 2;
+    Object.assign(device.style, { top: top + 'px', left: left + 'px', width: SCREEN_W * s + 'px', height: CASE_H * s + 'px' });
+    device.style.setProperty('--case-r', 40 * s + 'px');
+    device.style.setProperty('--win-r', 10 * s + 'px');
+    Object.assign(win.style, { left: RIM_X * s + 'px', top: RIM_Y * s + 'px', width: FIELD_W * s + 'px', height: FIELD_H * s + 'px' });
+    Object.assign(spill.style, { left: left + SCREEN_W * s * 0.1 + 'px', width: SCREEN_W * s * 0.8 + 'px',
+      top: top - CASE_H * s * 0.2 + 'px', height: CASE_H * s * 1.4 + 'px' });
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    painter.resize(FIELD_W * s * dpr, FIELD_H * s * dpr);
+  }
+  addEventListener('resize', layout);
+  document.addEventListener('fullscreenchange', layout);
+
+  // --- state ------------------------------------------------------------
+  const now = () => performance.now() / 1000;
+  let state = 'call', prev = null, since = now();
+  let mode = 'auto', lastFlip = now();
+  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free' };
+
+  function setState(next) {
+    if (next === state) return;
+    prev = state; state = next; since = now();
+    spill.style.background = next === 'call' ? '#ff1d35' : '#17eb79';
+  }
+  function setMode(m) {
+    mode = m; lastFlip = now();
+    for (const k in btn) document.getElementById(btn[k]).setAttribute('aria-pressed', String(k === m));
+    if (m !== 'auto') setState(m);
+  }
+  document.getElementById('b-auto').onclick = () => setMode('auto');
+  document.getElementById('b-call').onclick = () => setMode('call');
+  document.getElementById('b-free').onclick = () => setMode('free');
+  document.getElementById('b-again').onclick = () => { prev = state === 'call' ? 'free' : 'call'; since = now(); lastFlip = now(); };
+  document.getElementById('b-full').onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen(); else monitor.requestFullscreen && monitor.requestFullscreen();
+  };
+  spill.style.background = '#ff1d35';
+
+  // --- loop -------------------------------------------------------------
+  function tick() {
+    const t = now();
+    if (mode === 'auto' && t - lastFlip > 12) { lastFlip = t; setState(state === 'call' ? 'free' : 'call'); }
+    const d = new Date();
+    const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds() };
+    // with reduced motion, skip straight to the settled screen
+    const s = reduced ? since - 60 : since;
+    E.render(frame, reduced ? Math.floor(t) : t, state, prev, s, clock);
+    painter.paint(frame);
+    spill.style.opacity = '.12';
+    requestAnimationFrame(tick);
+  }
+  layout();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
