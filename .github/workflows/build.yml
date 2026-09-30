@@ -1,11 +1,11 @@
 # Builds the Mac app on GitHub's Mac runners and publishes it as the
 # "latest" release, so it can be downloaded without Xcode:
-#   https://github.com/woody438/studio-call-sign/releases/latest
+#   https://github.com/woody438/busy-bar-sign/releases/latest
 name: Build Mac app
 
 on:
   push:
-    branches: [busy-bar]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -10,13 +10,13 @@ same bar as a small floating window on your desk screen. The
 state is detected automatically from which app has your microphone — Zoom,
 Teams, Google Meet, FaceTime, or anything else.
 
-This is **version 2**, on the `busy-bar` branch. Version 1 — a broadcast studio
-clock beside an on-air-style sign — is on `main`, and its mock is `mock.html`.
+**See it without installing anything:** download the repo and open
+`simulator/index.html` in a browser. It runs the same drawing engine as the
+app, on your real clock; double-click it for Do Not Disturb.
 
-**See it without building anything:** open `simulator/index.html` in a
-browser, or the [hosted preview](https://claude.ai/artifact/XHq4RQY4TnYKvfqn9SbRrF)
-(private to your claude.ai account). It runs the same drawing engine as the
-app, on your real clock.
+The first version — a broadcast studio clock beside an on-air-style sign,
+called Studio Call Sign — is kept at the [`v1`](../../tree/v1) tag; its mock is
+`mock.html`.
 
 | ON A CALL | FREE |
 |---|---|
@@ -28,8 +28,8 @@ As a floating window (the simulator's **Floating window** button shows this):
 
 ## Download
 
-**[Download the latest build](https://github.com/woody438/studio-call-sign/releases/latest)**
-(`BusyBarSign.zip`; you need to be signed in to GitHub, as the repo is private).
+**[Download the latest build](https://github.com/woody438/busy-bar-sign/releases/latest)**
+(`BusyBarSign.zip`).
 
 1. Unzip it and drag **Busy Bar Sign** into Applications. (If you have the
    older **StudioCallSign** there, delete it: that was this app's old name.)
@@ -42,7 +42,7 @@ As a floating window (the simulator's **Floating window** button shows this):
    controls back at any time.
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
-to `busy-bar` rebuilds it on GitHub's Mac runners
+to `main` rebuilds it on GitHub's Mac runners
 (`.github/workflows/build.yml`) and replaces the release.
 
 > **Built, but not yet run.** It compiles cleanly with Xcode 16.4 (no errors,
@@ -56,9 +56,8 @@ API it uses first appears in the macOS 14.4 SDK; older Xcode won't compile it),
 and [Homebrew](https://brew.sh).
 
 ```sh
-git clone https://github.com/woody438/studio-call-sign
-cd studio-call-sign
-git checkout busy-bar
+git clone https://github.com/woody438/busy-bar-sign
+cd busy-bar-sign
 brew install xcodegen
 xcodegen generate
 open BusyBarSign.xcodeproj           # then Product ▸ Run (⌘R)
