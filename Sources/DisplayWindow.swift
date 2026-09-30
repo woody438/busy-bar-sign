@@ -30,7 +30,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate {
         preferredScreenID = Self.identifier(for: target)
 
         if window == nil {
-            let hosting = NSHostingView(rootView: DisplayView(detector: detector))
+            let hosting = NSHostingView(rootView: BarDisplayView(detector: detector))
             let w = NSWindow(contentRect: target.frame,
                              styleMask: [.borderless],
                              backing: .buffered,
