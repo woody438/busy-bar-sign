@@ -51,7 +51,9 @@ private struct MenuContent: View {
     var body: some View {
         Text(detector.isOnCall ? "On a call" : "Free")
         Text(detector.detection.sourceLine)
-        if window.onScaledScreen {
+        if window.waitingForScreen {
+            Text("Waiting for the wall display to reconnect")
+        } else if window.onScaledScreen {
             Text("Display is in a scaled mode — the LEDs may shimmer (see README)")
         }
 
@@ -68,7 +70,7 @@ private struct MenuContent: View {
         Divider()
 
         Menu("Show on") {
-            ForEach(NSScreen.screens, id: \.self) { screen in
+            ForEach(window.screens, id: \.self) { screen in
                 Button(screen.localizedName) { window.show(on: screen) }
             }
         }
@@ -84,10 +86,10 @@ private struct MenuContent: View {
     /// What has the microphone right now, and a way to stop an app lighting
     /// the sign without touching the code.
     @ViewBuilder private var microphone: some View {
-        let holders = detector.detection.holders.filter { $0.bundleID != nil }
+        let holders = uniqueByApp(detector.detection.holders)
         if !holders.isEmpty || !detector.userIgnored.isEmpty {
             Menu("Microphone") {
-                ForEach(holders, id: \.self) { holder in
+                ForEach(holders, id: \.bundleID) { holder in
                     let id = holder.bundleID ?? ""
                     Toggle("Ignore \(holder.name)", isOn: Binding(
                         get: { detector.userIgnored.contains(id) },
@@ -101,6 +103,15 @@ private struct MenuContent: View {
                     }
                 }
             }
+        }
+    }
+
+    /// One entry per app: an app can hold the mic in several processes.
+    private func uniqueByApp(_ holders: [MicHolder]) -> [MicHolder] {
+        var seen = Set<String>()
+        return holders.filter { holder in
+            guard let id = holder.bundleID else { return false }
+            return seen.insert(id).inserted
         }
     }
 }

@@ -61,11 +61,14 @@ open build/Build/Products/Release/StudioCallSign.app
   2560 × 1440" makes macOS resample the whole screen, so the LED dots can't
   land on whole pixels and may shimmer. The menu warns you if this is the case.
 - On first launch the bar opens on whichever display *isn't* your main
-  (menu-bar) display, and remembers it. Menu ▸ **Show on** moves it.
+  (menu-bar) display, and remembers that monitor. If the wall monitor isn't
+  connected yet, it shows on the main display until it is. Menu ▸ **Show on**
+  moves it.
 - If the wall monitor sleeps, switches off or is unplugged, the bar waits for
   it rather than jumping onto your desk monitor, and comes back when it does.
 - On a secondary display the bar sits above that display's menu bar and Dock,
-  so nothing covers it while you're in another app.
+  so nothing covers it while you're in another app. It ignores clicks, so a
+  stray one can't pull focus from a call.
 - While it's showing, the Mac won't let displays sleep. macOS applies that to
   every display, not just the wall.
 
