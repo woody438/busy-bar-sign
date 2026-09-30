@@ -20,7 +20,11 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
     private let detector: CallDetector
     /// Whether the user wants the display up (independent of whether its
     /// monitor is currently connected).
-    private(set) var wantsVisible = false
+    @Published private(set) var wantsVisible = false
+
+    /// Whether it was up when the app last quit. On by default: the wall is
+    /// what the app is for.
+    static var wasShown: Bool { UserDefaults.standard.object(forKey: "wallShown") as? Bool ?? true }
 
     /// The connected screens, kept current for the menu.
     @Published private(set) var screens: [NSScreen] = NSScreen.screens
@@ -49,6 +53,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
     /// Show the display. Passing a screen makes it the chosen monitor.
     func show(on screen: NSScreen? = nil) {
         wantsVisible = true
+        UserDefaults.standard.set(true, forKey: "wallShown")
         if let screen {
             // the menu may hold a stale screen object: look it up afresh
             let id = Self.identifier(for: screen)
@@ -69,8 +74,10 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         NSApp.activate()
     }
 
-    func hide() {
+    /// `remember: false` when quitting, so it comes back next launch.
+    func hide(remember: Bool = true) {
         wantsVisible = false
+        if remember { UserDefaults.standard.set(false, forKey: "wallShown") }
         waitingForScreen = false
         takeDown()
     }

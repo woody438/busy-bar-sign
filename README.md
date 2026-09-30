@@ -3,7 +3,8 @@
 ![The bar changing from FREE to ON A CALL](docs/busy-bar-change.gif)
 
 A full-screen wall display for a Mac: a pixel-LED status bar in the style of
-Flipper's BUSY Bar, showing **ON A CALL** or **FREE** beside a clock. The
+Flipper's BUSY Bar, showing **ON A CALL** or **FREE** beside a clock — or the
+same bar as a small floating window on your desk screen. The
 state is detected automatically from which app has your microphone — Zoom,
 Teams, Google Meet, FaceTime, or anything else.
 
@@ -18,6 +19,10 @@ app, on your real clock.
 | ON A CALL | FREE |
 |---|---|
 | ![](docs/busy-bar-call.png) | ![](docs/busy-bar-free.png) |
+
+As a floating window (the simulator's **Floating window** button shows this):
+
+![The bar as a floating window at the top right of a desktop](docs/busy-bar-floating.png)
 
 > **This has never been built on a Mac.** It was written overnight on Linux.
 > The drawing engine, fonts, layout maths and call-detection rules have been
@@ -72,6 +77,22 @@ open build/Build/Products/Release/StudioCallSign.app
 - While it's showing, the Mac won't let displays sleep. macOS applies that to
   every display, not just the wall.
 
+## The floating window
+
+As well as the full-screen display — or instead of it — the bar can float on
+your desk screen: just the device, in a window that stays above other windows
+and on every Space, including full-screen apps.
+
+- Turn it on with Menu ▸ **Floating window**. **Full-screen display** is a
+  separate switch, so you can have either or both.
+- **Drag it anywhere.** It never takes focus, so moving it mid-call leaves
+  you in the call app.
+- **Floating size** — Small, Medium or Large (600, 900 or 1200 points wide).
+  On a Retina screen these put the LEDs on exactly 10, 15 or 20 pixels. Also
+  on its right-click menu.
+- It remembers where it was, its size, and which views were on when you quit.
+  First launch opens the full-screen display only.
+
 ## The menu
 
 Everything lives in the menu-bar icon (a circle when free, radio waves on a call):
@@ -82,7 +103,10 @@ Everything lives in the menu-bar icon (a circle when free, radio waves on a call
 - **Microphone** — every app holding the mic right now, each with an
   **Ignore** toggle. If something that isn't a call lights the sign, ignore it
   here; it's remembered.
-- **Show on**, **Hide display**, **Show display**, **Quit** (⌘Q).
+- **Full-screen display** (on/off) and **Show on** (which monitor).
+- **Floating window** (on/off) and **Floating size**.
+- **Quit** (⌘Q). Opening the app again with nothing showing brings the
+  full-screen display back.
 
 ## How it decides you're on a call
 
@@ -154,7 +178,9 @@ In the code:
 | `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body and where the LEDs go. |
 | `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
 | `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
-| `Sources/DisplayWindow.swift`, `StudioCallSignApp.swift` | The window and the menu. |
+| `Sources/DisplayWindow.swift` | The full-screen window. |
+| `Sources/FloatingWindow.swift` | The floating window. |
+| `Sources/StudioCallSignApp.swift` | The menu. |
 | `simulator/` | The browser version, where the look is designed. |
 | `Checks/` | Tests that run anywhere Swift does. |
 
@@ -166,8 +192,9 @@ In the code:
   the press, shockwave, announcement, collapse, slide-in, both states, cold
   start — to within float rounding. What you see in the simulator is what the
   app draws.
-- **Every LED lands on whole pixels** on eight common displays: 4K at 1× and
-  2×, 1080p, 1440p, 5K, 6K, ultrawide. (This check caught a real bug.)
+- **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
+  2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
+  and 2×, with the whole device inside the window. (This check caught a real bug.)
 - **A frame takes 2.6 ms** at 4K in the worst case, on four slow virtual
   cores — the display allows 16.7 ms.
 - **The call detector makes the right decisions** on a scripted 40 seconds:
@@ -178,7 +205,7 @@ In the code:
 - The pixel fonts decode correctly, and every source file parses.
 
 **Reviewed, not compiled:** the AppKit, SwiftUI and Core Audio code —
-`DisplayWindow`, `StudioCallSignApp`, `LEDPanelView`, `BarDisplayView`,
+`DisplayWindow`, `FloatingWindow`, `StudioCallSignApp`, `LEDPanelView`, `BarDisplayView`,
 `AudioProbe`, `CameraProbe`. Independent review passes found no definite
 compile errors, and fixed a number of runtime problems. Still, expect the first
 build to surface something; these are the likeliest places:
@@ -186,6 +213,8 @@ build to surface something; these are the likeliest places:
 1. `AudioProbe.swift` — `proc_pidpath` and the Core Audio process properties.
 2. `DisplayWindow.swift` — the scaled-mode check (`CGDisplayCopyAllDisplayModes`).
 3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
+4. `FloatingWindow.swift` — the window's shadow, traced from the device's
+   outline; if it's missing or boxy, that's where to look.
 
 ## Running the checks
 

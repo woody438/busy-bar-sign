@@ -6,7 +6,7 @@ struct StudioCallSignApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(detector: delegate.detector, window: delegate.window)
+            MenuContent(detector: delegate.detector, window: delegate.window, floating: delegate.floating)
         } label: {
             MenuBarIcon(detector: delegate.detector)
         }
@@ -17,21 +17,25 @@ struct StudioCallSignApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let detector = CallDetector()
     lazy var window = DisplayWindow(detector: detector)
+    lazy var floating = FloatingWindow(detector: detector)
 
+    /// Opens whichever views were up last time — the full-screen display on
+    /// first launch.
     func applicationDidFinishLaunching(_ notification: Notification) {
         detector.start()
-        window.show()
+        if DisplayWindow.wasShown { window.show() }
+        if FloatingWindow.wasShown { floating.show() }
     }
 
-    /// Clicking the Dock icon brings the display back.
+    /// Opening the app again with nothing showing brings the display back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        window.show()
+        if !window.wantsVisible && !floating.isShown { window.show() }
         return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         detector.stop()
-        window.hide()
+        window.hide(remember: false)
     }
 }
 
@@ -47,6 +51,7 @@ private struct MenuBarIcon: View {
 private struct MenuContent: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var window: DisplayWindow
+    @ObservedObject var floating: FloatingWindow
 
     var body: some View {
         Text(detector.isOnCall ? "On a call" : "Free")
@@ -69,13 +74,20 @@ private struct MenuContent: View {
 
         Divider()
 
+        Toggle("Full-screen display", isOn: Binding(
+            get: { window.wantsVisible },
+            set: { $0 ? window.show() : window.hide() }))
         Menu("Show on") {
             ForEach(window.screens, id: \.self) { screen in
                 Button(screen.localizedName) { window.show(on: screen) }
             }
         }
-        Button("Hide display") { window.hide() }
-        Button("Show display") { window.show() }
+        Toggle("Floating window", isOn: Binding(
+            get: { floating.isShown },
+            set: { $0 ? floating.show() : floating.hide() }))
+        Picker("Floating size", selection: $floating.size) {
+            ForEach(FloatingWindow.Size.allCases) { Text($0.label).tag($0) }
+        }
 
         Divider()
 

@@ -10,10 +10,20 @@ import SwiftUI
  * one-LED rim either side span the screen, which on a 3840-wide display is
  * exactly 32 pixels per LED.
  */
+/// Where the bar is shown: filling a screen, or as a floating window that
+/// is just the device.
+enum BarStyle { case wall, floating }
+
 struct BarDisplayView: View {
     @ObservedObject var detector: CallDetector
+    let style: BarStyle
     @StateObject private var bar = BarModel()
     @Environment(\.displayScale) private var displayScale
+
+    init(detector: CallDetector, style: BarStyle = .wall) {
+        _detector = ObservedObject(wrappedValue: detector)
+        self.style = style
+    }
 
     /// Burn-in protection: every few minutes the whole bar moves a few
     /// device pixels. Whole pixels, so the dots stay sharp.
@@ -24,17 +34,21 @@ struct BarDisplayView: View {
         GeometryReader { geo in
             let g = BarGeometry(size: geo.size, scale: displayScale)
             ZStack(alignment: .topLeading) {
-                Color.black
-                Spill(state: bar.state, g: g)
-                DeviceBody(g: g)
+                if style == .wall {
+                    Color.black
+                    Spill(state: bar.state, g: g)
+                } else {
+                    Color.clear
+                }
+                DeviceBody(g: g, castsShadow: style == .wall)
                 LEDPanelView(model: bar, pitchPixels: g.pitchPixels)
                     .frame(width: g.field.width, height: g.field.height)
                     .offset(x: g.field.minX, y: g.field.minY)
             }
-            .offset(drift)
+            .offset(style == .wall ? drift : .zero)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
-        .background(Color.black)
+        .background(style == .wall ? Color.black : Color.clear)
         .ignoresSafeArea()
         .onAppear { bar.update(onCall: detector.isOnCall) }
         .onChange(of: detector.isOnCall) { _, onCall in bar.update(onCall: onCall) }
@@ -66,6 +80,8 @@ private struct Spill: View {
 /// The BUSY Bar's black edition, after the bezel art in its firmware.
 private struct DeviceBody: View {
     let g: BarGeometry
+    /// Off in a floating window, which casts its own shadow.
+    let castsShadow: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -96,7 +112,7 @@ private struct DeviceBody: View {
                         .init(color: grey(0x17181A), location: 0.94),
                         .init(color: grey(0x3A3D40), location: 1)
                     ], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: .black.opacity(0.65), radius: 40 * g.u, y: 30 * g.u)
+                    .shadow(color: .black.opacity(castsShadow ? 0.65 : 0), radius: 40 * g.u, y: 30 * g.u)
             }
             part(10, 10, 3820, 604) {
                 RoundedRectangle(cornerRadius: 86 * g.u)
