@@ -1,0 +1,80 @@
+# Builds the Mac app on GitHub's Mac runners and publishes it as the
+# "latest" release, so it can be downloaded without Xcode:
+#   https://github.com/woody438/studio-call-sign/releases/latest
+name: Build Mac app
+
+on:
+  push:
+    branches: [busy-bar]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # to publish the release
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version && swift --version
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project StudioCallSign.xcodeproj -scheme StudioCallSign \
+            -configuration Release -derivedDataPath build \
+            -destination 'generic/platform=macOS' \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/)|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Build/Products/Release/StudioCallSign.app
+
+      - name: Package
+        run: |
+          APP=build/Build/Products/Release/StudioCallSign.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          lipo -info "$APP/Contents/MacOS/StudioCallSign"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" StudioCallSign.zip
+          ls -l StudioCallSign.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StudioCallSign
+          path: StudioCallSign.zip
+
+      - name: Publish as the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest StudioCallSign.zip \
+            --target "$GITHUB_SHA" \
+            --title "Studio Call Sign — latest build" \
+            --notes "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
+
+          **Install:** download StudioCallSign.zip, double-click to unzip, drag **StudioCallSign** to Applications.
+
+          **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. (Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/StudioCallSign.app\`.)
+
+          Needs macOS 14.4 or later."
+
+      - name: Checks (parity, geometry, frame time, detector)
+        run: Checks/run.sh
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
