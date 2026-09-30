@@ -1,7 +1,7 @@
 /*
  * Checks the Swift engine against this one, LED by LED.
  *
- *   swiftc -O Sources/Bar/{BarEngine,PixelFonts,FontData}.swift simulator/tools/parity.swift -o /tmp/bartest
+ *   swiftc -O Sources/Bar/{BarEngine,PixelFonts,FontData}.swift simulator/tools/parity/main.swift -o /tmp/bartest
  *   /tmp/bartest /tmp/swift.bin
  *   node simulator/tools/parity.js /tmp/swift.bin
  *
@@ -14,7 +14,7 @@ require(path.join(__dirname, '..', 'engine.js'));
 const E = globalThis.BusyEngine;
 E.setFonts(globalThis.BUSY_FONTS);
 
-// keep in step with parity.swift
+// keep in step with parity/main.swift
 const CASES = [
   ['call', 'free', 0.03], ['call', 'free', 0.07], ['call', 'free', 0.12], ['call', 'free', 0.16],
   ['call', 'free', 0.5], ['call', 'free', 2.0], ['call', 'free', 3.6], ['call', 'free', 3.75],

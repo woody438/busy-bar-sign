@@ -282,8 +282,8 @@ enum BarEngine {
             drawPill(&f, x0: Layout.heroX, w: w, pal: pal, sheen: sheenAt(now))
             // the announcement face gives way to icon + status face as the pill shrinks:
             // out before the big word can outgrow the pill, in once there's room
-            let fadeOut = 1 - smooth(0.0, 0.28, k)
-            let fadeIn = smooth(0.3, 0.62, k)
+            let fadeOut = 1 - smooth(0.08, 0.34, k)
+            let fadeIn = smooth(0.14, 0.4, k)         // overlapping, so the pill is never empty
             let clip = (lo: Int(Layout.heroX) + 1, hi: Int(edge.rounded(.down)) - 1)
             if fadeOut > 0 {
                 let hw = Double(heroWidth(state))

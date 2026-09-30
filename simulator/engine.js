@@ -383,8 +383,8 @@
       drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now) });
       // the announcement face gives way to icon + status face as the pill shrinks:
       // out before the big word can outgrow the pill, in once there's room
-      const out = 1 - smooth(0.0, 0.28, k);
-      const inn = smooth(0.3, 0.62, k);
+      const out = 1 - smooth(0.08, 0.34, k);
+      const inn = smooth(0.14, 0.4, k);         // overlapping, so the pill is never empty
       const clip = [LAYOUT.heroX + 1, Math.floor(edge) - 1];
       if (out > 0) {
         const hw = heroWidth(state);

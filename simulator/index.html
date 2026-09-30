@@ -63,7 +63,7 @@
   .chip:hover{color:var(--ink);border-color:rgba(233,230,225,.25)}
   .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .chip[aria-pressed="true"]{color:#0b0b0c;background:var(--ink);border-color:transparent;font-weight:700}
-  .caption{font:400 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink-faint);text-align:center;max-width:70ch}
+  .caption{font:400 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink-faint);text-align:center;max-width:92ch}
 
   .notes{max-width:1080px;margin:0 auto;padding:8px 20px 96px}
   .eyebrow{font:500 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin:0 0 18px}
@@ -109,14 +109,14 @@
 
 <section class="notes">
   <p class="eyebrow">What you're looking at</p>
-  <p class="lead">The wall display re-imagined as a pixel LED bar, running on the same detection engine as the original. <strong>Everything on the bar is drawn LED by LED</strong> in the BUSY Bar's own pixel fonts, and the transitions are rebuilt from the frame sequences in its firmware. The clock is your real time; the call state here is a demo.</p>
+  <p class="lead">The wall display rebuilt as a BUSY Bar, on the same call detection as the original. <strong>Every LED is drawn by the same engine the Mac app runs</strong> — the Swift port is checked against this page LED by LED. The pixel fonts, colours, dot shape and transitions all come from the BUSY Bar's own open-source firmware. The clock is your real time; the call state here is a demo.</p>
   <div class="grid">
-    <div class="cell"><h3>Why 118 × 16</h3><p>Sixteen rows is what gives the type its chunk, so that stays. A real bar is 72 columns — too narrow to set "ON A CALL" beside a clock — so the panel runs wider. At 32 px per LED it lands exactly on a 4K screen's pixels, full width and 31% tall.</p></div>
-    <div class="cell"><h3>The status pill</h3><p>The sign itself: a gradient pill in the firmware's exact reds and greens, with a pale rim and a slow sheen crossing it every eight seconds. It never drains or dims — on this display the status is the point.</p></div>
-    <div class="cell"><h3>A change of state</h3><p>A shockwave bursts from the top edge, clears the old screen and floods the panel in the new colour. The status fills the whole bar in 14-row capitals for a few seconds, then draws back and the clock wipes in behind it.</p></div>
-    <div class="cell"><h3>The clock</h3><p>Hours and minutes in the bold face from the BUSY pill, with tabular digits so nothing shuffles sideways. Seconds fill a bar along the bottom of the pill, and sparks drift up through the dark field so the panel is never static.</p></div>
-    <div class="cell"><h3>Glass and glow</h3><p>Each LED is a rounded emitter with a dark gap; off LEDs stay faintly visible, as they do behind a smoked diffuser. The glow comes from scaling the light up smoothly rather than blurring, which the Mac app can do identically.</p></div>
-    <div class="cell"><h3>Same engine underneath</h3><p>Call detection is unchanged from the original: CoreAudio tells us which app has the microphone, dictation apps are ignored, and the change is debounced so the bar never flickers.</p></div>
+    <div class="cell"><h3>Why 118 × 16</h3><p>Sixteen rows is what gives the type its chunk, so that stays. A real bar is 72 columns — too narrow to set "ON A CALL" beside a clock — so the panel runs wider. At 32 pixels per LED it lands exactly on a 4K screen, full width and 31% tall.</p></div>
+    <div class="cell"><h3>The status pill</h3><p>A glossy pill in the firmware's exact reds and greens, with a slow sheen crossing it. The mic echoes the firmware's own on-call theme; the tick is the "available" mark every meeting app uses. It says "ON A CALL", not "ON CALL", which in British English means on standby.</p></div>
+    <div class="cell"><h3>A change of state</h3><p>As on the device: the old screen presses down, a ring bursts from the top edge and floods the panel, and the new screen springs up. The status fills the whole bar in 14-row capitals for a few seconds, then the pill draws back and the time slides in beside it.</p></div>
+    <div class="cell"><h3>The clock</h3><p>Set as the firmware's clock app sets it: bold 7-row digits in white on black, the colon dimming on odd seconds, and the day beneath at half brightness.</p></div>
+    <div class="cell"><h3>LEDs and glass</h3><p>Dots follow Flipper's own preview shader — rounded squares at 85% of the pitch, shading toward their corners — and unlit LEDs vanish into the glossy black face. Colours are corrected for the firmware's LED gamma, so dim tones sit back the way they do on the device.</p></div>
+    <div class="cell"><h3>Same detection underneath</h3><p>Unchanged from the original: CoreAudio says which app has the microphone, dictation apps are ignored, and changes are debounced so the bar never flickers. A menu-bar item can force either state.</p></div>
   </div>
   <p class="credit">Pixel fonts from the BUSY Status Bar firmware — © 2021 TakWolf, © 2024–2026 Flipper FZCO, SIL Open Font License 1.1. Transitions are original code modelled on the firmware's CC BY-SA animations. Not affiliated with Flipper Devices.</p>
 </section>
