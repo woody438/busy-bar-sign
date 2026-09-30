@@ -1,12 +1,8 @@
 /*
- * Checks the Swift engine against this one, LED by LED.
- *
- *   swiftc -O Sources/Bar/{BarEngine,PixelFonts,FontData}.swift simulator/tools/parity/main.swift -o /tmp/bartest
- *   /tmp/bartest /tmp/swift.bin
- *   node simulator/tools/parity.js /tmp/swift.bin
- *
- * Both sides render the same moments; any LED differing by more than one
- * 8-bit step fails the check.
+ * Checks the Swift engine against this one, LED by LED. Run via
+ * Checks/run.sh, which builds Checks/parity/main.swift and passes its
+ * output here. Both sides render the same moments; any LED differing by
+ * more than one 8-bit step fails the check.
  */
 const fs = require('fs'), path = require('path');
 require(path.join(__dirname, '..', 'fonts.js'));
@@ -14,7 +10,7 @@ require(path.join(__dirname, '..', 'engine.js'));
 const E = globalThis.BusyEngine;
 E.setFonts(globalThis.BUSY_FONTS);
 
-// keep in step with parity/main.swift
+// keep in step with Checks/parity/main.swift
 const CASES = [
   ['call', 'free', 0.03], ['call', 'free', 0.07], ['call', 'free', 0.12], ['call', 'free', 0.16],
   ['call', 'free', 0.5], ['call', 'free', 2.0], ['call', 'free', 3.6], ['call', 'free', 3.75],

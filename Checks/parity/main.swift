@@ -1,6 +1,6 @@
 import Foundation
 
-// Renders the same moments tools/parity.js renders, as raw little-endian doubles.
+// Renders the moments simulator/tools/parity.js renders, as raw little-endian doubles.
 let cases: [(BarState, BarState?, Double)] = [
     (.call, .free, 0.03), (.call, .free, 0.07), (.call, .free, 0.12), (.call, .free, 0.16),
     (.call, .free, 0.5), (.call, .free, 2.0), (.call, .free, 3.6), (.call, .free, 3.75),

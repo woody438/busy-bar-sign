@@ -45,38 +45,6 @@ struct BarDisplayView: View {
     }
 }
 
-/// Where everything goes, in points, for a given screen.
-struct BarGeometry {
-    let pitchPixels: Int
-    /// Points per 4K pixel.
-    let u: CGFloat
-    /// Top-left of the case (not counting the controls above it).
-    let origin: CGPoint
-    let field: CGRect
-
-    static let screenUnits: CGFloat = 3840     // device width in 4K pixels: 120 LEDs at 32
-    static let caseHeight: CGFloat = 624
-    static let controlsHeight: CGFloat = 40
-
-    init(size: CGSize, scale: CGFloat) {
-        let s = max(scale, 1)
-        let pitch = max(4, Int((size.width * s) / 120))
-        pitchPixels = pitch
-        u = CGFloat(pitch) / 32 / s
-        let deviceW = BarGeometry.screenUnits * u
-        let total = (BarGeometry.caseHeight + BarGeometry.controlsHeight) * u
-        let snap = { (v: CGFloat) -> CGFloat in (v * s).rounded() / s }
-        origin = CGPoint(x: snap((size.width - deviceW) / 2),
-                         y: snap((size.height - total) / 2 + BarGeometry.controlsHeight * u))
-        field = CGRect(x: origin.x + 32 * u, y: origin.y + 56 * u, width: 3776 * u, height: 512 * u)
-    }
-
-    /// A rectangle given in 4K pixels relative to the top-left of the case.
-    func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
-        CGRect(x: origin.x + x * u, y: origin.y + y * u, width: w * u, height: h * u)
-    }
-}
-
 /// The glow the bar throws onto the wall around it, in the state's colour.
 private struct Spill: View {
     let state: BarState
