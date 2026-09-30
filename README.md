@@ -6,13 +6,16 @@
 
 A full-screen wall display for a Mac: a pixel-LED status bar in the style of
 Flipper's BUSY Bar, showing **ON A CALL** or **FREE** beside a clock — or the
-same bar as a small floating window on your desk screen. The
+same bar as a small floating window on your desk screen, or a **stacked
+layout** that fills a small monitor. Double-click it for a 30-minute **Do Not
+Disturb**. The
 state is detected automatically from which app has your microphone — Zoom,
 Teams, Google Meet, FaceTime, or anything else.
 
 **See it without installing anything:** download the repo and open
 `simulator/index.html` in a browser. It runs the same drawing engine as the
-app, on your real clock; double-click it for Do Not Disturb.
+app, on your real clock. Its buttons show the floating window and the
+stacked layout; double-click it for Do Not Disturb.
 
 The first version — a broadcast studio clock beside an on-air-style sign,
 called Studio Call Sign — is kept on the
@@ -25,6 +28,11 @@ called Studio Call Sign — is kept on the
 As a floating window (the simulator's **Floating window** button shows this):
 
 ![The bar as a floating window at the top right of a desktop](docs/busy-bar-floating.png)
+
+On a small monitor such as 960 × 540, with **Layout** set to **Stacked** (the
+simulator's **Stacked layout** button shows this — [more below](#small-screens-the-stacked-layout)):
+
+![The stacked layout on a 960 x 540 screen: the ON A CALL pill above a large clock](docs/busy-bar-stacked.png)
 
 ## Download
 
@@ -114,8 +122,6 @@ and on every Space, including full-screen apps.
   First launch opens the full-screen display only.
 
 ## Small screens: the Stacked layout
-
-![The Stacked layout on a 960 x 540 screen](docs/busy-bar-stacked.png)
 
 For a small monitor — say a 960 × 540 desk display — set **Layout** to
 **Stacked (small screens)** in the controls window or the menu-bar menu. The
