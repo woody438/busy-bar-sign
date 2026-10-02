@@ -41,6 +41,9 @@ Script.spans = [
 
 var changes: [(Double, Sign)] = []
 var failures: [String] = []
+/// When each scripted action actually ran: a shared CI machine can run a
+/// timer late, so "at once" is measured from here, not from the script.
+var actedAt: [String: Double] = [:]
 
 // path helper: pure string logic, check it directly
 for (path, expected) in [
@@ -61,14 +64,13 @@ Task { @MainActor in
     changes.append((Script.elapsed, last))
     var done = Set<String>()
     func once(_ key: String, at time: Double, _ action: () -> Void) {
-        if Script.elapsed >= time && !done.contains(key) { done.insert(key); action() }
+        if Script.elapsed >= time && !done.contains(key) { done.insert(key); actedAt[key] = Script.elapsed; action() }
     }
     let watch = Timer(timeInterval: 0.05, repeats: true) { _ in
         MainActor.assumeIsolated {
             if detector.sign != last { last = detector.sign; changes.append((Script.elapsed, last)) }
-            let t = Script.elapsed
-            if t >= 28 && t < 29 && detector.override != .onCall { detector.override = .onCall }
-            if t >= 29 && detector.override == .onCall { detector.override = .auto }
+            once("force on", at: 28) { detector.override = .onCall }
+            once("automatic", at: 29) { detector.override = .auto }
             once("dnd on in call", at: 4) { detector.startDND() }
             once("dnd on", at: 29.5) { detector.toggleDND() }
             once("dnd off", at: 30.5) { detector.toggleDND() }
@@ -77,9 +79,26 @@ Task { @MainActor in
                 detector.toggleDND()
                 if detector.dndUntil != nil { failures.append("a second double-click should end Do Not Disturb") }
             }
+            // a change an action made shows at once: note it now, not on the next tick
+            if detector.sign != last { last = detector.sign; changes.append((Script.elapsed, last)) }
         }
     }
     RunLoop.main.add(watch, forMode: .common)
+    // the microphone's own sessions, for the calendar rules: forcing ON A CALL isn't one
+    let check = Timer(timeInterval: 40.5, repeats: false) { _ in
+        MainActor.assumeIsolated {
+            let s = detector.micSessions.map { (($0.start / 1000) - Script.start.timeIntervalSince1970,
+                                                $0.end.map { ($0 / 1000) - Script.start.timeIntervalSince1970 }) }
+            print("mic sessions:", s.map { String(format: "%.1f–%@", $0.0, $0.1.map { String(format: "%.1f", $0) } ?? "on") }.joined(separator: ", "))
+            if s.count != 2 { failures.append("expected two mic sessions (Zoom, Meet), saw \(s.count)") }
+            else {
+                // polls are a second apart, so each edge lands up to a second after the event
+                if abs(s[0].0 - 1.6) > 0.8 || abs((s[0].1 ?? 0) - 7.6) > 0.8 { failures.append("the Zoom session should run from about 1 s to 7 s") }
+                if abs(s[1].0 - 31.6) > 0.8 || s[1].1 != nil { failures.append("the Meet session should start about 31 s and still be on") }
+            }
+        }
+    }
+    RunLoop.main.add(check, forMode: .common)
 }
 
 RunLoop.main.run(until: Date().addingTimeInterval(41))
@@ -92,10 +111,15 @@ func expect(_ sign: Sign, between a: Double, and b: Double, _ what: String) {
 expect(.call, between: 2.8, and: 3.3, "Zoom should light the sign 2 s after it takes the mic")
 expect(.dnd, between: 16.8, and: 17.3, "when the call ends 10 s after Zoom lets go, Do Not Disturb should return")
 expect(.free, between: 23.9, and: 25.2, "Do Not Disturb should run out at its original time, not be reset by the call")
-expect(.call, between: 28.0, and: 28.2, "Force ON A CALL should take effect at once")
-expect(.free, between: 29.0, and: 29.2, "Automatic should return to FREE at once")
-expect(.dnd, between: 29.5, and: 29.7, "Do Not Disturb should come on at once")
-expect(.free, between: 30.5, and: 30.7, "turning Do Not Disturb off should return to FREE at once")
+/// A change that should follow an action at once: within 0.2 s of when it actually ran.
+func expectAtOnce(_ sign: Sign, after key: String, _ what: String) {
+    guard let t = actedAt[key] else { failures.append(what + " (the action never ran)"); return }
+    expect(sign, between: t, and: t + 0.2, what)
+}
+expectAtOnce(.call, after: "force on", "Force ON A CALL should take effect at once")
+expectAtOnce(.free, after: "automatic", "Automatic should return to FREE at once")
+expectAtOnce(.dnd, after: "dnd on", "Do Not Disturb should come on at once")
+expectAtOnce(.free, after: "dnd off", "turning Do Not Disturb off should return to FREE at once")
 expect(.call, between: 32.8, and: 33.3, "Google Meet in a Chrome helper should count")
 if changes.contains(where: { $0.1 == .call && $0.0 > 18 && $0.0 < 27.9 }) {
     failures.append("dictation, an Apple system process or a 1-second blip lit the sign")

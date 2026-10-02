@@ -35,7 +35,13 @@ if ! printf 'import Combine\n' | "$SWIFTC" -typecheck - >/dev/null 2>&1; then
   export LD_LIBRARY_PATH="$OUT${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 # (the ${LINK[@]+...} form: macOS's bash 3.2 treats an empty array as unset)
-"$SWIFTC" ${LINK[@]+"${LINK[@]}"} Sources/CallDetector.swift Checks/detector/FakeProbes.swift Checks/detector/main.swift -o "$OUT/detector"
+"$SWIFTC" ${LINK[@]+"${LINK[@]}"} Sources/CallDetector.swift Sources/StatusRules.swift Checks/detector/FakeProbes.swift Checks/detector/main.swift -o "$OUT/detector"
 "$OUT/detector" | tail -1
+
+echo; echo "== status rules (calendar, mic, controls)"
+node simulator/tools/rules-check.js
+node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
+"$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
+"$OUT/rules" "$OUT/rules.json"
 
 echo; echo "all checks passed"

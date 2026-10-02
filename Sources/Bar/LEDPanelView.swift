@@ -2,14 +2,35 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
+/// The moment the right of the pill is about: a countdown to it (Do Not
+/// Disturb, a call's end, CALL IN), a count up from it (LATE), or just its
+/// time (FREE TILL, CALL TBC once it's on).
+struct BarMoment: Equatable {
+    enum Kind { case countdown, countUp, fixed }
+    let at: Date
+    let kind: Kind
+
+    /// The engine's timer, at `date`.
+    func timer(at date: Date) -> BarTimer {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: at)
+        let left: Double
+        switch kind {
+        case .countdown: left = at.timeIntervalSince(date)
+        case .countUp: left = date.timeIntervalSince(at)
+        case .fixed: left = 0
+        }
+        return BarTimer(left: left, h: c.hour ?? 0, m: c.minute ?? 0)
+    }
+}
+
 /// What the bar is showing, and since when. `since` is on the same clock as
 /// CACurrentMediaTime(), which is what the panel renders against.
 final class BarModel: ObservableObject {
     @Published private(set) var state: BarState = .free
     private(set) var prev: BarState?
     private(set) var since: CFTimeInterval = CACurrentMediaTime()
-    /// When Do Not Disturb ends, for its countdown.
-    var dndUntil: Date?
+    /// What the right of the pill counts to, or from; nil for the clock.
+    var moment: BarMoment?
     private var hasReading = false
 
     /// The first reading sets the state without a transition, so the app
@@ -161,11 +182,7 @@ final class LEDPanelNSView: NSView {
         guard let raster else { return }
 
         let date = Date()
-        var timer: DNDTimer?
-        if let until = model.dndUntil {
-            let end = Calendar.current.dateComponents([.hour, .minute], from: until)
-            timer = DNDTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
-        }
+        let timer = model.moment?.timer(at: date)
         switch barLayout {
         case .wide:
             BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,

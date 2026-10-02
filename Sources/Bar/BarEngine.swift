@@ -21,14 +21,30 @@ extension SIMD3 where Scalar == Double {
     }
 }
 
-enum BarState: String {
-    case call, free, dnd
+/// What the sign says. The raw values are simulator/rules.js's state names.
+enum BarState: String, CaseIterable {
+    case call, meeting, free, dnd
+    case callIn, busyIn          // 10 minutes before: a countdown on the right
+    case late                    // a call has started without you: CALL and how late
+    case freeTil                 // you left a call early: free till its slot ends
+    case callTbc, busyTbc        // tentative: a countdown to the start, then TILL the end
+    case away, lunch, ooo        // not here (ooo: OUT OF + OFFICE on the right)
 
     var word: String {
         switch self {
         case .call: return "ON A CALL"
+        case .meeting: return "MEETING"
         case .free: return "FREE"
         case .dnd: return "DND"
+        case .callIn: return "CALL IN"
+        case .busyIn: return "BUSY IN"
+        case .late: return "LATE FOR"
+        case .freeTil: return "FREE TILL"
+        case .callTbc: return "CALL TBC"
+        case .busyTbc: return "BUSY TBC"
+        case .away: return "AWAY"
+        case .lunch: return "LUNCH"
+        case .ooo: return "OUT OF"
         }
     }
 }
@@ -60,11 +76,26 @@ struct BarPalette {
         rimBottom: RGB(hex: 0x0D7B55), edge: RGB(hex: 0x5CD69A), shadow: RGB(hex: 0x013A24),
         flood: RGB(hex: 0x2A9E63))
 
+    /// The calendar's warnings and "free, but booked": amber, between the
+    /// green and the red, on the same vertical profile.
+    static let amber = BarPalette(
+        highlight: RGB(hex: 0xFFD38A), top: RGB(hex: 0xFFA21A), bottom: RGB(hex: 0x6B3B00),
+        rimBottom: RGB(hex: 0x7D4C12), edge: RGB(hex: 0xE0A653), shadow: RGB(hex: 0x482500),
+        flood: RGB(hex: 0xC07A14))
+
+    /// Not here: away, at lunch, out of office.
+    static let grey = BarPalette(
+        highlight: RGB(hex: 0xC4C8D2), top: RGB(hex: 0x7E8492), bottom: RGB(hex: 0x272A31),
+        rimBottom: RGB(hex: 0x3A3D45), edge: RGB(hex: 0x8E93A0), shadow: RGB(hex: 0x15161A),
+        flood: RGB(hex: 0x5E636E))
+
     static func of(_ state: BarState) -> BarPalette {
         switch state {
-        case .call: return call
+        case .call, .meeting: return call
         case .free: return free
         case .dnd: return dnd
+        case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return amber
+        case .away, .lunch, .ooo: return grey
         }
     }
 }
@@ -167,10 +198,18 @@ struct ClockReading {
     }
 }
 
-/// Do Not Disturb's countdown: seconds left, and the end time (hour, minute).
-struct DNDTimer {
+/// The moment a state is about, for the right of the pill: seconds to go
+/// (or, for LATE, seconds since the start; for TBC, 0 once the meeting is
+/// on) and that moment's hour and minute.
+struct BarTimer {
     let left: Double
     let h: Int, m: Int
+}
+
+/// What goes right of the pill: a top line in the clock's face and a bottom
+/// line at half brightness. `blink`: whether the colon dims on odd seconds.
+struct RightText {
+    let top: String, bottom: String, blink: Bool
 }
 
 struct Sheen { let pos: Double; let width: Double; let strength: Double }
@@ -235,7 +274,8 @@ enum BarEngine {
     /// echoes the firmware's on_call theme; the tick is the "available" mark
     /// every meeting app uses; the moon is Do Not Disturb's, as on the Mac.
     /// Rows top to bottom.
-    static let icons: [BarState: [String]] = [
+    static let icons: [BarState: [String]] = baseIcons.merging([.freeTil: baseIcons[.free]!]) { a, _ in a }
+    private static let baseIcons: [BarState: [String]] = [
         .call: [
             "...###...",
             "..#####..",
@@ -273,10 +313,106 @@ enum BarEngine {
             "######....",
             ".####.....",
             "..##......"
+        ],
+        // two people
+        .meeting: [
+            ".###...###.",
+            "#####.#####",
+            "#####.#####",
+            ".###...###.",
+            "...........",
+            ".###...###.",
+            "#####.#####",
+            "#####.#####",
+            "#####.#####"
+        ],
+        .callIn: soonIcon, .busyIn: soonIcon,
+        // a warning sign
+        .late: [
+            ".....#.....",
+            "....###....",
+            "...##.##...",
+            "...##.##...",
+            "..###.###..",
+            "..###.###..",
+            ".#########.",
+            ".####.####.",
+            "###########"
+        ],
+        .callTbc: tbcIcon, .busyTbc: tbcIcon,
+        // a fork and a knife
+        .lunch: [
+            "#.#.#..#",
+            "#.#.#.##",
+            "#.#.#.##",
+            "#.#.#.##",
+            "#####.##",
+            ".###..##",
+            "..#....#",
+            "..#....#",
+            "..#....#",
+            "..#....#",
+            "..#....#"
+        ],
+        // out of the door
+        .away: [
+            "#####......",
+            "#..........",
+            "#.......#..",
+            "#.......##.",
+            "#..########",
+            "#..########",
+            "#.......##.",
+            "#.......#..",
+            "#..........",
+            "#####......"
+        ],
+        // a plane seen from above, nose to the right, wings swept back
+        .ooo: [
+            "....##......",
+            ".....##.....",
+            "......##....",
+            "#......##...",
+            "##.....###..",
+            "############",
+            "##.....###..",
+            "#......##...",
+            "......##....",
+            ".....##.....",
+            "....##......"
         ]
     ]
+    /// A bell: something's about to start.
+    private static let soonIcon = [
+        ".....#.....",
+        "...#####...",
+        "..#######..",
+        "..#######..",
+        "..#######..",
+        "..#######..",
+        ".#########.",
+        "###########",
+        "...........",
+        "....###...."
+    ]
+    /// A pencil: pencilled in, not confirmed.
+    private static let tbcIcon = [
+        "........#.",
+        ".......###",
+        "......###.",
+        ".....###..",
+        "....###...",
+        "...###....",
+        "..###.....",
+        ".###......",
+        ".##.......",
+        "#........."
+    ]
     /// Rows above the baseline for the icon's bottom row.
-    static let iconLift: [BarState: Int] = [.call: -1, .free: 1, .dnd: -1]
+    static let iconLift: [BarState: Int] = [
+        .call: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
+        .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1
+    ]
 
     /// The announcement. busy_regular_14 is busy_regular_7 doubled, so
     /// everything about it is at twice the scale: a two-step shadow, and word
@@ -290,7 +426,25 @@ enum BarEngine {
         case .call: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .free: return Hero(word: "FREE", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .dnd: return Hero(word: "DO NOT DISTURB", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .meeting: return Hero(word: "MEETING", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .callIn: return Hero(word: "CALL SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .busyIn: return Hero(word: "BUSY SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .late: return Hero(word: "LATE FOR CALL", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .freeTil: return Hero(word: "FREE TILL {t}", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .callTbc: return Hero(word: "CALL TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .busyTbc: return Hero(word: "BUSY TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .away: return Hero(word: "AWAY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .lunch: return Hero(word: "LUNCH", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .ooo: return Hero(word: "OUT OF OFFICE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         }
+    }
+
+    /// An announcement's words; {t} is the time the state is about (FREE TILL 11:00).
+    static func heroWord(_ state: BarState, _ timer: BarTimer?) -> String {
+        let w = hero(state).word
+        guard w.contains("{t}") else { return w }
+        if let timer { return w.replacingOccurrences(of: "{t}", with: String(format: "%02d:%02d", timer.h, timer.m)) }
+        return w.replacingOccurrences(of: " TILL {t}", with: "").replacingOccurrences(of: "{t}", with: "")
     }
 
     /// Deterministic hash to 0...1. Matches engine.js bit for bit.
@@ -314,7 +468,7 @@ enum BarEngine {
      *           while the state is .dnd
      */
     static func render(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                       since: Double, clock: ClockReading, timer: DNDTimer? = nil) {
+                       since: Double, clock: ClockReading, timer: BarTimer? = nil) {
         f.clear()
         let pal = BarPalette.of(state)
         let e = now - since
@@ -328,7 +482,7 @@ enum BarEngine {
                 shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
             }
         } else if e < collapseStart {
-            drawHero(&f, now: now, state: state, pal: pal)
+            drawHero(&f, now: now, state: state, pal: pal, timer: timer)
             // ...and the new one springs back up
             let r = (e - Timing.swap) / Timing.swap
             if r < 1 { shiftDown(&f, jsRound(Timing.press * (1 - easeOut(r)))) }
@@ -336,18 +490,18 @@ enum BarEngine {
             let k = easeInOut((e - collapseStart) / Timing.collapse)
             let w = lerp(Layout.heroW, Layout.statusW, k)
             let edge = Layout.heroX + w
-            drawPill(&f, x0: Layout.heroX, w: w, pal: pal, sheen: sheenAt(now))
+            drawPill(&f, x0: Layout.heroX, w: w, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
             // the announcement face gives way to icon + status face as the pill shrinks:
             // out before the big word can outgrow the pill, in once there's room
             let fadeOut = 1 - smooth(0.08, 0.34, k)
             let fadeIn = smooth(0.14, 0.4, k)         // overlapping, so the pill is never empty
             let clip = (lo: Int(Layout.heroX) + 1, hi: Int(edge.rounded(.down)) - 1)
             if fadeOut > 0 {
-                let hw = Double(heroWidth(state))
+                let hw = Double(heroWidth(state, timer))
                 var style = heroStyle(state, pal, alpha: fadeOut)
                 style.clip = clip
                 let h = hero(state)
-                drawText(&f, font: h.font, h.word,
+                drawText(&f, font: h.font, heroWord(state, timer),
                          x: Layout.heroX + (max(w, hw + 6) - hw) / 2 + 0.5,
                          baseY: h.base, colour: white, style: style)
             }
@@ -388,35 +542,85 @@ enum BarEngine {
         return TextStyle(shadow: pal.shadow, shadowDepth: h.depth, shadowAlpha: 0.9 * alpha, alpha: alpha, space: h.space)
     }
 
-    static func heroWidth(_ state: BarState) -> Int {
+    static func heroWidth(_ state: BarState, _ timer: BarTimer?) -> Int {
         let h = hero(state)
-        return textWidth(h.font, h.word, space: h.space)
+        return textWidth(h.font, heroWord(state, timer), space: h.space)
     }
 
-    static func drawHero(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette) {
-        drawPill(&f, x0: Layout.heroX, w: Layout.heroW, pal: pal, sheen: sheenAt(now))
-        let w = Double(heroWidth(state))
+    /// LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
+    /// so it reads as urgent rather than as an opening.
+    static func pulseAt(_ now: Double, _ state: BarState) -> Double {
+        guard state == .late else { return 0 }
+        return 0.34 * (0.5 - 0.5 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: 1.6) / 1.6))
+    }
+
+    static func drawHero(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, timer: BarTimer?) {
+        drawPill(&f, x0: Layout.heroX, w: Layout.heroW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
+        let w = Double(heroWidth(state, timer))
         let h = hero(state)
-        drawText(&f, font: h.font, h.word, x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
+        drawText(&f, font: h.font, heroWord(state, timer), x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
                  baseY: h.base, colour: white, style: heroStyle(state, pal))
     }
 
     static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                           timer: DNDTimer?, slide: Int) {
+                           timer: BarTimer?, slide: Int) {
         let pal = BarPalette.of(state)
-        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now))
+        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
         drawStatusContent(&f, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
         drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
     }
 
-    /// Right of the pill: the clock, or Do Not Disturb's countdown.
-    static func drawRight(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: DNDTimer?,
-                          slide: Int, minX: Int) {
-        if state == .dnd, let timer {
-            drawCountdown(&f, clock: clock, timer: timer, slide: slide, minX: minX)
-        } else {
-            drawClock(&f, clock: clock, slide: slide, minX: minX)
+    /*
+     * What goes right of the pill (or under it, stacked). Usually the time and
+     * the day; states that are about another moment show it instead.
+     */
+    static func rightText(_ state: BarState, clock: ClockReading, timer: BarTimer?) -> RightText {
+        let day = days[((clock.dow % 7) + 7) % 7] + " " + String(clock.date)
+        let now = String(format: "%02d:%02d", clock.h, clock.m)
+        if let timer {
+            let at = String(format: "%02d:%02d", timer.h, timer.m)
+            switch state {
+            case .dnd, .call, .meeting:
+                // Do Not Disturb, or on a call / in a meeting: how long till you're free, and when
+                let c = countdownText(timer)
+                return RightText(top: c.mmss, bottom: c.until, blink: true)
+            case .callIn, .busyIn:
+                return RightText(top: countdownText(timer).mmss, bottom: "AT " + at, blink: true)
+            case .callTbc, .busyTbc:
+                // tentative: a countdown to the start, then the end time once it's on
+                return timer.left > 0 ? RightText(top: countdownText(timer).mmss, bottom: "AT " + at, blink: true)
+                                      : RightText(top: now, bottom: "TILL " + at, blink: true)
+            case .late:
+                return RightText(top: "CALL", bottom: "+" + elapsedText(timer.left), blink: false)
+            case .freeTil:
+                return RightText(top: at, bottom: day, blink: false)
+            default:
+                break
+            }
         }
+        if state == .ooo { return RightText(top: now, bottom: "OFFICE", blink: true) }
+        return RightText(top: now, bottom: day, blink: true)
+    }
+
+    /// Minutes and seconds since something started, rounded down: 00:00, 01:20.
+    static func elapsedText(_ secs: Double) -> String {
+        let s = min(max(Int((secs + 1e-9).rounded(.down)), 0), 99 * 60 + 59)
+        return String(format: "%02d:%02d", s / 60, s % 60)
+    }
+
+    /// Right of the pill. `slide` pushes it right (entrance); nothing is drawn left of `minX`.
+    static func drawRight(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: BarTimer?,
+                          slide: Int, minX: Int) {
+        let text = rightText(state, clock: clock, timer: timer)
+        let tw = clockTextWidth(Layout.timeFont, text.top)
+        let bw = textWidth(Layout.dateFont, text.bottom)
+        let x0 = Layout.clockX + slide
+        let clip = (lo: max(minX, Layout.clockX - 3), hi: cols)
+        let colon = text.blink && clock.s % 2 == 1 ? 0.4 : 1.0
+        drawClockText(&f, font: Layout.timeFont, text.top, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
+                      baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
+        drawText(&f, font: Layout.dateFont, text.bottom, x: Double(x0 + jsRound(Double(Layout.clockW - bw) / 2)),
+                 baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
     }
 
     // MARK: Status
@@ -456,45 +660,17 @@ enum BarEngine {
     // MARK: Clock
 
     /*
-     * The time, white on black, with the day beneath at half brightness —
-     * the firmware's clock app. Colons drop to 40% on odd seconds.
-     * `slide` pushes it right (entrance); nothing is drawn left of `minX`.
+     * A countdown in the clock's place and face — the firmware's timer
+     * screen — with its end time beneath at half brightness (Do Not Disturb,
+     * a call, a meeting), or the start time (CALL IN). Whole seconds, rounded
+     * up, so it reads 30:00 as it starts and 00:01 last; 1H05 from an hour.
      */
-    static func drawClock(_ f: inout LEDFrame, clock: ClockReading, slide: Int, minX: Int) {
-        let hhmm = String(format: "%02d:%02d", clock.h, clock.m)
-        let day = days[((clock.dow % 7) + 7) % 7] + " " + String(clock.date)
-        let tw = clockTextWidth(Layout.timeFont, hhmm)
-        let dw = textWidth(Layout.dateFont, day)
-        let x0 = Layout.clockX + slide
-        let clip = (lo: max(minX, Layout.clockX - 3), hi: cols)
-        let colon = clock.s % 2 == 1 ? 0.4 : 1.0
-        drawClockText(&f, font: Layout.timeFont, hhmm, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
-                      baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
-        drawText(&f, font: Layout.dateFont, day, x: Double(x0 + jsRound(Double(Layout.clockW - dw) / 2)),
-                 baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
-    }
-
-    /*
-     * Do Not Disturb's countdown, in the clock's place and face — the
-     * firmware's timer screen — with its end time beneath at half brightness.
-     * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
-     */
-    static func countdownText(_ timer: DNDTimer) -> (mmss: String, until: String) {
-        let secs = min(max(Int((timer.left - 1e-9).rounded(.up)), 0), 99 * 60 + 59)
-        return (String(format: "%02d:%02d", secs / 60, secs % 60), String(format: "TILL %02d:%02d", timer.h, timer.m))
-    }
-
-    static func drawCountdown(_ f: inout LEDFrame, clock: ClockReading, timer: DNDTimer, slide: Int, minX: Int) {
-        let (mmss, until) = countdownText(timer)
-        let tw = clockTextWidth(Layout.timeFont, mmss)
-        let uw = textWidth(Layout.dateFont, until)
-        let x0 = Layout.clockX + slide
-        let clip = (lo: max(minX, Layout.clockX - 3), hi: cols)
-        let colon = clock.s % 2 == 1 ? 0.4 : 1.0
-        drawClockText(&f, font: Layout.timeFont, mmss, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
-                      baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
-        drawText(&f, font: Layout.dateFont, until, x: Double(x0 + jsRound(Double(Layout.clockW - uw) / 2)),
-                 baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
+    static func countdownText(_ timer: BarTimer) -> (mmss: String, until: String) {
+        let until = String(format: "TILL %02d:%02d", timer.h, timer.m)
+        let secs = max(Int((timer.left - 1e-9).rounded(.up)), 0)
+        // an hour or more reads as hours and minutes: 1H05
+        if secs >= 3600 { return (String(format: "%dH%02d", min(secs / 3600, 9), (secs % 3600) / 60), until) }
+        return (String(format: "%02d:%02d", secs / 60, secs % 60), until)
     }
 
     private static func digitCell(_ font: PixelFont) -> Int {
@@ -519,8 +695,9 @@ enum BarEngine {
                          colour: colour, style: style)
                 pen += cell
             } else {
+                // only the colon blinks: letters (the H in 1H05, CALL) stay lit
                 var s = style
-                s.alpha *= colonAlpha
+                if ch == ":" { s.alpha *= colonAlpha }
                 drawText(&f, font: fontName, String(ch), x: Double(pen), baseY: baseY, colour: colour, style: s)
                 pen += g.adv
             }
@@ -557,7 +734,7 @@ enum BarEngine {
      * profile, stretched to any width.
      */
     static func drawPill(_ f: inout LEDFrame, x0: Double, w: Double, pal: BarPalette, sheen: Sheen? = nil,
-                         h rowsTall: Int = LEDFrame.rows) {
+                         h rowsTall: Int = LEDFrame.rows, dim: Double = 0) {
         let rows = rowsTall                              // rows 0..h-1: 16, or taller in the stacked layout
         let y0 = 0.0, h = Double(rows), r = 2.6
         let xs = Int(x0.rounded(.down)) - 1
@@ -582,6 +759,7 @@ enum BarEngine {
                     let s = exp(-(u * u) / (2 * sheen.width * sheen.width)) * sheen.strength
                     c = mix(c, pal.highlight, s)
                 }
+                if dim > 0 { c = c * (1 - dim) }
                 f.blend(x, y, c, cover)
             }
         }
@@ -692,18 +870,44 @@ enum BarEngine {
         static let slideIn = 24.0      // the clock rises from 24 rows down
         static let heroGap = 4         // rows between the announcement's lines
 
-        /// The announcement fills the panel, a word or two per line.
-        static func hero(_ state: BarState) -> [String] {
-            switch state {
-            case .call: return ["ON A", "CALL"]
-            case .free: return ["FREE"]
-            case .dnd: return ["DO NOT", "DISTURB"]
+        /// A line of the announcement: the 14-row face, or the 10-row one
+        /// where a line won't fit the 82-LED pill in it.
+        struct Line {
+            let t: String
+            var font = "busy_regular_14"
+            var tracking = 0
+            init(_ t: String, font: String = "busy_regular_14", tracking: Int = 0) {
+                self.t = t; self.font = font; self.tracking = tracking
             }
+        }
+
+        /// The announcement fills the panel, a word or two per line.
+        static func hero(_ state: BarState) -> [Line] {
+            switch state {
+            case .call: return [Line("ON A"), Line("CALL")]
+            case .free: return [Line("FREE")]
+            case .dnd: return [Line("DO NOT"), Line("DISTURB")]
+            case .meeting: return [Line("MEETING", tracking: -1)]
+            case .callIn: return [Line("CALL"), Line("SOON")]
+            case .busyIn: return [Line("BUSY"), Line("SOON")]
+            case .late: return [Line("LATE"), Line("FOR CALL", font: "busy_bold_10")]
+            case .freeTil: return [Line("FREE"), Line("TILL {t}", font: "busy_bold_10")]
+            case .callTbc: return [Line("CALL"), Line("TBC")]
+            case .busyTbc: return [Line("BUSY"), Line("TBC")]
+            case .away: return [Line("AWAY")]
+            case .lunch: return [Line("LUNCH")]
+            case .ooo: return [Line("OUT OF"), Line("OFFICE")]
+            }
+        }
+
+        /// Each face's line height, shadow depth and word space.
+        static func lineFont(_ font: String) -> (h: Int, depth: Int, space: Int?) {
+            font == "busy_bold_10" ? (10, 1, nil) : (14, 2, 6)
         }
     }
 
     static func renderStacked(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                              since: Double, clock: ClockReading, timer: DNDTimer? = nil) {
+                              since: Double, clock: ClockReading, timer: BarTimer? = nil) {
         f.clear()
         let pal = BarPalette.of(state)
         let e = now - since
@@ -716,18 +920,20 @@ enum BarEngine {
                 shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
             }
         } else if e < collapseStart {
-            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: f.h)
-            drawStackedHero(&f, state: state, pal: pal, alpha: 1, clipY: nil)
+            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: f.h,
+                     dim: pulseAt(now, state))
+            drawStackedHero(&f, state: state, pal: pal, alpha: 1, clipY: nil, timer: timer)
             let r = (e - Timing.swap) / Timing.swap
             if r < 1 { shiftDown(&f, jsRound(Timing.press * (1 - easeOut(r)))) }
         } else if e < collapseEnd {
             // the pill draws up from the whole panel to the top band
             let k = easeInOut((e - collapseStart) / Timing.collapse)
             let h = jsRound(lerp(Double(f.h), Double(Stacked.pillH), k))
-            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: h)
+            drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: h,
+                     dim: pulseAt(now, state))
             let fadeOut = 1 - smooth(0.08, 0.34, k)
             let fadeIn = smooth(0.14, 0.4, k)
-            if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1)) }
+            if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1), timer: timer) }
             if fadeIn > 0 {
                 drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
             }
@@ -742,48 +948,50 @@ enum BarEngine {
     }
 
     static func drawStackedSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                                  timer: DNDTimer?, slide: Int) {
+                                  timer: BarTimer?, slide: Int) {
         let pal = BarPalette.of(state)
-        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH)
+        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH,
+                 dim: pulseAt(now, state))
         drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
     }
 
     static func drawStackedHero(_ f: inout LEDFrame, state: BarState, pal: BarPalette, alpha: Double,
-                                clipY: (lo: Int, hi: Int)?) {
+                                clipY: (lo: Int, hi: Int)?, timer: BarTimer?) {
+        let at = timer.map { String(format: "%02d:%02d", $0.h, $0.m) } ?? ""
         let lines = Stacked.hero(state)
-        let block = lines.count * 14 + (lines.count - 1) * Stacked.heroGap
-        let top = jsRound(Double(f.h - block) / 2)
-        // the 14-row face, set as the bar's announcement: two-step shadow, trimmed spaces
-        var style = TextStyle(shadow: pal.shadow, shadowDepth: 2, shadowAlpha: 0.9 * alpha, alpha: alpha, space: 6)
-        style.clipY = clipY
-        for (i, line) in lines.enumerated() {
-            let w = Double(textWidth("busy_regular_14", line, space: 6))
-            drawText(&f, font: "busy_regular_14", line, x: Stacked.pillX + (Stacked.pillW - w) / 2 + 0.5,
-                     baseY: top + 13 + i * (14 + Stacked.heroGap), colour: white, style: style)
+            .map { Stacked.Line($0.t.replacingOccurrences(of: "{t}", with: at), font: $0.font, tracking: $0.tracking) }
+            .filter { !$0.t.trimmingCharacters(in: .whitespaces).isEmpty && $0.t != "TILL" && $0.t != "TILL " }
+        var block = (lines.count - 1) * Stacked.heroGap
+        for l in lines { block += Stacked.lineFont(l.font).h }
+        var top = jsRound(Double(f.h - block) / 2)
+        for l in lines {
+            // set as the bar's announcement: the 14-row face with a two-step
+            // shadow and trimmed spaces, the 10-row face with a one-step shadow
+            let lf = Stacked.lineFont(l.font)
+            var style = TextStyle(shadow: pal.shadow, shadowDepth: lf.depth, shadowAlpha: 0.9 * alpha, alpha: alpha,
+                                  space: lf.space, tracking: l.tracking)
+            style.clipY = clipY
+            let w = Double(textWidth(l.font, l.t, tracking: l.tracking, space: lf.space))
+            drawText(&f, font: l.font, l.t, x: Stacked.pillX + (Stacked.pillW - w) / 2 + 0.5,
+                     baseY: top + lf.h - 1, colour: white, style: style)
+            top += lf.h + Stacked.heroGap
         }
     }
 
     /// The time and the day — or Do Not Disturb's countdown and its end
     /// time — centred beneath the pill. `slide` pushes it down (entrance);
     /// nothing is drawn above row `minY`.
-    static func drawStackedClock(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: DNDTimer?,
+    static func drawStackedClock(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: BarTimer?,
                                  slide: Int, minY: Int) {
-        let big: String, small: String
-        if state == .dnd, let timer {
-            let text = countdownText(timer)
-            big = text.mmss; small = text.until
-        } else {
-            big = String(format: "%02d:%02d", clock.h, clock.m)
-            small = days[((clock.dow % 7) + 7) % 7] + " " + String(clock.date)
-        }
+        let text = rightText(state, clock: clock, timer: timer)
         let clipY = (lo: minY, hi: f.h)
-        let colon = clock.s % 2 == 1 ? 0.4 : 1.0
-        let bw = clockTextWidth(Stacked.bigFont, big)
-        let sw = textWidth(Stacked.smallFont, small)
-        drawClockText(&f, font: Stacked.bigFont, big, x: jsRound(Double(f.w - bw) / 2), baseY: Stacked.bigBase + slide,
+        let colon = text.blink && clock.s % 2 == 1 ? 0.4 : 1.0
+        let bw = clockTextWidth(Stacked.bigFont, text.top)
+        let sw = textWidth(Stacked.smallFont, text.bottom)
+        drawClockText(&f, font: Stacked.bigFont, text.top, x: jsRound(Double(f.w - bw) / 2), baseY: Stacked.bigBase + slide,
                       colour: white, style: TextStyle(clipY: clipY), colonAlpha: colon)
-        drawText(&f, font: Stacked.smallFont, small, x: Double(jsRound(Double(f.w - sw) / 2)),
+        drawText(&f, font: Stacked.smallFont, text.bottom, x: Double(jsRound(Double(f.w - sw) / 2)),
                  baseY: Stacked.smallBase + slide, colour: white, style: TextStyle(alpha: 0.5, clipY: clipY))
     }
 }

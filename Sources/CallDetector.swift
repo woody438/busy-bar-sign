@@ -155,6 +155,12 @@ final class CallDetector: ObservableObject {
 
     var sign: Sign { isOnCall ? .call : (dndUntil != nil ? .dnd : .free) }
 
+    /// The microphone on its own — debounced the same way, whatever the
+    /// override says — and the stretches it was in use over the last day,
+    /// for the calendar rules: whether you joined a call, and when you left.
+    @Published private(set) var micOn = false
+    @Published private(set) var micSessions: [MicSession] = []
+
     /// Apps the user has told us to ignore from the menu, by bundle ID.
     @Published private(set) var userIgnored: Set<String> =
         Set(UserDefaults.standard.stringArray(forKey: "ignoredBundleIDs") ?? [])
@@ -168,6 +174,9 @@ final class CallDetector: ObservableObject {
 
     private var candidateSince: TimeInterval?
     private var candidate = false
+    private var micCandidateSince: TimeInterval?
+    private var micCandidate = false
+    private var micStarted = false
     private var timer: Timer?
 
     /// Monotonic, so a clock change can't upset the debounce.
@@ -226,6 +235,7 @@ final class CallDetector: ObservableObject {
 
         let raw = sample()
         if detection != raw { detection = raw }
+        trackMic(raw.onCall)
 
         let target: Bool
         switch override {
@@ -250,6 +260,38 @@ final class CallDetector: ObservableObject {
            uptime - since >= needed - slack {
             apply(candidate)
         }
+    }
+
+    /// The same debounce as the sign's, kept apart from the override. A
+    /// session runs from when the mic was taken to when it was let go — the
+    /// moments the debounce confirmed — not from when the debounce caught up.
+    private func trackMic(_ on: Bool) {
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        guard micStarted else {
+            micStarted = true
+            micCandidate = on
+            if on { setMic(true, at: nowMs) }
+            return
+        }
+        if on != micCandidate {
+            micCandidate = on
+            micCandidateSince = uptime
+        }
+        let needed = micCandidate ? onDelay : offDelay
+        if micCandidate != micOn, let since = micCandidateSince, uptime - since >= needed - slack {
+            setMic(micCandidate, at: nowMs - (uptime - since) * 1000)
+        }
+    }
+
+    private func setMic(_ on: Bool, at ms: Double) {
+        micOn = on
+        var sessions = micSessions.filter { ($0.end ?? .infinity) > ms - 24 * 3600 * 1000 }
+        if on {
+            sessions.append(MicSession(start: ms, end: nil))
+        } else if let last = sessions.indices.last, sessions[last].end == nil {
+            sessions[last].end = ms
+        }
+        micSessions = sessions
     }
 
     private func apply(_ value: Bool) {

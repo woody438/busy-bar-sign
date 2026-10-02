@@ -27,9 +27,36 @@ const STACKED_CASES = [
   ['call', 'free', 3.8], ['call', 'free', 4.0], ['call', 'free', 9.0],
   ['dnd', 'call', 0.3], ['dnd', 'call', 3.85], ['dnd', 'call', 9.0], ['free', 'dnd', 2.0], ['free', null, 9.0]
 ];
+// the calendar's states, each with the timer the app gives it (keep in step with main.swift)
+const TIMERS = {
+  soon: { left: 461.2, h: 11, m: 0 }, late: { left: 80.4, h: 9, m: 45 }, till: { left: 0, h: 11, m: 0 },
+  free: { left: 4532.6, h: 12, m: 0 }, dnd: { left: 1234.4, h: 15, m: 2 }
+};
+const CALENDAR_CASES = [
+  ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 3.75, 'free'], ['meeting', 'free', 9.0, 'free'],
+  ['call', 'callIn', 9.0, 'free'], ['call', 'late', 0.05, 'free'],
+  ['callIn', 'free', 0.5, 'soon'], ['callIn', 'free', 2.0, 'soon'], ['callIn', 'free', 3.75, 'soon'], ['callIn', 'free', 9.0, 'soon'],
+  ['busyIn', 'free', 9.0, 'soon'],
+  ['late', 'callIn', 2.0, 'late'], ['late', 'callIn', 3.75, 'late'], ['late', 'callIn', 9.0, 'late'],
+  ['late', 'callIn', 9.4, 'late'], ['late', 'callIn', 10.2, 'late'],
+  ['freeTil', 'call', 2.0, 'till'], ['freeTil', 'call', 3.9, 'till'], ['freeTil', 'call', 9.0, 'till'], ['freeTil', 'call', 2.0, null],
+  ['callTbc', 'free', 2.0, 'soon'], ['callTbc', 'free', 9.0, 'soon'], ['callTbc', 'free', 9.0, 'till'],
+  ['busyTbc', 'free', 9.0, 'till'],
+  ['away', 'free', 2.0, null], ['away', 'free', 9.0, null], ['lunch', 'away', 2.0, null], ['lunch', 'away', 3.75, null], ['lunch', null, 9.0, null],
+  ['ooo', 'free', 2.0, null], ['ooo', 'free', 3.8, null], ['ooo', 'free', 9.0, null]
+];
+const STACKED_CALENDAR_CASES = [
+  ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 9.0, 'free'], ['callIn', 'free', 2.0, 'soon'], ['callIn', 'free', 3.8, 'soon'],
+  ['late', 'callIn', 2.0, 'late'], ['late', 'callIn', 9.3, 'late'], ['freeTil', 'call', 2.0, 'till'], ['freeTil', 'call', 9.0, 'till'],
+  ['callTbc', 'free', 2.0, 'till'], ['busyTbc', 'free', 9.0, 'soon'], ['lunch', 'free', 2.0, null], ['ooo', 'free', 2.0, null],
+  ['ooo', 'free', 9.0, null], ['away', 'free', 2.0, null]
+];
 const clock = { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 };
 
-const JOBS = CASES.map((c) => ['wide', ...c]).concat(STACKED_CASES.map((c) => ['stacked', ...c]));
+const JOBS = CASES.map((c) => ['wide', ...c, timer])
+  .concat(STACKED_CASES.map((c) => ['stacked', ...c, timer]))
+  .concat(CALENDAR_CASES.map(([s, p, e, k]) => ['wide', s, p, e, k ? TIMERS[k] : undefined]))
+  .concat(STACKED_CALENDAR_CASES.map(([s, p, e, k]) => ['stacked', s, p, e, k ? TIMERS[k] : undefined]));
 const size = (layout) => (layout === 'wide' ? E.COLS * E.ROWS : E.STACKED.cols * E.STACKED.rows) * 3;
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -37,10 +64,10 @@ const total = JOBS.reduce((sum, [layout]) => sum + size(layout), 0);
 if (buf.length !== total * 8) { console.error('size mismatch', buf.length, 'expected', total * 8); process.exit(2); }
 
 let worst = 0, failed = 0, offset = 0;
-JOBS.forEach(([layout, state, prev, e]) => {
+JOBS.forEach(([layout, state, prev, e, tm]) => {
   const stacked = layout === 'stacked';
   const f = stacked ? new E.Frame(E.STACKED.cols, E.STACKED.rows) : new E.Frame();
-  (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, timer);
+  (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm);
   const n = size(layout);
   let maxd = 0, at = -1, bad = 0;
   for (let j = 0; j < n; j++) {
