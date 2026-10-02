@@ -94,9 +94,11 @@ private struct Spill: View {
 
     private var colour: Color {
         switch state {
-        case .call: return Color(red: 1, green: 0.114, blue: 0.208)
+        case .call, .meeting: return Color(red: 1, green: 0.114, blue: 0.208)
         case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
         case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
+        case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
+        case .away, .lunch, .ooo: return Color(red: 0.494, green: 0.518, blue: 0.573)
         }
     }
 }

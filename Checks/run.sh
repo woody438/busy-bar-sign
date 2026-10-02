@@ -40,5 +40,8 @@ fi
 
 echo; echo "== status rules (calendar, mic, controls)"
 node simulator/tools/rules-check.js
+node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
+"$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
+"$OUT/rules" "$OUT/rules.json"
 
 echo; echo "all checks passed"

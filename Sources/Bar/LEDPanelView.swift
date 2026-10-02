@@ -161,10 +161,10 @@ final class LEDPanelNSView: NSView {
         guard let raster else { return }
 
         let date = Date()
-        var timer: DNDTimer?
+        var timer: BarTimer?
         if let until = model.dndUntil {
             let end = Calendar.current.dateComponents([.hour, .minute], from: until)
-            timer = DNDTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
+            timer = BarTimer(left: until.timeIntervalSince(date), h: end.hour ?? 0, m: end.minute ?? 0)
         }
         switch barLayout {
         case .wide:
