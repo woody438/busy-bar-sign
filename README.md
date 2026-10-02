@@ -191,9 +191,6 @@ account's own "Calendar" by itself.
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
 
-The sign never shows what a meeting is called, and nor does anything
-else in the app: only that you're busy, and until when.
-
 **Who wins**, highest first: your **Sign** setting; the microphone; a
 double-click Do Not Disturb; then the calendar — out of office, lunch, away,
 a phone-call block, an in-person meeting, a call you're late for, a warning,
@@ -383,10 +380,9 @@ are the likeliest places:
    outline; if it's missing or boxy, that's where to look.
 5. `CalendarSource.swift` — the permission prompt, and how Exchange events
    arrive through EventKit: does the Calendar tab list your Outlook
-   calendar, and during a Teams meeting does the Status tab say "On a call
-   in your calendar" (with a countdown on the bar) rather than "Microphone
-   in use"? If a Teams meeting shows MEETING instead of a call, its join
-   link isn't where the rules look.
+   calendar, and during a Teams meeting does the Status tab say "On
+   “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
+   instead of a call, its join link isn't where the rules look.
 
 ## Running the checks
 

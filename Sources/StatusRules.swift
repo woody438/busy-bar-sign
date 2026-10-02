@@ -60,14 +60,14 @@ struct StatusInput {
     var config = StatusConfig()
 }
 
-/// What the sign says, and why. The reason never names the event: the
-/// app shows that you're busy, not what with.
+/// What the sign says, and why.
 struct StatusDecision: Equatable {
     var state: String                   // a BarState raw value
     var why: String
     var left: Double? = nil             // seconds to go (or since, for LATE)
     var at: Double? = nil               // the moment the state is about, ms
     var eventID: String? = nil
+    var eventTitle: String? = nil
 }
 
 enum StatusRules {
@@ -204,7 +204,7 @@ enum StatusRules {
         let now = input.now
         let sessions = input.micSessions
         func sign(_ state: String, _ why: String, event: Sorted? = nil, left: Double? = nil, at: Double? = nil) -> StatusDecision {
-            StatusDecision(state: state, why: why, left: left, at: at, eventID: event?.ev.id)
+            StatusDecision(state: state, why: why, left: left, at: at, eventID: event?.ev.id, eventTitle: event?.ev.title)
         }
 
         var numbered: [(i: Int, s: Sorted)] = []
@@ -222,6 +222,7 @@ enum StatusRules {
         let current = evs.filter { $0.start <= now && now < $0.end }
         let lead = cfg.leadMinutes * minute, late = cfg.lateMinutes * minute
         func first(_ pred: (Sorted) -> Bool) -> Sorted? { current.first(where: pred) }
+        func quote(_ e: Sorted) -> String { "“" + (e.ev.title.isEmpty ? "Untitled" : e.ev.title) + "”" }
         // busy until the end of this event and any back to back after it: a countdown to free
         func until(_ state: String, _ why: String, _ x: Sorted) -> StatusDecision {
             let end = busyUntil(x, evs, cfg)
@@ -238,7 +239,7 @@ enum StatusRules {
                                   $0.start - early <= now && now < $0.end }
             guard let firstOn = on.first else { return sign("call", "Microphone in use") }
             let anchor = on.dropFirst().reduce(firstOn) { a, b in busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a }
-            return until("call", "On a call in your calendar", anchor)
+            return until("call", "On " + quote(anchor), anchor)
         }
         // 3. a double-click
         if let dnd = input.dndUntil, dnd > now {
@@ -247,35 +248,35 @@ enum StatusRules {
 
         // 4. the calendar
         // not here, by your own blocks — these outrank meetings, warnings included
-        if let e = first({ $0.kind == .ooo }) { return sign("ooo", "Out of office", event: e, at: e.end) }
-        if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch", event: e, at: e.end) }
-        if let e = first({ $0.kind == .away }) { return sign("away", "Away", event: e, at: e.end) }
-        if let e = first({ $0.kind == .phone }) { return until("call", "Phone call in your calendar", e) }
+        if let e = first({ $0.kind == .ooo }) { return sign("ooo", "Out of office: " + quote(e), event: e, at: e.end) }
+        if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch: " + quote(e), event: e, at: e.end) }
+        if let e = first({ $0.kind == .away }) { return sign("away", "Away: " + quote(e), event: e, at: e.end) }
+        if let e = first({ $0.kind == .phone }) { return until("call", "Call in your calendar: " + quote(e), e) }
 
         // in a meeting, or should be on a call
         if let e = first({ $0.kind == .inPerson && !$0.tentative }) {
-            return until("meeting", "In a meeting", e)
+            return until("meeting", "In a meeting: " + quote(e), e)
         }
         if let e = first({ $0.kind == .call && !$0.tentative && now - $0.start < late && !joined($0, sessions, now, cfg) }) {
-            return sign("late", "Late for a call", event: e, left: (now - e.start) / 1000, at: e.start)
+            return sign("late", "Late for " + quote(e), event: e, left: (now - e.start) / 1000, at: e.start)
         }
 
         // about to be busy
         let upcoming = evs.filter { ($0.kind == .call || $0.kind == .inPerson) && $0.start > now && $0.start - now <= lead }
         if let soon = upcoming.first(where: { !$0.tentative }) {
-            return sign(soon.kind == .call ? "callIn" : "busyIn", soon.kind == .call ? "Call soon" : "Meeting soon",
+            return sign(soon.kind == .call ? "callIn" : "busyIn", (soon.kind == .call ? "Call" : "Meeting") + " soon: " + quote(soon),
                         event: soon, left: (soon.start - now) / 1000, at: soon.start)
         }
         func tbc(_ x: Sorted) -> String { x.kind == .call ? "callTbc" : "busyTbc" }
-        if let e = first({ $0.tentative }) { return sign(tbc(e), "Tentative meeting", event: e, at: e.end) }
+        if let e = first({ $0.tentative }) { return sign(tbc(e), "Tentative: " + quote(e), event: e, at: e.end) }
         if let e = upcoming.first {
-            return sign(tbc(e), "Tentative meeting soon", event: e, left: (e.start - now) / 1000, at: e.start)
+            return sign(tbc(e), "Tentative, soon: " + quote(e), event: e, left: (e.start - now) / 1000, at: e.start)
         }
 
         // a no-meetings block, then a call you've left early
-        if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "No-meetings block", event: e, at: e.end) }
+        if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) }) {
-            return sign("freeTil", "Left a call early", event: e, at: e.end)
+            return sign("freeTil", "Left " + quote(e) + " early", event: e, at: e.end)
         }
 
         // 5. nothing on
