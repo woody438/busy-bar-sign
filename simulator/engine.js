@@ -49,8 +49,38 @@
       shadow:    hex(0x013A24),
       flood:     hex(0x2A9E63)
     },
+    // the calendar's warnings and 'free, but booked': amber, between the
+    // green and the red, on the same vertical profile
+    amber: {
+      highlight: hex(0xFFD38A),
+      top:       hex(0xFFA21A),
+      bottom:    hex(0x6B3B00),
+      rimBottom: hex(0x7D4C12),
+      edge:      hex(0xE0A653),
+      shadow:    hex(0x482500),
+      flood:     hex(0xC07A14)
+    },
+    // not here: away, at lunch, out of office
+    grey: {
+      highlight: hex(0xC4C8D2),
+      top:       hex(0x7E8492),
+      bottom:    hex(0x272A31),
+      rimBottom: hex(0x3A3D45),
+      edge:      hex(0x8E93A0),
+      shadow:    hex(0x15161A),
+      flood:     hex(0x5E636E)
+    },
     white: [1, 1, 1]
   };
+  /* Which palette each state is lit in. */
+  const STATE_PALETTE = {
+    call: 'call', meeting: 'call',
+    free: 'free',
+    dnd: 'dnd',
+    callIn: 'amber', busyIn: 'amber', maybeIn: 'amber', late: 'amber', freeTil: 'amber', tentative: 'amber',
+    away: 'grey', lunch: 'grey', ooo: 'grey'
+  };
+  const palOf = (state) => PALETTE[STATE_PALETTE[state]];
 
   /* ------------------------------------------------------------------ *
    * Small maths helpers                                                *
@@ -147,6 +177,7 @@
           const s = Math.exp(-(u * u) / (2 * sheen.width * sheen.width)) * sheen.strength;
           c = mix(c, pal.highlight, s);
         }
+        if (o.dim) c = [c[0] * (1 - o.dim), c[1] * (1 - o.dim), c[2] * (1 - o.dim)];
         f.blend(x, y, c, cover);
       }
     }
@@ -281,14 +312,39 @@
     slideIn: 40                    // the time slides in from 40 LEDs right
   };
 
-  const WORDS = { call: 'ON A CALL', free: 'FREE', dnd: 'DND' };
+  const WORDS = {
+    call: 'ON A CALL', free: 'FREE', dnd: 'DND',
+    meeting: 'MEETING',
+    callIn: 'CALL IN', busyIn: 'BUSY IN', maybeIn: 'MAYBE IN',   // + the countdown on the right
+    late: 'LATE FOR',                                            // + CALL on the right
+    freeTil: 'FREE TILL',                                        // + the slot's end on the right
+    tentative: 'TENTATIVE',
+    away: 'AWAY', lunch: 'AT LUNCH', ooo: 'OUT OF'               // + OFFICE on the right
+  };
   /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
      set in the status face across the whole bar. */
   const HERO = {
     call: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     free: { word: 'FREE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined }
+    dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    meeting:   { word: 'MEETING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    maybeIn:   { word: 'MAYBE SOON', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    late:      { word: 'LATE FOR CALL', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    freeTil:   { word: 'FREE TILL {t}', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    tentative: { word: 'TENTATIVE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    lunch:     { word: 'AT LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined }
   };
+  const pad2 = (n) => (n < 10 ? '0' : '') + n;
+  /* An announcement's words; {t} is the time the state is about (FREE TILL 11:00). */
+  function heroWord(state, timer) {
+    const w = HERO[state].word;
+    if (w.indexOf('{t}') < 0) return w;
+    return timer ? w.replace('{t}', pad2(timer.h) + ':' + pad2(timer.m)) : w.replace(/ *\S*\{t\}/, '');
+  }
   const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   /* Pictograms, drawn in the firmware's style: white, hard shadow. The mic
@@ -333,9 +389,104 @@
       '######....',
       '.####.....',
       '..##......'
+    ],
+    // two people
+    meeting: [
+      '.###...###.',
+      '#####.#####',
+      '#####.#####',
+      '.###...###.',
+      '...........',
+      '.###...###.',
+      '#####.#####',
+      '#####.#####',
+      '#####.#####'
+    ],
+    // a bell: something's about to start
+    soon: [
+      '.....#.....',
+      '...#####...',
+      '..#######..',
+      '..#######..',
+      '..#######..',
+      '..#######..',
+      '.#########.',
+      '###########',
+      '...........',
+      '....###....'
+    ],
+    // a warning sign
+    late: [
+      '.....#.....',
+      '....###....',
+      '...##.##...',
+      '...##.##...',
+      '..###.###..',
+      '..###.###..',
+      '.#########.',
+      '.####.####.',
+      '###########'
+    ],
+    tentative: [
+      '.#####.',
+      '##...##',
+      '##...##',
+      '....##.',
+      '...##..',
+      '..##...',
+      '..##...',
+      '.......',
+      '..##...',
+      '..##...'
+    ],
+    // a fork and a knife
+    lunch: [
+      '#.#.#..#',
+      '#.#.#.##',
+      '#.#.#.##',
+      '#.#.#.##',
+      '#####.##',
+      '.###..##',
+      '..#....#',
+      '..#....#',
+      '..#....#',
+      '..#....#',
+      '..#....#'
+    ],
+    // out of the door
+    away: [
+      '#####......',
+      '#..........',
+      '#.......#..',
+      '#.......##.',
+      '#..########',
+      '#..########',
+      '#.......##.',
+      '#.......#..',
+      '#..........',
+      '#####......'
+    ],
+    // a plane seen from above, nose to the right, wings swept back
+    ooo: [
+      '....##......',
+      '.....##.....',
+      '......##....',
+      '#......##...',
+      '##.....###..',
+      '############',
+      '##.....###..',
+      '#......##...',
+      '......##....',
+      '.....##.....',
+      '....##......'
     ]
   };
-  const ICON_LIFT = { call: -1, free: 1, dnd: -1 };   // rows above the baseline for the icon's bottom row
+  ICONS.callIn = ICONS.busyIn = ICONS.maybeIn = ICONS.soon;
+  ICONS.freeTil = ICONS.free;
+  const ICON_LIFT = {
+    call: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, maybeIn: 0, late: 0,
+    freeTil: 1, tentative: 0, lunch: -1, away: 0, ooo: -1
+  };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
      twice the scale: a two-step shadow, and word spaces trimmed to match. */
@@ -344,7 +495,7 @@
     const h = HERO[state];
     return { shadow: pal.shadow, shadowDepth: h.depth, space: h.space, alpha: a, shadowAlpha: 0.9 * a };
   }
-  function heroWidth(state) { return textWidth(HERO[state].font, HERO[state].word, 0, HERO[state].space); }
+  function heroWidth(state, timer) { return textWidth(HERO[state].font, heroWord(state, timer), 0, HERO[state].space); }
 
   function drawIcon(f, rows, x, bottomY, colour, shadow, alpha, clip) {
     const h = rows.length;
@@ -401,7 +552,7 @@
    */
   function render(f, now, state, prev, since, clock, timer) {
     f.px.fill(0);
-    const pal = PALETTE[state];
+    const pal = palOf(state);
     const e = now - since;
     const collapseStart = T.swap + T.hold;
     const collapseEnd = collapseStart + T.collapse;
@@ -413,7 +564,7 @@
         shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
       }
     } else if (e < collapseStart) {
-      drawHero(f, now, state, pal);
+      drawHero(f, now, state, pal, timer);
       // ...and the new one springs back up
       const r = (e - T.swap) / T.swap;
       if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
@@ -421,15 +572,15 @@
       const k = easeInOut((e - collapseStart) / T.collapse);
       const w = lerp(LAYOUT.heroW, LAYOUT.statusW, k);
       const edge = LAYOUT.heroX + w;
-      drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now) });
+      drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
       // the announcement face gives way to icon + status face as the pill shrinks:
       // out before the big word can outgrow the pill, in once there's room
       const out = 1 - smooth(0.08, 0.34, k);
       const inn = smooth(0.14, 0.4, k);         // overlapping, so the pill is never empty
       const clip = [LAYOUT.heroX + 1, Math.floor(edge) - 1];
       if (out > 0) {
-        const hw = heroWidth(state);
-        drawText(f, HERO[state].font, HERO[state].word, LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
+        const hw = heroWidth(state, timer);
+        drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
           HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
       }
       if (inn > 0) drawStatusContent(f, state, pal, LAYOUT.heroX, w, inn, clip);
@@ -451,24 +602,70 @@
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
   }
 
-  function drawHero(f, now, state, pal) {
-    drawPill(f, LAYOUT.heroX, LAYOUT.heroW, pal, { sheen: sheenAt(now) });
-    const w = heroWidth(state);
-    drawText(f, HERO[state].font, HERO[state].word, LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
+  /* LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
+     so it reads as urgent rather than as an opening. */
+  function pulseAt(now, state) {
+    if (state !== 'late') return 0;
+    return 0.34 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (now % 1.6) / 1.6));
+  }
+
+  function drawHero(f, now, state, pal, timer) {
+    drawPill(f, LAYOUT.heroX, LAYOUT.heroW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
+    const w = heroWidth(state, timer);
+    drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
       HERO[state].base, PALETTE.white, heroStyle(state, pal));
   }
 
   function drawSteady(f, now, state, clock, timer, slide) {
-    const pal = PALETTE[state];
-    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now) });
+    const pal = palOf(state);
+    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
     drawStatusContent(f, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
     drawRight(f, state, clock, timer, slide, 0);
   }
 
-  /* Right of the pill: the clock, or Do Not Disturb's countdown. */
+  /*
+   * What goes right of the pill (or under it, stacked): a top line in the
+   * clock's face and a bottom line at half brightness. Usually the time and
+   * the day; states that are about another moment show it instead.
+   *   timer — { left, h, m }: seconds to go (or, for LATE, seconds since the
+   *           start) and the time the state is about. Without it, the clock.
+   */
+  function rightText(state, clock, timer) {
+    const day = DAYS[clock.dow] + ' ' + clock.date;
+    const now = pad2(clock.h) + ':' + pad2(clock.m);
+    const at = timer ? pad2(timer.h) + ':' + pad2(timer.m) : '';
+    if (timer) {
+      switch (state) {
+        case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
+        case 'callIn': case 'busyIn': case 'maybeIn':
+          return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };
+        case 'late': return { top: 'CALL', bottom: '+' + elapsedText(timer.left), blink: false };
+        case 'freeTil': return { top: at, bottom: day, blink: false };
+        case 'tentative': return { top: now, bottom: 'TILL ' + at, blink: true };
+      }
+    }
+    if (state === 'ooo') return { top: now, bottom: 'OFFICE', blink: true };
+    return { top: now, bottom: day, blink: true };
+  }
+
+  /* Minutes and seconds since something started, rounded down: +00:00, +01:20. */
+  function elapsedText(secs) {
+    const s = Math.min(Math.max(Math.floor(secs + 1e-9), 0), 99 * 60 + 59);
+    return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60);
+  }
+
+  /* Right of the pill. `slide` pushes it right (entrance); nothing is drawn left of `minX`. */
   function drawRight(f, state, clock, timer, slide, minX) {
-    if (state === 'dnd' && timer) drawCountdown(f, clock, timer, slide, minX);
-    else drawClock(f, clock, slide, minX);
+    const text = rightText(state, clock, timer);
+    const tw = clockTextWidth(LAYOUT.timeFont, text.top);
+    const bw = textWidth(LAYOUT.dateFont, text.bottom);
+    const x0 = LAYOUT.clockX + slide;
+    const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
+    const colon = text.blink && clock.s % 2 === 1 ? 0.4 : 1;
+    drawClockText(f, LAYOUT.timeFont, text.top, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
+      PALETTE.white, { clip: clip }, colon);
+    drawText(f, LAYOUT.dateFont, text.bottom, x0 + Math.round((LAYOUT.clockW - bw) / 2), LAYOUT.dateBase,
+      PALETTE.white, { alpha: 0.5, clip: clip });
   }
 
   /* Tabular digits: every digit takes the widest digit's advance, so the
@@ -503,48 +700,15 @@
   }
 
   /*
-   * The time, white on black, with the day beneath at half brightness —
-   * the firmware's clock app. Colons drop to 40% on odd seconds.
-   * `slide` pushes it right (entrance); nothing is drawn left of `minX`.
-   */
-  function drawClock(f, clock, slide, minX) {
-    const pad = (n) => (n < 10 ? '0' : '') + n;
-    const hhmm = pad(clock.h) + ':' + pad(clock.m);
-    const day = DAYS[clock.dow] + ' ' + clock.date;
-    const tw = clockTextWidth(LAYOUT.timeFont, hhmm);
-    const dw = textWidth(LAYOUT.dateFont, day);
-    const x0 = LAYOUT.clockX + slide;
-    const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
-    const colon = clock.s % 2 === 1 ? 0.4 : 1;
-    drawClockText(f, LAYOUT.timeFont, hhmm, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
-      PALETTE.white, { clip: clip }, colon);
-    drawText(f, LAYOUT.dateFont, day, x0 + Math.round((LAYOUT.clockW - dw) / 2), LAYOUT.dateBase,
-      PALETTE.white, { alpha: 0.5, clip: clip });
-  }
-
-  /*
-   * Do Not Disturb's countdown, in the clock's place and face — the
-   * firmware's timer screen — with its end time beneath at half brightness.
-   * Whole seconds, rounded up, so it reads 30:00 as it starts and 00:01 last.
+   * A countdown in the clock's place and face — the firmware's timer
+   * screen — with its end time beneath at half brightness (Do Not Disturb),
+   * or the start time (CALL IN). Whole seconds, rounded up, so it reads
+   * 30:00 as it starts and 00:01 last.
    */
   function countdownText(timer) {
     const pad = (n) => (n < 10 ? '0' : '') + n;
     const secs = Math.min(Math.max(Math.ceil(timer.left - 1e-9), 0), 99 * 60 + 59);
     return { mmss: pad(Math.floor(secs / 60)) + ':' + pad(secs % 60), until: 'TILL ' + pad(timer.h) + ':' + pad(timer.m) };
-  }
-
-  function drawCountdown(f, clock, timer, slide, minX) {
-    const text = countdownText(timer);
-    const mmss = text.mmss, until = text.until;
-    const tw = clockTextWidth(LAYOUT.timeFont, mmss);
-    const uw = textWidth(LAYOUT.dateFont, until);
-    const x0 = LAYOUT.clockX + slide;
-    const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
-    const colon = clock.s % 2 === 1 ? 0.4 : 1;
-    drawClockText(f, LAYOUT.timeFont, mmss, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
-      PALETTE.white, { clip: clip }, colon);
-    drawText(f, LAYOUT.dateFont, until, x0 + Math.round((LAYOUT.clockW - uw) / 2), LAYOUT.dateBase,
-      PALETTE.white, { alpha: 0.5, clip: clip });
   }
 
   /* ------------------------------------------------------------------ *
@@ -565,15 +729,31 @@
     heroGap: 4                     // rows between the announcement's lines
   };
   /* The announcement fills the panel, a word or two per line. */
+  /* A line is a string in the 14-row face, or { t, font, tracking } where
+     a line won't fit the 82-LED pill in it. */
   const STACKED_HERO = {
     call: ['ON A', 'CALL'],
     free: ['FREE'],
-    dnd: ['DO NOT', 'DISTURB']
+    dnd: ['DO NOT', 'DISTURB'],
+    meeting: [{ t: 'MEETING', tracking: -1 }],
+    callIn: ['CALL', 'SOON'],
+    busyIn: ['BUSY', 'SOON'],
+    maybeIn: ['MAYBE', 'SOON'],
+    late: ['LATE', { t: 'FOR CALL', font: 'busy_bold_10' }],
+    freeTil: ['FREE', { t: 'TILL {t}', font: 'busy_bold_10' }],
+    tentative: [{ t: 'TENTATIVE', font: 'busy_bold_10' }],
+    away: ['AWAY'],
+    lunch: ['AT', 'LUNCH'],
+    ooo: ['OUT OF', 'OFFICE']
+  };
+  const LINE_FONT = {
+    busy_regular_14: { h: 14, depth: 2, space: 6 },
+    busy_bold_10: { h: 10, depth: 1, space: undefined }
   };
 
   function renderStacked(f, now, state, prev, since, clock, timer) {
     f.px.fill(0);
-    const S = STACKED, pal = PALETTE[state];
+    const S = STACKED, pal = palOf(state);
     const e = now - since;
     const collapseStart = T.swap + T.hold;
     const collapseEnd = collapseStart + T.collapse;
@@ -584,18 +764,18 @@
         shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
       }
     } else if (e < collapseStart) {
-      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: f.h });
-      drawStackedHero(f, state, pal, 1, null);
+      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: f.h, dim: pulseAt(now, state) });
+      drawStackedHero(f, state, pal, 1, null, timer);
       const r = (e - T.swap) / T.swap;
       if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
     } else if (e < collapseEnd) {
       // the pill draws up from the whole panel to the top band
       const k = easeInOut((e - collapseStart) / T.collapse);
       const h = Math.round(lerp(f.h, S.pillH, k));
-      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: h });
+      drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: h, dim: pulseAt(now, state) });
       const out = 1 - smooth(0.08, 0.34, k);
       const inn = smooth(0.14, 0.4, k);
-      if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1]);
+      if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer);
       if (inn > 0) drawStatusContent(f, state, pal, S.pillX, S.pillW, inn);
       // ...and the clock rises into the space it leaves
       const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
@@ -608,22 +788,31 @@
   }
 
   function drawStackedSteady(f, now, state, clock, timer, slide) {
-    const S = STACKED, pal = PALETTE[state];
-    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH });
+    const S = STACKED, pal = palOf(state);
+    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
     drawStatusContent(f, state, pal, S.pillX, S.pillW, 1);
     drawStackedClock(f, state, clock, timer, slide, 0);
   }
 
-  function drawStackedHero(f, state, pal, alpha, clipY) {
-    const S = STACKED, lines = STACKED_HERO[state];
-    const block = lines.length * 14 + (lines.length - 1) * S.heroGap;
-    const top = Math.round((f.h - block) / 2);
-    // the 14-row face, set as the wide bar's announcement: two-step shadow, trimmed spaces
-    const style = { shadow: pal.shadow, shadowDepth: 2, space: 6, alpha: alpha, shadowAlpha: 0.9 * alpha, clipY: clipY };
-    for (let i = 0; i < lines.length; i++) {
-      const w = textWidth('busy_regular_14', lines[i], 0, style.space);
-      drawText(f, 'busy_regular_14', lines[i], S.pillX + (S.pillW - w) / 2 + 0.5,
-        top + 13 + i * (14 + S.heroGap), PALETTE.white, style);
+  function drawStackedHero(f, state, pal, alpha, clipY, timer) {
+    const S = STACKED;
+    const at = timer ? pad2(timer.h) + ':' + pad2(timer.m) : '';
+    const lines = STACKED_HERO[state]
+      .map((l) => (typeof l === 'string' ? { t: l } : l))
+      .map((l) => ({ t: l.t.replace('{t}', at), font: l.font || 'busy_regular_14', tracking: l.tracking || 0 }))
+      .filter((l) => l.t.trim() !== '' && !/^TILL ?$/.test(l.t));
+    let block = (lines.length - 1) * S.heroGap;
+    for (const l of lines) block += LINE_FONT[l.font].h;
+    let top = Math.round((f.h - block) / 2);
+    for (const l of lines) {
+      // set as the wide bar's announcement: the 14-row face with a two-step
+      // shadow and trimmed spaces, the 10-row face with a one-step shadow
+      const lf = LINE_FONT[l.font];
+      const style = { shadow: pal.shadow, shadowDepth: lf.depth, space: lf.space, tracking: l.tracking,
+        alpha: alpha, shadowAlpha: 0.9 * alpha, clipY: clipY };
+      const w = textWidth(l.font, l.t, l.tracking, lf.space);
+      drawText(f, l.font, l.t, S.pillX + (S.pillW - w) / 2 + 0.5, top + lf.h - 1, PALETTE.white, style);
+      top += lf.h + S.heroGap;
     }
   }
 
@@ -632,17 +821,10 @@
      nothing is drawn above row `minY`. */
   function drawStackedClock(f, state, clock, timer, slide, minY) {
     const S = STACKED;
-    const pad = (n) => (n < 10 ? '0' : '') + n;
-    let big, small;
-    if (state === 'dnd' && timer) {
-      const text = countdownText(timer);
-      big = text.mmss; small = text.until;
-    } else {
-      big = pad(clock.h) + ':' + pad(clock.m);
-      small = DAYS[clock.dow] + ' ' + clock.date;
-    }
+    const text = rightText(state, clock, timer);
+    const big = text.top, small = text.bottom;
     const clipY = [minY || 0, f.h];
-    const colon = clock.s % 2 === 1 ? 0.4 : 1;
+    const colon = text.blink && clock.s % 2 === 1 ? 0.4 : 1;
     const bw = clockTextWidth(S.bigFont, big);
     const sw = textWidth(S.smallFont, small);
     drawClockText(f, S.bigFont, big, Math.round((f.w - bw) / 2), S.bigBase + slide, PALETTE.white,
@@ -655,6 +837,7 @@
     STACKED: STACKED, renderStacked: renderStacked,
     clockTextWidth: clockTextWidth, ICONS: ICONS, statusContentWidth: statusContentWidth,
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
+    STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
     drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave,
     hash: hash

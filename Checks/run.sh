@@ -38,4 +38,7 @@ fi
 "$SWIFTC" ${LINK[@]+"${LINK[@]}"} Sources/CallDetector.swift Checks/detector/FakeProbes.swift Checks/detector/main.swift -o "$OUT/detector"
 "$OUT/detector" | tail -1
 
+echo; echo "== status rules (calendar, mic, controls)"
+node simulator/tools/rules-check.js
+
 echo; echo "all checks passed"

@@ -6,7 +6,7 @@
 const fs = require('fs'), path = require('path');
 const dir = path.join(__dirname, '..');
 let html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
-for (const f of ['fonts.js', 'engine.js', 'painter.js']) {
+for (const f of ['fonts.js', 'engine.js', 'painter.js', 'rules.js', 'day.js']) {
   const tag = `<script src="${f}"></script>`;
   if (!html.includes(tag)) throw new Error('missing ' + tag);
   const code = fs.readFileSync(path.join(dir, f), 'utf8').replace(/<\/script/gi, '<\\/script');

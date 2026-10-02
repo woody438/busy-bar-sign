@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Call Sign Bar</title>
+<title>Busy Bar Sign</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Martian+Mono:wght@300..800&display=swap">
@@ -94,6 +94,97 @@
   .credit{margin-top:28px;font:400 11.5px/1.6 var(--mono);color:var(--ink-faint)}
   .credit a{color:var(--ink-dim)}
   @media (prefers-reduced-motion:reduce){.spill{transition:none}}
+
+  /* the calendar day player */
+  .day{width:100%;max-width:1180px;display:none;flex-direction:column;gap:12px}
+  .day.on{display:flex}
+  .day-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+  .day-time{font:700 22px/1 var(--mono);letter-spacing:.04em;min-width:7ch}
+  .day-why{flex:1 1 260px;font:400 14px/1.4 var(--sans);color:#B9B4AD}
+  .day-why b{color:var(--ink);font-weight:600}
+  .chip.small{padding:8px 12px;font-size:11px}
+  .day-scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;background:#0b0b0d}
+  .track{position:relative;min-width:880px;cursor:pointer;user-select:none;-webkit-user-select:none}
+  .track .ev{position:absolute;height:26px;border-radius:5px;padding:0 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    font:500 11px/26px var(--sans);color:#E9E6E1;border-left:3px solid;box-sizing:border-box}
+  .ev.k-call,.ev.k-phone,.ev.k-inPerson{background:rgba(255,29,53,.20);border-color:#ff3348}
+  .ev.tent{background:rgba(255,162,26,.16);border-color:#ffa21a;border-left-style:dashed}
+  .ev.k-lunch,.ev.k-away,.ev.k-ooo{background:rgba(126,132,146,.24);border-color:#9EA2AD}
+  .ev.k-dndBlock{background:rgba(91,69,255,.22);border-color:#7B68FF}
+  .ev.k-ignore{background:rgba(255,255,255,.04);border-color:#3a3a3e;color:#6d6964;text-decoration:line-through}
+  .track .mic{position:absolute;height:8px;border-radius:4px;background:#ff3348}
+  .track .lab{position:absolute;left:8px;font:500 10px/1 var(--mono);letter-spacing:.14em;color:var(--ink-faint)}
+  .track .tick{position:absolute;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.05)}
+  .track .tick span{position:absolute;bottom:4px;left:4px;font:400 10px/1 var(--mono);color:var(--ink-faint)}
+  .track .head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.5);pointer-events:none}
+  .moments{display:flex;flex-wrap:wrap;gap:6px}
+  .moment{font:500 11px/1 var(--mono);color:var(--ink-dim);background:#101012;border:1px solid var(--rule);border-radius:6px;padding:7px 9px;cursor:pointer}
+  .moment:hover{color:var(--ink)}
+  .moment.now{color:#0b0b0c;background:var(--ink)}
+  .moment i{font-style:normal;opacity:.6;margin-right:6px}
+
+  /* the settings window, as the Mac app will draw it (macOS dark appearance) */
+  .settings{max-width:1080px;margin:0 auto;padding:24px 20px 24px}
+  .settings .lead{margin-bottom:28px}
+  .mac{--m-bg:#1f1f21;--m-bar:#2a2a2d;--m-card:#2b2b2e;--m-line:rgba(255,255,255,.08);--m-ink:#ECECEE;--m-dim:#9A9AA0;--m-blue:#0A84FF;
+    font:13px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;color:var(--m-ink);
+    width:100%;max-width:680px;margin:0 auto;background:var(--m-bg);border-radius:12px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px rgba(0,0,0,.6)}
+  .mac-bar{background:var(--m-bar);border-bottom:1px solid rgba(0,0,0,.5);padding:10px 12px 8px;position:relative}
+  .mac-dots{position:absolute;left:14px;top:12px;display:flex;gap:8px}
+  .mac-dots i{width:12px;height:12px;border-radius:50%;background:#ff5f57}
+  .mac-dots i:nth-child(2){background:#febc2e}.mac-dots i:nth-child(3){background:#28c840}
+  .mac-title{text-align:center;font-weight:600;color:var(--m-dim);margin:0 0 8px}
+  .mac-tabs{display:flex;justify-content:center;gap:4px}
+  .mac-tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:76px;padding:6px 10px 5px;border-radius:7px;
+    border:0;background:none;color:var(--m-dim);font:inherit;font-size:11px;cursor:pointer}
+  .mac-tab svg{width:22px;height:22px}
+  .mac-tab[aria-selected="true"]{background:rgba(255,255,255,.09);color:var(--m-blue)}
+  .mac-body{padding:18px 20px 20px;display:none;flex-direction:column;gap:14px}
+  .mac-body.on{display:flex}
+  .m-card{background:var(--m-card);border-radius:9px;box-shadow:inset 0 0 0 1px var(--m-line)}
+  .m-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;min-height:22px}
+  .m-row + .m-row{border-top:1px solid var(--m-line)}
+  .m-row .k{color:var(--m-ink)}
+  .m-sub{color:var(--m-dim);font-size:11.5px;padding:0 4px;margin-top:-6px}
+  .m-h{font-weight:600;font-size:12px;color:var(--m-dim);padding:0 4px;margin:2px 0 -6px}
+  .m-seg{display:inline-flex;background:rgba(255,255,255,.07);border-radius:6px;padding:2px;gap:2px}
+  .m-seg button{border:0;background:none;color:var(--m-ink);font:inherit;font-size:12px;padding:3px 10px;border-radius:5px;cursor:pointer}
+  .m-seg button[aria-pressed="true"]{background:#636366;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .m-pop{background:#3a3a3d;border-radius:5px;padding:3px 24px 3px 9px;font-size:12px;position:relative;white-space:nowrap}
+  .m-pop::after{content:"⌃⌄";position:absolute;right:6px;top:50%;transform:translateY(-50%) scaleY(.7);font-size:9px;letter-spacing:-1px;writing-mode:vertical-lr;color:var(--m-dim)}
+  .m-switch{width:32px;height:19px;border-radius:10px;background:#48484b;position:relative;flex:none;cursor:pointer;border:0;padding:0}
+  .m-switch::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s}
+  .m-switch[aria-checked="true"]{background:var(--m-blue)}
+  .m-switch[aria-checked="true"]::after{left:15px}
+  .m-btn{border:0;background:#4a4a4e;color:var(--m-ink);font:inherit;font-size:12.5px;padding:5px 12px;border-radius:6px;cursor:pointer}
+  .m-btn.blue{background:var(--m-blue);color:#fff}
+  .m-live{display:flex;flex-direction:column;gap:10px;padding:14px}
+  .m-live canvas{width:100%;aspect-ratio:118/16;display:block;border-radius:5px;background:#000}
+  .m-state{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .m-state b{font-size:15px}
+  .m-state span{color:var(--m-dim)}
+  .m-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:620px){.m-two{grid-template-columns:1fr}.mac-tab{min-width:0;padding:6px 6px 5px}}
+  .m-card h4{margin:0;padding:12px 12px 2px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .m-pic{margin:8px 12px 4px;height:58px;border-radius:6px;background:linear-gradient(160deg,#283350,#2b2146);position:relative;overflow:hidden}
+  .m-pic i{position:absolute;background:#ff1d35;border-radius:3px;box-shadow:0 0 0 1px #000}
+  .m-warn{display:flex;gap:8px;align-items:flex-start;color:#FFD60A;font-size:12px;padding:0 12px 10px}
+  .m-guide{width:100%;border-collapse:collapse}
+  .m-guide td{padding:8px 12px;vertical-align:middle;border-top:1px solid var(--m-line)}
+  .m-guide tr:first-child td{border-top:0}
+  .m-guide td:first-child{width:150px;padding-right:4px}
+  .m-guide img{width:150px;display:block;border-radius:3px;image-rendering:auto}
+  .m-guide .how{color:var(--m-ink)}
+  .m-guide .how small{display:block;color:var(--m-dim);font-size:11.5px;margin-top:2px}
+  .m-tok{display:inline-block;font:500 11.5px/1 ui-monospace,"SF Mono",Menlo,monospace;background:rgba(10,132,255,.18);color:#64B5FF;
+    border-radius:4px;padding:3px 6px;margin:0 2px}
+  .m-kw{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .m-kw input{font:inherit;font-size:12px;color:var(--m-ink);background:#1b1b1d;border:1px solid var(--m-line);border-radius:5px;padding:4px 7px;width:min(260px,100%)}
+  .m-ok{color:#30D158}
+  .m-app{display:flex;align-items:center;gap:10px}
+  .m-app i{width:20px;height:20px;border-radius:5px;display:inline-block}
+  .m-foot{color:var(--m-dim);font-size:11.5px;text-align:center}
 </style>
 </head>
 <body>
@@ -123,17 +214,118 @@
     <button class="chip" id="b-call" aria-pressed="false">On a call</button>
     <button class="chip" id="b-free" aria-pressed="false">Free</button>
     <button class="chip" id="b-dnd" aria-pressed="false">Do not disturb</button>
+    <button class="chip" id="b-day" aria-pressed="false">Calendar day</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-float" aria-pressed="false">Floating window</button>
     <button class="chip" id="b-stack" aria-pressed="false">Stacked layout</button>
     <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
   </div>
   <p class="caption" id="caption">3840 × 2160 monitor · bar 3840 × 664 (31%) · 118 × 16 LEDs at 32 px</p>
+
+  <div class="day" id="day" aria-label="Calendar day player">
+    <div class="day-head">
+      <button class="chip small" id="d-play" aria-pressed="true">Playing</button>
+      <span role="group" aria-label="Speed" style="display:flex;gap:6px">
+        <button class="chip small" data-speed="1" aria-pressed="false">1×</button>
+        <button class="chip small" data-speed="10" aria-pressed="false">10×</button>
+        <button class="chip small" data-speed="60" aria-pressed="true">60×</button>
+      </span>
+      <span class="day-time" id="d-time">09:40</span>
+      <span class="day-why" id="d-why"></span>
+    </div>
+    <div class="day-scroll"><div class="track" id="d-track"></div></div>
+    <div class="moments" id="d-moments" aria-label="Jump to"></div>
+  </div>
 </section>
 
+
+<section class="settings" id="settings">
+  <p class="eyebrow">The settings window, redesigned</p>
+  <p class="lead">One window, four tabs, in place of the long list. <strong>Status</strong> shows the bar live and why it says what it says; <strong>Displays</strong> puts the wall and the floating window side by side; <strong>Calendar</strong> explains what to put in Outlook to trigger each state; <strong>Microphone</strong> holds the detection settings. It's live: the preview follows the bar above, and the Sign buttons drive it.</p>
+  <div class="mac" role="group" aria-label="Busy Bar Sign settings mock">
+    <div class="mac-bar">
+      <div class="mac-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p class="mac-title">Busy Bar Sign</p>
+      <div class="mac-tabs" role="tablist">
+        <button class="mac-tab" role="tab" aria-selected="true" data-tab="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/></svg> Status</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="displays"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6M12 17v4"/></svg> Displays</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> Calendar</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg> Microphone</button>
+      </div>
+    </div>
+
+    <div class="mac-body on" data-pane="status" role="tabpanel">
+      <div class="m-card m-live">
+        <canvas id="m-preview" aria-label="Live preview of the bar"></canvas>
+        <div class="m-state"><b id="m-state">Free</b><span id="m-why">Nothing on</span></div>
+      </div>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Sign</span>
+          <span class="m-seg" id="m-sign"><button data-mode="auto" aria-pressed="true">Automatic</button><button data-mode="call" aria-pressed="false">On a call</button><button data-mode="free" aria-pressed="false">Free</button></span></div>
+        <div class="m-row"><span class="k">Do Not Disturb</span><button class="m-btn" id="m-dnd">Start (30 min)</button></div>
+      </div>
+      <p class="m-sub">Double-click the bar to start or end Do Not Disturb. A call still shows ON A CALL.</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Microphone</span><span style="color:var(--m-dim)">idle</span></div>
+        <div class="m-row"><span class="k">Calendar</span><span style="color:var(--m-dim)"><span class="m-ok">●</span> up to date · checked 1 min ago</span></div>
+      </div>
+    </div>
+
+    <div class="mac-body" data-pane="displays" role="tabpanel">
+      <div class="m-two">
+        <div class="m-card">
+          <h4>Wall display <button class="m-switch" role="switch" aria-checked="true" aria-label="Show wall display"></button></h4>
+          <div class="m-pic" aria-hidden="true"><i style="left:6%;right:6%;top:18%;height:28%"></i></div>
+          <div class="m-row"><span class="k">Monitor</span><span class="m-pop">LG UltraFine</span></div>
+          <div class="m-row"><span class="k">Layout</span><span class="m-seg" data-seg><button aria-pressed="true">Wide bar</button><button aria-pressed="false">Stacked</button></span></div>
+        </div>
+        <div class="m-card">
+          <h4>Floating window <button class="m-switch" role="switch" aria-checked="false" aria-label="Show floating window"></button></h4>
+          <div class="m-pic" aria-hidden="true"><i style="right:6%;width:34%;top:12%;height:14%"></i></div>
+          <div class="m-row"><span class="k">Size</span><span class="m-seg" data-seg><button aria-pressed="false">S</button><button aria-pressed="true">M</button><button aria-pressed="false">L</button></span></div>
+          <div class="m-row"><span class="k" style="color:var(--m-dim);font-size:12px">Drag it anywhere; right-click for sizes.</span></div>
+        </div>
+      </div>
+      <p class="m-sub">Stacked fills small screens such as 960 × 540 with the status on top and a big clock beneath. The floating window always uses the wide bar. Warnings — a scaled display mode, a monitor that's gone to sleep — appear on the card.</p>
+    </div>
+
+    <div class="mac-body" data-pane="calendar" role="tabpanel">
+      <div class="m-card">
+        <div class="m-row"><span class="k">Use my calendar</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Use my calendar"></button></div>
+        <div class="m-row"><span class="k">Calendar</span><span class="m-pop">Calendar — ian.woodall@solotech.com</span></div>
+        <div class="m-row"><span class="k">Warn before calls and meetings</span><span class="m-pop">10 minutes</span></div>
+        <div class="m-row"><span class="k">Show LATE FOR CALL for up to</span><span class="m-pop">10 minutes</span></div>
+      </div>
+      <p class="m-h">What to put in Outlook</p>
+      <div class="m-card"><table class="m-guide" id="m-guide"></table></div>
+      <p class="m-h">Words the sign looks for</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">AT LUNCH</span><span class="m-kw"><input value="lunch" aria-label="Lunch words"></span></div>
+        <div class="m-row"><span class="k">DND</span><span class="m-kw"><input value="no meetings, focus, do not disturb" aria-label="Do Not Disturb words"></span></div>
+        <div class="m-row"><span class="k">ON A CALL</span><span class="m-kw"><input value="call" aria-label="Call words"></span></div>
+        <div class="m-row"><span class="k">OUT OF OFFICE</span><span class="m-kw"><input value="✈, out of office, ooo" aria-label="Out of office words"></span></div>
+      </div>
+      <p class="m-sub">Only your own events — ones with no invitees — are matched by title, as whole words in any case. Meetings are sorted by their invitees and join link, so their titles never matter.</p>
+    </div>
+
+    <div class="mac-body" data-pane="mic" role="tabpanel">
+      <div class="m-card">
+        <div class="m-row"><span class="k">Count as a call</span><span class="m-seg" data-seg><button aria-pressed="true">Any app except ignored</button><button aria-pressed="false">Known call apps</button></span></div>
+        <div class="m-row"><span class="k">Status</span><span style="color:var(--m-dim)">Source — Microsoft Teams · mic active</span></div>
+      </div>
+      <p class="m-h">Using the microphone now</p>
+      <div class="m-card">
+        <div class="m-row"><span class="m-app"><i style="background:#5059C9"></i>Microsoft Teams</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignore <button class="m-switch" role="switch" aria-checked="false" aria-label="Ignore Microsoft Teams"></button></span></div>
+        <div class="m-row"><span class="m-app"><i style="background:#8E5CF7"></i>Wispr Flow</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignored (dictation)</span></div>
+      </div>
+      <p class="m-sub">The sign lights 2 seconds after an app takes the mic and goes dark 10 seconds after it lets go. Dictation tools and Apple's own listeners are ignored already; switch on Ignore for anything else that isn't a call.</p>
+    </div>
+    <div class="mac-body on" style="padding-top:0"><p class="m-foot">Also in the menu-bar icon and the Dock icon's menu. Reopen this window from the Dock.</p></div>
+  </div>
+</section>
 <section class="notes">
   <p class="eyebrow">What you're looking at</p>
-  <p class="lead">The wall display rebuilt as a BUSY Bar, on the same call detection as the original. <strong>Every LED is drawn by the same engine the Mac app runs</strong> — the Swift port is checked against this page LED by LED. The pixel fonts, colours, dot shape and transitions all come from the BUSY Bar's own open-source firmware. The clock is your real time; the call state here is a demo.</p>
+  <p class="lead">The wall display rebuilt as a BUSY Bar, on the same call detection as the original. <strong>Every LED is drawn by the same engine the Mac app runs</strong> — the Swift port is checked against this page LED by LED. The pixel fonts, colours, dot shape and transitions all come from the BUSY Bar's own open-source firmware. The clock is your real time; the call state here is a demo — or press <strong>Calendar day</strong> to play a scripted day through the calendar rules.</p>
   <div class="grid">
     <div class="cell"><h3>Why 118 × 16</h3><p>Sixteen rows is what gives the type its chunk, so that stays. A real bar is 72 columns — too narrow to set "ON A CALL" beside a clock — so the panel runs wider. At 32 pixels per LED it lands exactly on a 4K screen, full width and 31% tall.</p></div>
     <div class="cell"><h3>The status pill</h3><p>A glossy pill in the firmware's exact reds and greens, with a slow sheen crossing it. The mic echoes the firmware's own on-call theme; the tick is the "available" mark every meeting app uses. It says "ON A CALL", not "ON CALL", which in British English means on standby.</p></div>
@@ -142,6 +334,8 @@
     <div class="cell"><h3>LEDs and glass</h3><p>Dots follow Flipper's own preview shader — rounded squares at 85% of the pitch, shading toward their corners — and unlit LEDs vanish into the glossy black face. Colours are corrected for the firmware's LED gamma, so dim tones sit back the way they do on the device.</p></div>
     <div class="cell"><h3>Small screens</h3><p>The <strong>Stacked layout</strong> button shows the option for small monitors such as 960 × 540: the pill across the top, the time large beneath it, the LEDs filling the screen. The announcement fills the whole panel on two lines, then draws up into the pill as the clock rises.</p></div>
     <div class="cell"><h3>Do Not Disturb</h3><p>Double-click the display for 30 minutes of DO NOT DISTURB: an indigo pill with a moon, and a countdown where the clock was. Double-click again to end it. In the app a call still shows ON A CALL, then Do Not Disturb returns with whatever time is left.</p></div>
+    <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL; leave early and it says FREE TILL the slot ends. Lunch, your own blocks and flights show AT LUNCH, AWAY and OUT OF OFFICE.</p></div>
+    <div class="cell"><h3>Who wins</h3><p>Your own controls first, then the microphone, then Do Not Disturb, then the calendar: out of office, lunch, away, a phone call, an in-person meeting, a call you're late for, a warning, a tentative meeting, a no-meetings block, and a call you left early. The microphone always turns it red.</p></div>
     <div class="cell"><h3>Same detection underneath</h3><p>Unchanged from the original: CoreAudio says which app has the microphone, dictation apps are ignored, and changes are debounced so the bar never flickers. A menu-bar item can force either state.</p></div>
   </div>
   <p class="credit">Pixel fonts from the BUSY Status Bar firmware — © 2021 TakWolf, © 2024–2026 Flipper FZCO, SIL Open Font License 1.1. Transitions are original code modelled on the firmware's CC BY-SA animations. Not affiliated with Flipper Devices.</p>
@@ -150,6 +344,8 @@
 <script src="fonts.js"></script>
 <script src="engine.js"></script>
 <script src="painter.js"></script>
+<script src="rules.js"></script>
+<script src="day.js"></script>
 <script>
 (function () {
   'use strict';
@@ -250,31 +446,46 @@
   document.addEventListener('fullscreenchange', layout);
 
   // --- state ------------------------------------------------------------
+  const R = window.BusyRules, DAY = window.BusyDay;
   const now = () => performance.now() / 1000;
+  const pad = (n) => (n < 10 ? '0' : '') + n;
   let state = 'call', prev = null, since = now();
   let mode = 'auto', lastFlip = now();
-  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd' };
-  const SPILL = { call: '#ff1d35', free: '#17eb79', dnd: '#5b45ff' };
+  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd', day: 'b-day' };
+  const SPILL = { call: '#ff1d35', meeting: '#ff1d35', free: '#17eb79', dnd: '#5b45ff',
+    callIn: '#ffa21a', busyIn: '#ffa21a', maybeIn: '#ffa21a', late: '#ffa21a', freeTil: '#ffa21a', tentative: '#ffa21a',
+    away: '#7e8492', lunch: '#7e8492', ooo: '#7e8492' };
+  const NAMES = { call: 'On a call', meeting: 'In a meeting', free: 'Free', dnd: 'Do Not Disturb',
+    callIn: 'Call soon', busyIn: 'Meeting soon', maybeIn: 'Tentative soon', late: 'Late for a call', freeTil: 'Free till the slot ends',
+    tentative: 'Tentative', away: 'Away', lunch: 'At lunch', ooo: 'Out of office' };
   const DND_MS = 30 * 60 * 1000;
   let dndUntil = Date.now() + DND_MS;              // wall-clock end of Do Not Disturb
+  let why = '';
 
   function setState(next) {
     if (next === state) return;
-    if (next === 'dnd' && state !== 'dnd') dndUntil = Date.now() + DND_MS;
+    if (next === 'dnd' && state !== 'dnd' && mode !== 'day') dndUntil = Date.now() + DND_MS;
     prev = state; state = next; since = now();
     spill.style.background = SPILL[next];
   }
   function setMode(m) {
-    mode = m; lastFlip = now();
+    mode = m; lastFlip = now(); demoAt = now();
     for (const k in btn) document.getElementById(btn[k]).setAttribute('aria-pressed', String(k === m));
-    if (m !== 'auto') setState(m);
+    for (const b of document.querySelectorAll('#m-sign button')) b.setAttribute('aria-pressed', String(b.dataset.mode === (m === 'call' || m === 'free' ? m : 'auto')));
+    document.getElementById('day').classList.toggle('on', m === 'day');
+    if (m === 'call' || m === 'free' || m === 'dnd') setState(m);
+    if (m === 'auto') { demoIndex = 0; setState(DEMO[0]); }
   }
   document.getElementById('b-auto').onclick = () => setMode('auto');
   document.getElementById('b-call').onclick = () => setMode('call');
   document.getElementById('b-free').onclick = () => setMode('free');
   document.getElementById('b-dnd').onclick = () => setMode('dnd');
+  document.getElementById('b-day').onclick = () => setMode('day');
   // as in the app: double-click the bar for Do Not Disturb, again to end it
-  monitor.addEventListener('dblclick', () => setMode(state === 'dnd' ? 'free' : 'dnd'));
+  monitor.addEventListener('dblclick', () => {
+    if (mode === 'day') { simDnd = simDnd && simDnd > simMs ? null : simMs + DND_MS; return; }
+    setMode(state === 'dnd' ? 'free' : 'dnd');
+  });
   document.getElementById('b-again').onclick = () => { prev = state === 'call' ? 'free' : 'call'; since = now(); lastFlip = now(); };
   const fbtn = document.getElementById('b-float');
   fbtn.setAttribute('aria-pressed', String(floating));
@@ -292,26 +503,199 @@
   };
   spill.style.background = '#ff1d35';
 
+  // --- auto demo: every state in turn, each with a plausible countdown ---
+  const DEMO = ['callIn', 'late', 'call', 'freeTil', 'busyIn', 'meeting', 'maybeIn', 'tentative', 'lunch', 'away', 'ooo', 'dnd', 'free'];
+  const DEMO_WHY = { callIn: 'Call soon: “Network discussion”', late: 'Late for “Network discussion”', call: 'Microphone in use',
+    freeTil: 'Left “Network discussion” early', busyIn: 'Meeting soon: “Values session”', meeting: 'In a meeting: “Values session”',
+    maybeIn: 'Tentative soon: “Vendor demo”', tentative: 'Tentative: “Vendor demo”', lunch: 'Lunch: “Lunch”', away: 'Away: “Gym”',
+    ooo: 'Out of office: “✈ BNA→LHR”', dnd: 'Do Not Disturb', free: 'Free' };
+  let demoIndex = 0, demoAt = now();
+  function demoTimer(st, d, e) {
+    const later = (secs) => { const t = new Date(d.getTime() + secs * 1000); return { h: t.getHours(), m: t.getMinutes() }; };
+    switch (st) {
+      case 'callIn': case 'busyIn': case 'maybeIn': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
+      case 'late': { const t = new Date(d.getTime() - (80 + e) * 1000); return { left: 80 + e, h: t.getHours(), m: t.getMinutes() }; }
+      case 'freeTil': case 'tentative': return Object.assign({ left: 0 }, later(18 * 60));
+      case 'dnd': { const end = new Date(dndUntil); return { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() }; }
+    }
+    return undefined;
+  }
+
+  // --- calendar day ------------------------------------------------------
+  const DAYDATA = DAY.build(0);
+  const START = DAY.at(0, DAY.START), END = DAY.at(0, DAY.END), SPAN = END - START;
+  let simMs = DAY.at(0, '09:30'), simDnd = null, playing = true, speed = 60, lastT = now();
+  const track = document.getElementById('d-track');
+  const pct = (ms) => ((ms - START) / SPAN * 100) + '%';
+  (function buildTrack() {
+    const timed = DAYDATA.events.filter((e) => !e.allDay).sort((a, b) => a.start - b.start);
+    const lanes = [];
+    const placed = timed.map((e) => {
+      let lane = lanes.findIndex((end) => end <= e.start);
+      if (lane < 0) { lane = lanes.length; lanes.push(0); }
+      lanes[lane] = e.end;
+      return { e: e, lane: lane };
+    });
+    const TOP = 26, ROW = 30, micY = TOP + lanes.length * ROW + 10;
+    track.style.height = (micY + 44) + 'px';
+    for (let h = 7; h <= 18; h++) {
+      const t = document.createElement('div'); t.className = 'tick'; t.style.left = pct(h * 3600000);
+      t.innerHTML = '<span>' + pad(h) + ':00</span>'; track.appendChild(t);
+    }
+    const all = DAYDATA.events.filter((e) => e.allDay).map((e) => e.title + ' (show as ' + e.availability + ', ignored)').join(' · ');
+    const lab = document.createElement('div'); lab.className = 'lab'; lab.style.top = '9px';
+    lab.textContent = 'ALL DAY: ' + (all || 'nothing'); track.appendChild(lab);
+    for (const p of placed) {
+      const c = R.classify(p.e);
+      const d = document.createElement('div');
+      d.className = 'ev k-' + c.kind + (c.tentative ? ' tent' : '');
+      d.style.left = pct(p.e.start); d.style.width = 'calc(' + ((p.e.end - p.e.start) / SPAN * 100) + '% - 2px)';
+      d.style.top = (TOP + p.lane * ROW) + 'px';
+      const span = pad(Math.floor(p.e.start / 3600000)) + ':' + pad(Math.floor(p.e.start / 60000) % 60);
+      d.textContent = p.e.title; d.title = span + ' ' + p.e.title + ' — ' + c.kind + (c.tentative ? ' (tentative)' : '');
+      track.appendChild(d);
+    }
+    const ml = document.createElement('div'); ml.className = 'lab'; ml.style.top = (micY - 14) + 'px'; ml.textContent = 'MICROPHONE';
+    track.appendChild(ml);
+    for (const m of DAYDATA.micSessions) {
+      const d = document.createElement('div'); d.className = 'mic';
+      d.style.left = pct(m.start); d.style.width = ((m.end - m.start) / SPAN * 100) + '%'; d.style.top = micY + 'px';
+      track.appendChild(d);
+    }
+    const head = document.createElement('div'); head.className = 'head'; head.id = 'd-head'; track.appendChild(head);
+    const seek = (ev) => {
+      const r = track.getBoundingClientRect();
+      simMs = START + Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * SPAN;
+    };
+    let dragging = false;
+    track.addEventListener('pointerdown', (ev) => { dragging = true; track.setPointerCapture(ev.pointerId); seek(ev); });
+    track.addEventListener('pointermove', (ev) => { if (dragging) seek(ev); });
+    track.addEventListener('pointerup', () => { dragging = false; });
+  })();
+  const momentEls = DAY.MOMENTS.map(([t, want, note]) => {
+    const b = document.createElement('button'); b.className = 'moment';
+    b.innerHTML = '<i>' + t + '</i>' + note; b.title = 'Expect ' + want;
+    b.onclick = () => { simMs = DAY.at(0, t); };
+    document.getElementById('d-moments').appendChild(b);
+    return { el: b, at: DAY.at(0, t) };
+  });
+  const playBtn = document.getElementById('d-play');
+  playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Playing' : 'Paused'; playBtn.setAttribute('aria-pressed', String(playing)); };
+  for (const b of document.querySelectorAll('[data-speed]')) {
+    b.onclick = () => {
+      speed = Number(b.dataset.speed);
+      for (const o of document.querySelectorAll('[data-speed]')) o.setAttribute('aria-pressed', String(o === b));
+    };
+  }
+
+  // --- the settings window mock -----------------------------------------
+  for (const tab of document.querySelectorAll('.mac-tab')) {
+    tab.onclick = () => {
+      for (const t of document.querySelectorAll('.mac-tab')) t.setAttribute('aria-selected', String(t === tab));
+      for (const pane of document.querySelectorAll('.mac-body[data-pane]')) pane.classList.toggle('on', pane.dataset.pane === tab.dataset.tab);
+    };
+  }
+  for (const b of document.querySelectorAll('#m-sign button')) b.onclick = () => setMode(b.dataset.mode);
+  document.getElementById('m-dnd').onclick = () => setMode(state === 'dnd' ? 'free' : 'dnd');
+  for (const seg of document.querySelectorAll('[data-seg]')) {
+    for (const b of seg.querySelectorAll('button')) b.onclick = () => { for (const o of seg.querySelectorAll('button')) o.setAttribute('aria-pressed', String(o === b)); };
+  }
+  for (const sw of document.querySelectorAll('.m-switch')) sw.onclick = () => sw.setAttribute('aria-checked', String(sw.getAttribute('aria-checked') !== 'true'));
+  const preview = { canvas: document.getElementById('m-preview'), frame: new E.Frame() };
+  preview.painter = new window.LedPainter(preview.canvas, E.COLS, E.ROWS);
+  function sizePreview() {
+    const w = preview.canvas.clientWidth || 600, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    preview.painter.resize(w * dpr, w * dpr * E.ROWS / E.COLS);
+  }
+  addEventListener('resize', sizePreview);
+  // the guide: each state as the bar draws it, and what puts it there
+  const GUIDE = [
+    ['call', 'Automatic when an app uses your microphone.', 'Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
+    ['meeting', 'A meeting with invitees and no Teams, Zoom or Meet link.', 'In-person meetings: the room or your office as the location.'],
+    ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time.'],
+    ['late', 'A call has started and your microphone hasn’t.', 'Pulses for up to 10 minutes, then FREE. Joining turns it red.'],
+    ['freeTil', 'You left a call before its slot ended.', 'Until the booked end time — the time was set aside.'],
+    ['tentative', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'MAYBE IN beforehand. Never shows LATE — you may not be going.'],
+    ['dnd', 'An event titled <span class="m-tok">No meetings</span> or <span class="m-tok">Focus</span>.', 'Or double-click the bar for 30 minutes. Warnings for calls still show inside it.'],
+    ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title.', 'Beats any meeting over it: no warnings during lunch.'],
+    ['away', 'Any other event of your own — no invitees.', 'e.g. “Gym”, “Drive home”, “School run”. Beats meetings too.'],
+    ['ooo', 'Show As: <span class="m-tok">Out of Office</span>, an all-day busy event, or <span class="m-tok">✈</span> in the title.', 'Flights from TripIt or Flighty carry the ✈.'],
+    [null, 'Ignored: Show As <span class="m-tok">Free</span>, cancelled meetings, and all-day events that aren’t busy.', 'Declined meetings disappear from Outlook, so they never count.']
+  ];
+  (function buildGuide() {
+    const off = document.createElement('canvas'), painter = new window.LedPainter(off, E.COLS, E.ROWS), f = new E.Frame();
+    painter.resize(472, 64);
+    const clock = { h: 10, m: 52, s: 0, ms: 0, dow: 5, date: 2 };
+    const TIMERS = { callIn: { left: 461, h: 11, m: 0 }, late: { left: 80, h: 9, m: 45 }, freeTil: { left: 0, h: 11, m: 0 },
+      tentative: { left: 0, h: 12, m: 30 }, dnd: undefined };
+    const table = document.getElementById('m-guide');
+    for (const [st, how, more] of GUIDE) {
+      const tr = document.createElement('tr');
+      let pic = '';
+      if (st) {
+        E.render(f, 1000 + 60, st, null, 1000, clock, TIMERS[st]);
+        painter.paint(f);
+        pic = '<img alt="' + (E.WORDS[st] || st) + '" src="' + off.toDataURL() + '">';
+      }
+      tr.innerHTML = '<td>' + pic + '</td><td class="how">' + how + '<small>' + more + '</small></td>';
+      table.appendChild(tr);
+    }
+  })();
+
   // --- loop -------------------------------------------------------------
   function tick() {
     const t = now();
-    if (mode === 'auto' && t - lastFlip > 12) {
-      lastFlip = t;
-      setState({ call: 'free', free: 'dnd', dnd: 'call' }[state]);
+    let d = new Date(), timer;
+    const dt = Math.min(t - lastT, 0.25); lastT = t;
+    if (mode === 'day') {
+      if (playing) { simMs += dt * 1000 * speed; if (simMs > END) simMs = START; }
+      const r = R.decide({ now: simMs, override: 'auto', dndUntil: simDnd, events: DAYDATA.events, micSessions: DAYDATA.micSessions });
+      setState(r.state);
+      why = r.why;
+      const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+      d = new Date(midnight.getTime() + simMs);
+      if (r.left !== undefined) {
+        const at = new Date(midnight.getTime() + r.at);
+        timer = { left: r.left, h: at.getHours(), m: at.getMinutes() };
+      } else if (r.at !== undefined && (r.state === 'freeTil' || r.state === 'tentative')) {
+        const at = new Date(midnight.getTime() + r.at);
+        timer = { left: 0, h: at.getHours(), m: at.getMinutes() };
+      }
+      document.getElementById('d-time').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      document.getElementById('d-why').innerHTML = '<b>' + E.WORDS[r.state] + '</b> — ' + r.why.replace(/</g, '&lt;');
+      document.getElementById('d-head').style.left = pct(simMs);
+      let cur = null;
+      for (const m of momentEls) if (m.at <= simMs) cur = m;
+      for (const m of momentEls) m.el.classList.toggle('now', m === cur);
+    } else {
+      if (mode === 'auto' && t - demoAt > 9) {
+        demoAt = t; demoIndex = (demoIndex + 1) % DEMO.length;
+        setState(DEMO[demoIndex]);
+      }
+      if (mode === 'auto') timer = demoTimer(state, d, t - since);
+      else {
+        const end = new Date(dndUntil);
+        timer = { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() };
+        if (state === 'dnd' && timer.left <= 0) setMode('free');
+      }
+      why = mode === 'auto' ? DEMO_WHY[state] : (state === 'call' ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
     }
-    const d = new Date();
     const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds(), dow: d.getDay(), date: d.getDate() };
     // with reduced motion, skip straight to the settled screen
     const s = reduced ? since - 60 : since;
-    const end = new Date(dndUntil);
-    const timer = { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() };
-    if (state === 'dnd' && timer.left <= 0) setMode('free');
     const L = stacked ? STACK : WIDE;
     (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
     L.painter.paint(L.frame);
+    // the settings window's preview: always the wide bar
+    E.render(preview.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
+    if (preview.canvas.clientWidth) { if (!preview.sized) { sizePreview(); preview.sized = true; } preview.painter.paint(preview.frame); }
+    document.getElementById('m-state').textContent = NAMES[state];
+    document.getElementById('m-why').textContent = why;
     spill.style.opacity = '.12';
     requestAnimationFrame(tick);
   }
+  setMode(params.get('mode') === 'day' ? 'day' : 'auto');
+  sizePreview();
   layout();
   requestAnimationFrame(tick);
 })();
