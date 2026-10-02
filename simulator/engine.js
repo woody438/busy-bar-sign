@@ -77,7 +77,7 @@
     call: 'call', meeting: 'call',
     free: 'free',
     dnd: 'dnd',
-    callIn: 'amber', busyIn: 'amber', maybeIn: 'amber', late: 'amber', freeTil: 'amber', tentative: 'amber',
+    callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
     away: 'grey', lunch: 'grey', ooo: 'grey'
   };
   const palOf = (state) => PALETTE[STATE_PALETTE[state]];
@@ -315,11 +315,11 @@
   const WORDS = {
     call: 'ON A CALL', free: 'FREE', dnd: 'DND',
     meeting: 'MEETING',
-    callIn: 'CALL IN', busyIn: 'BUSY IN', maybeIn: 'MAYBE IN',   // + the countdown on the right
+    callIn: 'CALL IN', busyIn: 'BUSY IN',                        // + the countdown on the right
     late: 'LATE FOR',                                            // + CALL on the right
     freeTil: 'FREE TILL',                                        // + the slot's end on the right
-    tentative: 'TENTATIVE',
-    away: 'AWAY', lunch: 'AT LUNCH', ooo: 'OUT OF'               // + OFFICE on the right
+    callTbc: 'CALL TBC', busyTbc: 'BUSY TBC',                    // tentative: countdown, then TILL
+    away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF'                  // + OFFICE on the right
   };
   /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
      set in the status face across the whole bar. */
@@ -330,12 +330,12 @@
     meeting:   { word: 'MEETING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    maybeIn:   { word: 'MAYBE SOON', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
     late:      { word: 'LATE FOR CALL', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
     freeTil:   { word: 'FREE TILL {t}', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    tentative: { word: 'TENTATIVE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    callTbc:   { word: 'CALL TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    busyTbc:   { word: 'BUSY TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    lunch:     { word: 'AT LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    lunch:     { word: 'LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined }
   };
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
@@ -343,7 +343,7 @@
   function heroWord(state, timer) {
     const w = HERO[state].word;
     if (w.indexOf('{t}') < 0) return w;
-    return timer ? w.replace('{t}', pad2(timer.h) + ':' + pad2(timer.m)) : w.replace(/ *\S*\{t\}/, '');
+    return timer ? w.replace('{t}', pad2(timer.h) + ':' + pad2(timer.m)) : w.replace(' TILL {t}', '').replace('{t}', '');
   }
   const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -427,17 +427,18 @@
       '.####.####.',
       '###########'
     ],
-    tentative: [
-      '.#####.',
-      '##...##',
-      '##...##',
-      '....##.',
-      '...##..',
-      '..##...',
-      '..##...',
-      '.......',
-      '..##...',
-      '..##...'
+    // a pencil: pencilled in, not confirmed
+    tbc: [
+      '........#.',
+      '.......###',
+      '......###.',
+      '.....###..',
+      '....###...',
+      '...###....',
+      '..###.....',
+      '.###......',
+      '.##.......',
+      '#.........'
     ],
     // a fork and a knife
     lunch: [
@@ -481,11 +482,12 @@
       '....##......'
     ]
   };
-  ICONS.callIn = ICONS.busyIn = ICONS.maybeIn = ICONS.soon;
+  ICONS.callIn = ICONS.busyIn = ICONS.soon;
+  ICONS.callTbc = ICONS.busyTbc = ICONS.tbc;
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
-    call: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, maybeIn: 0, late: 0,
-    freeTil: 1, tentative: 0, lunch: -1, away: 0, ooo: -1
+    call: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
+    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1
   };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
@@ -628,7 +630,8 @@
    * clock's face and a bottom line at half brightness. Usually the time and
    * the day; states that are about another moment show it instead.
    *   timer — { left, h, m }: seconds to go (or, for LATE, seconds since the
-   *           start) and the time the state is about. Without it, the clock.
+   *           start; for TBC, 0 once the meeting is on) and the time the
+   *           state is about. Without it, the clock.
    */
   function rightText(state, clock, timer) {
     const day = DAYS[clock.dow] + ' ' + clock.date;
@@ -637,11 +640,16 @@
     if (timer) {
       switch (state) {
         case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
-        case 'callIn': case 'busyIn': case 'maybeIn':
+        // on a call or in a meeting: how long till you're free, and when
+        case 'call': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
+        case 'callIn': case 'busyIn':
           return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };
+        // tentative: a countdown to the start, then the end time once it's on
+        case 'callTbc': case 'busyTbc':
+          return timer.left > 0 ? { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true }
+                                : { top: now, bottom: 'TILL ' + at, blink: true };
         case 'late': return { top: 'CALL', bottom: '+' + elapsedText(timer.left), blink: false };
         case 'freeTil': return { top: at, bottom: day, blink: false };
-        case 'tentative': return { top: now, bottom: 'TILL ' + at, blink: true };
       }
     }
     if (state === 'ooo') return { top: now, bottom: 'OFFICE', blink: true };
@@ -682,7 +690,9 @@
         drawText(f, fontName, ch, pen + inset, base, colour, opts);
         pen += cell;
       } else {
-        const o = Object.assign({}, opts, { alpha: (opts.alpha === undefined ? 1 : opts.alpha) * colonAlpha });
+        // only the colon blinks: letters (the H in 1H05, CALL) stay lit
+        const k = ch === ':' ? colonAlpha : 1;
+        const o = Object.assign({}, opts, { alpha: (opts.alpha === undefined ? 1 : opts.alpha) * k });
         drawText(f, fontName, ch, pen, base, colour, o);
         pen += g.adv;
       }
@@ -701,14 +711,17 @@
 
   /*
    * A countdown in the clock's place and face — the firmware's timer
-   * screen — with its end time beneath at half brightness (Do Not Disturb),
-   * or the start time (CALL IN). Whole seconds, rounded up, so it reads
-   * 30:00 as it starts and 00:01 last.
+   * screen — with its end time beneath at half brightness (Do Not Disturb,
+   * a call, a meeting), or the start time (CALL IN). Whole seconds, rounded
+   * up, so it reads 30:00 as it starts and 00:01 last; 1H05 from an hour.
    */
   function countdownText(timer) {
     const pad = (n) => (n < 10 ? '0' : '') + n;
-    const secs = Math.min(Math.max(Math.ceil(timer.left - 1e-9), 0), 99 * 60 + 59);
-    return { mmss: pad(Math.floor(secs / 60)) + ':' + pad(secs % 60), until: 'TILL ' + pad(timer.h) + ':' + pad(timer.m) };
+    const until = 'TILL ' + pad(timer.h) + ':' + pad(timer.m);
+    const secs = Math.max(Math.ceil(timer.left - 1e-9), 0);
+    // an hour or more reads as hours and minutes: 1H05
+    if (secs >= 3600) return { mmss: Math.min(Math.floor(secs / 3600), 9) + 'H' + pad(Math.floor(secs % 3600 / 60)), until: until };
+    return { mmss: pad(Math.floor(secs / 60)) + ':' + pad(secs % 60), until: until };
   }
 
   /* ------------------------------------------------------------------ *
@@ -738,12 +751,12 @@
     meeting: [{ t: 'MEETING', tracking: -1 }],
     callIn: ['CALL', 'SOON'],
     busyIn: ['BUSY', 'SOON'],
-    maybeIn: ['MAYBE', 'SOON'],
     late: ['LATE', { t: 'FOR CALL', font: 'busy_bold_10' }],
     freeTil: ['FREE', { t: 'TILL {t}', font: 'busy_bold_10' }],
-    tentative: [{ t: 'TENTATIVE', font: 'busy_bold_10' }],
+    callTbc: ['CALL', 'TBC'],
+    busyTbc: ['BUSY', 'TBC'],
     away: ['AWAY'],
-    lunch: ['AT', 'LUNCH'],
+    lunch: ['LUNCH'],
     ooo: ['OUT OF', 'OFFICE']
   };
   const LINE_FONT = {

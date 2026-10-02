@@ -60,6 +60,8 @@ expect('flight', kind({ title: '✈ CDG→LHR • BA 303' }), 'ooo');
 expect('other own block', kind({ title: 'PRVN CrossFit' }), 'away');
 expect('show as free', kind({ attendees: 9, availability: 'free', location: 'Microsoft Teams Meeting' }), 'ignore');
 expect('cancelled', kind({ attendees: 9, cancelled: true }), 'ignore');
+expect('"Canceled:" title', kind({ title: 'Canceled: Supplier sync', attendees: 5, location: 'Microsoft Teams Meeting' }), 'ignore');
+expect('"Cancelled:" title', kind({ title: 'Cancelled: Lunch' }), 'ignore');
 expect('show as out of office', kind({ title: 'Paris', availability: 'ooo' }), 'ooo');
 expect('all-day busy', kind({ title: 'PARIS', allDay: true }), 'ooo');
 expect('all-day tentative', kind({ title: 'Maybe', allDay: true, availability: 'tentative' }), 'ignore');
@@ -80,6 +82,10 @@ expect('overrun: late counts from its start', decide(666, two, [[598, 665]]).lef
 expect('joined 4 min early, left early', decide(640, [call('a', 600, 660)], [[596, 630]]).state, 'freeTil');
 // a confirmed call beats a tentative one starting sooner
 expect('confirmed beats tentative', decide(595, [call('t', 598, 630, { availability: 'tentative' }), call('c', 602, 630)]).state, 'callIn');
+expect('tentative call soon', decide(595, [call('t', 600, 630, { availability: 'tentative' })]).state, 'callTbc');
+expect('…counts down', decide(595, [call('t', 600, 630, { availability: 'tentative' })]).left, 300);
+expect('tentative in person', decide(605, [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3, availability: 'tentative' })]).state, 'busyTbc');
+expect('…shows its end', decide(605, [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3, availability: 'tentative' })]).at, 660 * M);
 // a warning beats FREE TILL
 expect('warning beats free till', decide(645, [call('a', 600, 660), call('b', 652, 700)], [[600, 640]]).state, 'callIn');
 // LATE beats the next call's warning
@@ -87,7 +93,8 @@ expect('late beats warning', decide(603, [call('a', 600, 660), call('b', 610, 64
 // an in-person meeting beats a call warning
 expect('meeting beats warning', decide(605, [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3 }), call('b', 610, 640)]).state, 'meeting');
 // tentative never goes LATE, and gives way to a confirmed warning
-expect('tentative not late', decide(601, [call('t', 600, 630, { availability: 'tentative' })]).state, 'tentative');
+expect('tentative not late', decide(601, [call('t', 600, 630, { availability: 'tentative' })]).state, 'callTbc');
+expect('…and no countdown once on', decide(601, [call('t', 600, 630, { availability: 'tentative' })]).left, undefined);
 expect('confirmed warning beats tentative now', decide(615, [call('t', 600, 630, { availability: 'tentative' }), call('c', 620, 650)]).state, 'callIn');
 // away beats a meeting warning, like lunch
 expect('away suppresses warning', decide(595, [ev({ title: 'Drive', start: 590 * M, end: 605 * M }), call('c', 600, 630)]).state, 'away');
@@ -96,6 +103,21 @@ expect('warning after away ends', decide(596, [ev({ title: 'Drive', start: 590 *
 expect('late inside DND block', decide(605, [ev({ title: 'NO MEETINGS', start: 540 * M, end: 720 * M }), call('c', 600, 630)]).state, 'late');
 // nothing at all
 expect('empty calendar', decide(600, []).state, 'free');
+
+// on a call or in a meeting: a countdown to free, through back-to-back meetings
+expect('on the ops review, free at 09:00', sAt('08:40').at, D.at(base, '09:00'));
+expect('…20 minutes to go', sAt('08:40').left, 1200);
+expect('joined a minute early: counts to its end', sAt('08:29:30').at, D.at(base, '09:00'));
+expect('quoting call from lunch: free at 13:15', sAt('13:05').at, D.at(base, '13:15'));
+expect('calendar phone call counts down', sAt('15:10').left, 1200);
+expect('in-person meeting counts down', sAt('11:10').at, D.at(base, '11:30'));
+const chain = [call('a', 600, 660), call('b', 660, 690), ev({ title: 'm', start: 695 * M, end: 720 * M, attendees: 2 }), call('d', 730, 760)];
+expect('back to back: through b and the 5-min gap to m', decide(630, chain, [[600, null]]).at, 720 * M);
+expect('…not across a 10-min gap', decide(630, chain, [[600, null]]).state, 'call');
+expect('meeting chains too', decide(700, chain).at, 720 * M);
+expect('mic with nothing in the calendar: no countdown', decide(630, [], [[600, null]]).left, undefined);
+expect('mic after the call overran: no countdown', decide(665, [call('a', 600, 660)], [[600, null]]).left, undefined);
+expect('lunch does not chain', decide(630, [call('a', 600, 660), ev({ title: 'Lunch', start: 660 * M, end: 720 * M })], [[600, null]]).at, 660 * M);
 // custom keywords
 expect('custom lunch word', R.decide({ now: 600 * M, events: [ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })],
   config: { keywords: { lunch: ['déjeuner'] } } }).state, 'lunch');

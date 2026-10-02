@@ -18,6 +18,7 @@
     --accent:#FF3348;
     --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
     --mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--room);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
@@ -300,7 +301,7 @@
       <div class="m-card"><table class="m-guide" id="m-guide"></table></div>
       <p class="m-h">Words the sign looks for</p>
       <div class="m-card">
-        <div class="m-row"><span class="k">AT LUNCH</span><span class="m-kw"><input value="lunch" aria-label="Lunch words"></span></div>
+        <div class="m-row"><span class="k">LUNCH</span><span class="m-kw"><input value="lunch" aria-label="Lunch words"></span></div>
         <div class="m-row"><span class="k">DND</span><span class="m-kw"><input value="no meetings, focus, do not disturb" aria-label="Do Not Disturb words"></span></div>
         <div class="m-row"><span class="k">ON A CALL</span><span class="m-kw"><input value="call" aria-label="Call words"></span></div>
         <div class="m-row"><span class="k">OUT OF OFFICE</span><span class="m-kw"><input value="✈, out of office, ooo" aria-label="Out of office words"></span></div>
@@ -334,7 +335,7 @@
     <div class="cell"><h3>LEDs and glass</h3><p>Dots follow Flipper's own preview shader — rounded squares at 85% of the pitch, shading toward their corners — and unlit LEDs vanish into the glossy black face. Colours are corrected for the firmware's LED gamma, so dim tones sit back the way they do on the device.</p></div>
     <div class="cell"><h3>Small screens</h3><p>The <strong>Stacked layout</strong> button shows the option for small monitors such as 960 × 540: the pill across the top, the time large beneath it, the LEDs filling the screen. The announcement fills the whole panel on two lines, then draws up into the pill as the clock rises.</p></div>
     <div class="cell"><h3>Do Not Disturb</h3><p>Double-click the display for 30 minutes of DO NOT DISTURB: an indigo pill with a moon, and a countdown where the clock was. Double-click again to end it. In the app a call still shows ON A CALL, then Do Not Disturb returns with whatever time is left.</p></div>
-    <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL; leave early and it says FREE TILL the slot ends. Lunch, your own blocks and flights show AT LUNCH, AWAY and OUT OF OFFICE.</p></div>
+    <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL; leave early and it says FREE TILL the slot ends. On a call or in a meeting the clock counts down to when you're free, through back-to-back meetings. Tentative meetings say CALL TBC. Lunch, your own blocks and flights show LUNCH, AWAY and OUT OF OFFICE.</p></div>
     <div class="cell"><h3>Who wins</h3><p>Your own controls first, then the microphone, then Do Not Disturb, then the calendar: out of office, lunch, away, a phone call, an in-person meeting, a call you're late for, a warning, a tentative meeting, a no-meetings block, and a call you left early. The microphone always turns it red.</p></div>
     <div class="cell"><h3>Same detection underneath</h3><p>Unchanged from the original: CoreAudio says which app has the microphone, dictation apps are ignored, and changes are debounced so the bar never flickers. A menu-bar item can force either state.</p></div>
   </div>
@@ -453,11 +454,11 @@
   let mode = 'auto', lastFlip = now();
   const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd', day: 'b-day' };
   const SPILL = { call: '#ff1d35', meeting: '#ff1d35', free: '#17eb79', dnd: '#5b45ff',
-    callIn: '#ffa21a', busyIn: '#ffa21a', maybeIn: '#ffa21a', late: '#ffa21a', freeTil: '#ffa21a', tentative: '#ffa21a',
+    callIn: '#ffa21a', busyIn: '#ffa21a', late: '#ffa21a', freeTil: '#ffa21a', callTbc: '#ffa21a', busyTbc: '#ffa21a',
     away: '#7e8492', lunch: '#7e8492', ooo: '#7e8492' };
   const NAMES = { call: 'On a call', meeting: 'In a meeting', free: 'Free', dnd: 'Do Not Disturb',
-    callIn: 'Call soon', busyIn: 'Meeting soon', maybeIn: 'Tentative soon', late: 'Late for a call', freeTil: 'Free till the slot ends',
-    tentative: 'Tentative', away: 'Away', lunch: 'At lunch', ooo: 'Out of office' };
+    callIn: 'Call soon', busyIn: 'Meeting soon', late: 'Late for a call', freeTil: 'Free till the slot ends',
+    callTbc: 'Call to be confirmed', busyTbc: 'Meeting to be confirmed', away: 'Away', lunch: 'Lunch', ooo: 'Out of office' };
   const DND_MS = 30 * 60 * 1000;
   let dndUntil = Date.now() + DND_MS;              // wall-clock end of Do Not Disturb
   let why = '';
@@ -504,18 +505,19 @@
   spill.style.background = '#ff1d35';
 
   // --- auto demo: every state in turn, each with a plausible countdown ---
-  const DEMO = ['callIn', 'late', 'call', 'freeTil', 'busyIn', 'meeting', 'maybeIn', 'tentative', 'lunch', 'away', 'ooo', 'dnd', 'free'];
+  const DEMO = ['callIn', 'late', 'call', 'freeTil', 'busyIn', 'meeting', 'callTbc', 'lunch', 'away', 'ooo', 'dnd', 'free'];
   const DEMO_WHY = { callIn: 'Call soon: “Network discussion”', late: 'Late for “Network discussion”', call: 'Microphone in use',
     freeTil: 'Left “Network discussion” early', busyIn: 'Meeting soon: “Values session”', meeting: 'In a meeting: “Values session”',
-    maybeIn: 'Tentative soon: “Vendor demo”', tentative: 'Tentative: “Vendor demo”', lunch: 'Lunch: “Lunch”', away: 'Away: “Gym”',
+    callTbc: 'Tentative, soon: “Vendor demo”', lunch: 'Lunch: “Lunch”', away: 'Away: “Gym”',
     ooo: 'Out of office: “✈ BNA→LHR”', dnd: 'Do Not Disturb', free: 'Free' };
   let demoIndex = 0, demoAt = now();
   function demoTimer(st, d, e) {
     const later = (secs) => { const t = new Date(d.getTime() + secs * 1000); return { h: t.getHours(), m: t.getMinutes() }; };
     switch (st) {
-      case 'callIn': case 'busyIn': case 'maybeIn': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
+      case 'callIn': case 'busyIn': case 'callTbc': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
+      case 'call': case 'meeting': { const left = Math.max(0, 47 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
       case 'late': { const t = new Date(d.getTime() - (80 + e) * 1000); return { left: 80 + e, h: t.getHours(), m: t.getMinutes() }; }
-      case 'freeTil': case 'tentative': return Object.assign({ left: 0 }, later(18 * 60));
+      case 'freeTil': return Object.assign({ left: 0 }, later(18 * 60));
       case 'dnd': { const end = new Date(dndUntil); return { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() }; }
     }
     return undefined;
@@ -610,12 +612,12 @@
   addEventListener('resize', sizePreview);
   // the guide: each state as the bar draws it, and what puts it there
   const GUIDE = [
-    ['call', 'Automatic when an app uses your microphone.', 'Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
+    ['call', 'Automatic when an app uses your microphone.', 'Counts down to when you’re free, through back-to-back meetings. Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
     ['meeting', 'A meeting with invitees and no Teams, Zoom or Meet link.', 'In-person meetings: the room or your office as the location.'],
     ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time.'],
     ['late', 'A call has started and your microphone hasn’t.', 'Pulses for up to 10 minutes, then FREE. Joining turns it red.'],
     ['freeTil', 'You left a call before its slot ended.', 'Until the booked end time — the time was set aside.'],
-    ['tentative', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'MAYBE IN beforehand. Never shows LATE — you may not be going.'],
+    ['callTbc', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE — you may not be going.'],
     ['dnd', 'An event titled <span class="m-tok">No meetings</span> or <span class="m-tok">Focus</span>.', 'Or double-click the bar for 30 minutes. Warnings for calls still show inside it.'],
     ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title.', 'Beats any meeting over it: no warnings during lunch.'],
     ['away', 'Any other event of your own — no invitees.', 'e.g. “Gym”, “Drive home”, “School run”. Beats meetings too.'],
@@ -627,7 +629,7 @@
     painter.resize(472, 64);
     const clock = { h: 10, m: 52, s: 0, ms: 0, dow: 5, date: 2 };
     const TIMERS = { callIn: { left: 461, h: 11, m: 0 }, late: { left: 80, h: 9, m: 45 }, freeTil: { left: 0, h: 11, m: 0 },
-      tentative: { left: 0, h: 12, m: 30 }, dnd: undefined };
+      callTbc: { left: 461, h: 12, m: 0 }, call: { left: 2832, h: 11, m: 30 }, meeting: { left: 1080, h: 11, m: 30 }, dnd: undefined };
     const table = document.getElementById('m-guide');
     for (const [st, how, more] of GUIDE) {
       const tr = document.createElement('tr');
@@ -657,7 +659,7 @@
       if (r.left !== undefined) {
         const at = new Date(midnight.getTime() + r.at);
         timer = { left: r.left, h: at.getHours(), m: at.getMinutes() };
-      } else if (r.at !== undefined && (r.state === 'freeTil' || r.state === 'tentative')) {
+      } else if (r.at !== undefined && (r.state === 'freeTil' || r.state === 'callTbc' || r.state === 'busyTbc')) {
         const at = new Date(midnight.getTime() + r.at);
         timer = { left: 0, h: at.getHours(), m: at.getMinutes() };
       }
@@ -675,7 +677,7 @@
       if (mode === 'auto') timer = demoTimer(state, d, t - since);
       else {
         const end = new Date(dndUntil);
-        timer = { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() };
+        timer = state === 'dnd' || prev === 'dnd' ? { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() } : undefined;
         if (state === 'dnd' && timer.left <= 0) setMode('free');
       }
       why = mode === 'auto' ? DEMO_WHY[state] : (state === 'call' ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
