@@ -506,10 +506,10 @@
 
   // --- auto demo: every state in turn, each with a plausible countdown ---
   const DEMO = ['callIn', 'late', 'call', 'freeTil', 'busyIn', 'meeting', 'callTbc', 'lunch', 'away', 'ooo', 'dnd', 'free'];
-  const DEMO_WHY = { callIn: 'Call soon: “Network discussion”', late: 'Late for “Network discussion”', call: 'Microphone in use',
-    freeTil: 'Left “Network discussion” early', busyIn: 'Meeting soon: “Values session”', meeting: 'In a meeting: “Values session”',
-    callTbc: 'Tentative, soon: “Vendor demo”', lunch: 'Lunch: “Lunch”', away: 'Away: “Gym”',
-    ooo: 'Out of office: “✈ BNA→LHR”', dnd: 'Do Not Disturb', free: 'Free' };
+  const DEMO_WHY = { callIn: 'Call soon', late: 'Late for a call', call: 'On a call in your calendar',
+    freeTil: 'Left a call early', busyIn: 'Meeting soon', meeting: 'In a meeting',
+    callTbc: 'Tentative meeting soon', lunch: 'Lunch', away: 'Away',
+    ooo: 'Out of office', dnd: 'Do Not Disturb', free: 'Free' };
   let demoIndex = 0, demoAt = now();
   function demoTimer(st, d, e) {
     const later = (secs) => { const t = new Date(d.getTime() + secs * 1000); return { h: t.getHours(), m: t.getMinutes() }; };

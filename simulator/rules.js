@@ -120,6 +120,7 @@
    * Returns { state, left, at, event, why }:
    *   state — an engine state; left — seconds to go (or since, for LATE);
    *   at — the moment the state is about (ms); event — the event behind it.
+   *   why — a reason without the event's title: the app never shows titles.
    * ON A CALL and MEETING count down to when you're free: the end of the
    * event, carried through back-to-back ones (busyUntil).
    */
@@ -136,7 +137,6 @@
     const current = evs.filter((e) => e.start <= now && now < e.end);
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
     const first = (pred) => current.find(pred);
-    const quote = (e) => '“' + (e.title || 'Untitled') + '”';
     // busy until the end of this event and any back to back after it: a countdown to free
     const until = (x) => { const end = busyUntil(x, evs, cfg); return { event: x, left: (end - now) / 1000, at: end }; };
     let e;
@@ -151,7 +151,7 @@
         x.start - early <= now && now < x.end);
       if (!on.length) return sign('call', 'Microphone in use');
       const anchor = on.reduce((a, b) => (busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a));
-      return sign('call', 'On ' + quote(anchor), until(anchor));
+      return sign('call', 'On a call in your calendar', until(anchor));
     }
     // 3. a double-click
     if (input.dndUntil != null && input.dndUntil > now) {
@@ -161,37 +161,37 @@
     // 4. the calendar
 
     // not here, by your own blocks — these outrank meetings, warnings included
-    if ((e = first((x) => x.kind === 'ooo'))) return sign('ooo', 'Out of office: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'away'))) return sign('away', 'Away: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'phone'))) return sign('call', 'Call in your calendar: ' + quote(e), until(e));
+    if ((e = first((x) => x.kind === 'ooo'))) return sign('ooo', 'Out of office', { event: e, at: e.end });
+    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch', { event: e, at: e.end });
+    if ((e = first((x) => x.kind === 'away'))) return sign('away', 'Away', { event: e, at: e.end });
+    if ((e = first((x) => x.kind === 'phone'))) return sign('call', 'Phone call in your calendar', until(e));
 
     // in a meeting, or should be on a call
     if ((e = first((x) => x.kind === 'inPerson' && !x.tentative))) {
-      return sign('meeting', 'In a meeting: ' + quote(e), until(e));
+      return sign('meeting', 'In a meeting', until(e));
     }
     if ((e = first((x) => x.kind === 'call' && !x.tentative && now - x.start < late && !joined(x, sessions, now, cfg)))) {
-      return sign('late', 'Late for ' + quote(e), { event: e, left: (now - e.start) / 1000, at: e.start });
+      return sign('late', 'Late for a call', { event: e, left: (now - e.start) / 1000, at: e.start });
     }
 
     // about to be busy
     const upcoming = evs.filter((x) => (x.kind === 'call' || x.kind === 'inPerson') && x.start > now && x.start - now <= lead);
     const soon = upcoming.find((x) => !x.tentative);
     if (soon) {
-      return sign(soon.kind === 'call' ? 'callIn' : 'busyIn', (soon.kind === 'call' ? 'Call' : 'Meeting') + ' soon: ' + quote(soon),
+      return sign(soon.kind === 'call' ? 'callIn' : 'busyIn', soon.kind === 'call' ? 'Call soon' : 'Meeting soon',
         { event: soon, left: (soon.start - now) / 1000, at: soon.start });
     }
     const tbc = (x) => (x.kind === 'call' ? 'callTbc' : 'busyTbc');
-    if ((e = first((x) => x.tentative))) return sign(tbc(e), 'Tentative: ' + quote(e), { event: e, at: e.end });
+    if ((e = first((x) => x.tentative))) return sign(tbc(e), 'Tentative meeting', { event: e, at: e.end });
     if (upcoming.length) {
       e = upcoming[0];
-      return sign(tbc(e), 'Tentative, soon: ' + quote(e), { event: e, left: (e.start - now) / 1000, at: e.start });
+      return sign(tbc(e), 'Tentative meeting soon', { event: e, left: (e.start - now) / 1000, at: e.start });
     }
 
     // a no-meetings block, then a call you've left early
-    if ((e = first((x) => x.kind === 'dndBlock'))) return sign('dnd', 'Do Not Disturb block: ' + quote(e), { event: e, at: e.end });
+    if ((e = first((x) => x.kind === 'dndBlock'))) return sign('dnd', 'No-meetings block', { event: e, at: e.end });
     if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg)))) {
-      return sign('freeTil', 'Left ' + quote(e) + ' early', { event: e, at: e.end });
+      return sign('freeTil', 'Left a call early', { event: e, at: e.end });
     }
 
     // 5. nothing on
