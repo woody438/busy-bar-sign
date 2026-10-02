@@ -12,7 +12,7 @@ import Foundation
  */
 
 /// An event as read from macOS Calendar, reduced to what the rules need.
-struct CalEvent {
+struct CalEvent: Equatable {
     enum Availability: String { case busy, free, tentative, ooo }   // Outlook's Show As
 
     var id: String

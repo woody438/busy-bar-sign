@@ -40,8 +40,11 @@ final class FloatingWindow: NSObject, ObservableObject, NSMenuDelegate {
     /// controls along its top); a little headroom keeps them clear of the edge.
     private static let aspect = CGSize(width: 3840, height: 672)
 
-    init(detector: CallDetector) {
+    private let status: StatusModel
+
+    init(detector: CallDetector, status: StatusModel) {
         self.detector = detector
+        self.status = status
         super.init()
     }
 
@@ -83,7 +86,7 @@ final class FloatingWindow: NSObject, ObservableObject, NSMenuDelegate {
         // The bar, with a transparent surface over it that handles the mouse:
         // drag to move, double-click for Do Not Disturb, right-click for sizes.
         let container = NSView(frame: NSRect(origin: .zero, size: contentSize(for: size)))
-        let hosting = NSHostingView(rootView: BarDisplayView(detector: detector, style: .floating))
+        let hosting = NSHostingView(rootView: BarDisplayView(status: status, style: .floating))
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
         container.addSubview(hosting)

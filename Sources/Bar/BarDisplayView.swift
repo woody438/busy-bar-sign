@@ -15,15 +15,15 @@ import SwiftUI
 enum BarStyle { case wall, floating }
 
 struct BarDisplayView: View {
-    @ObservedObject var detector: CallDetector
+    @ObservedObject var status: StatusModel
     let style: BarStyle
     @StateObject private var bar = BarModel()
     /// The full-screen display's layout, from the controls. Wide unless chosen.
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
     @Environment(\.displayScale) private var displayScale
 
-    init(detector: CallDetector, style: BarStyle = .wall) {
-        _detector = ObservedObject(wrappedValue: detector)
+    init(status: StatusModel, style: BarStyle = .wall) {
+        _status = ObservedObject(wrappedValue: status)
         self.style = style
     }
 
@@ -54,9 +54,9 @@ struct BarDisplayView: View {
         }
         .background(style == .wall ? Color.black : Color.clear)
         .ignoresSafeArea()
-        .onAppear { show(detector.sign, until: detector.dndUntil) }
-        .onChange(of: detector.sign) { _, sign in show(sign, until: detector.dndUntil) }
-        .onChange(of: detector.dndUntil) { _, until in show(detector.sign, until: until) }
+        .onAppear { show(status.state, status.moment) }
+        .onChange(of: status.state) { _, state in show(state, status.moment) }
+        .onChange(of: status.moment) { _, moment in bar.moment = moment }
         .onReceive(driftTimer) { _ in
             let px = { CGFloat(Int.random(in: -3...3)) / max(displayScale, 1) }
             drift = CGSize(width: px(), height: px())
@@ -65,14 +65,9 @@ struct BarDisplayView: View {
 }
 
 extension BarDisplayView {
-    private func show(_ sign: Sign, until: Date?) {
-        // an ended Do Not Disturb keeps its last countdown for the change animation
-        if let until { bar.dndUntil = until }
-        switch sign {
-        case .call: bar.update(.call)
-        case .dnd: bar.update(.dnd)
-        case .free: bar.update(.free)
-        }
+    private func show(_ state: BarState, _ moment: BarMoment?) {
+        bar.moment = moment
+        bar.update(state)
     }
 }
 
@@ -92,15 +87,7 @@ private struct Spill: View {
             .animation(.easeInOut(duration: 0.6), value: state)
     }
 
-    private var colour: Color {
-        switch state {
-        case .call, .meeting: return Color(red: 1, green: 0.114, blue: 0.208)
-        case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
-        case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
-        case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
-        case .away, .lunch, .ooo: return Color(red: 0.494, green: 0.518, blue: 0.573)
-        }
-    }
+    private var colour: Color { state.colour }
 }
 
 /// The BUSY Bar's black edition, after the bezel art in its firmware.

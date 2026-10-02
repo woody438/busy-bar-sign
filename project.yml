@@ -30,6 +30,9 @@ targets:
         # ever did ask and these were missing.
         NSMicrophoneUsageDescription: Busy Bar Sign checks whether any app is using the microphone. It never records audio.
         NSCameraUsageDescription: Busy Bar Sign checks whether any app is using the camera. It never captures video.
+        # Asked for on first launch: the sign follows your calendar (read-only).
+        NSCalendarsFullAccessUsageDescription: Busy Bar Sign reads your calendar to show meetings, lunch and time away on the sign, and to warn people before a call. It never changes your calendar.
+        NSCalendarsUsageDescription: Busy Bar Sign reads your calendar to show meetings, lunch and time away on the sign, and to warn people before a call. It never changes your calendar.
     settings:
       base:
         PRODUCT_NAME: Busy Bar Sign            # the name in Finder and the Dock

@@ -6,10 +6,11 @@ struct BusyBarSignApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(detector: delegate.detector, window: delegate.window, floating: delegate.floating,
+            MenuContent(detector: delegate.detector, status: delegate.status, calendar: delegate.calendar,
+                        window: delegate.window, floating: delegate.floating,
                         openControls: { delegate.controls.show() })
         } label: {
-            MenuBarIcon(detector: delegate.detector)
+            MenuBarIcon(status: delegate.status)
         }
         .commands {
             CommandGroup(replacing: .appSettings) {
@@ -23,14 +24,18 @@ struct BusyBarSignApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let detector = CallDetector()
-    lazy var window = DisplayWindow(detector: detector)
-    lazy var floating = FloatingWindow(detector: detector)
-    lazy var controls = ControlsWindow(detector: detector, wall: window, floating: floating)
+    let calendar = CalendarSource()
+    lazy var status = StatusModel(detector: detector, calendar: calendar)
+    lazy var window = DisplayWindow(detector: detector, status: status)
+    lazy var floating = FloatingWindow(detector: detector, status: status)
+    lazy var controls = ControlsWindow(detector: detector, status: status, calendar: calendar, wall: window, floating: floating)
 
     /// Opens whichever views were up last time — the full-screen display on
     /// first launch, with the controls window so they're easy to find.
     func applicationDidFinishLaunching(_ notification: Notification) {
         detector.start()
+        calendar.start()
+        status.start()
         if DisplayWindow.wasShown { window.show() }
         if FloatingWindow.wasShown { floating.show() }
         if ControlsWindow.neverShown { controls.show() }
@@ -90,35 +95,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
 }
 
-/// Its own view so it redraws when the call state changes.
+/// Its own view so it redraws when the sign changes: the pill's own marks —
+/// a microphone on a call, a bell before one, a moon for Do Not Disturb,
+/// a tick when free.
 private struct MenuBarIcon: View {
-    @ObservedObject var detector: CallDetector
+    @ObservedObject var status: StatusModel
 
     var body: some View {
-        // the pill's own marks: a microphone on a call, a moon for Do Not
-        // Disturb, a tick when free
-        switch detector.sign {
-        case .call: Image(systemName: "mic.circle.fill")
-        case .dnd: Image(systemName: "moon.circle.fill")
-        case .free: Image(systemName: "checkmark.circle")
-        }
+        Image(systemName: status.state.symbol)
     }
 }
 
 private struct MenuContent: View {
     @ObservedObject var detector: CallDetector
+    @ObservedObject var status: StatusModel
+    @ObservedObject var calendar: CalendarSource
     @ObservedObject var window: DisplayWindow
     @ObservedObject var floating: FloatingWindow
     let openControls: () -> Void
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
     var body: some View {
-        switch detector.sign {
-        case .call: Text("On a call")
-        case .dnd: Text(detector.dndStatus() ?? "Do Not Disturb")
-        case .free: Text("Free")
+        if detector.dndUntil != nil, status.state == .dnd {
+            Text(detector.dndStatus() ?? "Do Not Disturb")
+        } else {
+            Text(status.state.name)
         }
+        Text(status.decision.why)
         Text(detector.detection.sourceLine)
+        if calendar.enabled, let problem = calendar.problem { Text(problem) }
         if window.waitingForScreen {
             Text("Waiting for the wall display to reconnect")
         } else if window.onScaledScreen {
@@ -134,6 +139,7 @@ private struct MenuContent: View {
             ForEach(DetectionPolicy.allCases) { Text($0.label).tag($0) }
         }
         microphone
+        Toggle("Follow My Calendar", isOn: $calendar.enabled)
 
         Divider()
 

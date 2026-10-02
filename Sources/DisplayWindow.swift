@@ -47,8 +47,11 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         }
     }
 
-    init(detector: CallDetector) {
+    private let status: StatusModel
+
+    init(detector: CallDetector, status: StatusModel) {
         self.detector = detector
+        self.status = status
         super.init()
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
@@ -99,7 +102,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
 
     private func place(on target: NSScreen, bringForward: Bool) {
         if window == nil {
-            let hosting = NSHostingView(rootView: BarDisplayView(detector: detector))
+            let hosting = NSHostingView(rootView: BarDisplayView(status: status))
             let w = NSPanel(contentRect: target.frame, styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
             w.hidesOnDeactivate = false          // panels hide when their app isn't frontmost by default
