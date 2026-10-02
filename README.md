@@ -10,12 +10,18 @@ same bar as a small floating window on your desk screen, or a **stacked
 layout** that fills a small monitor. Double-click it for a 30-minute **Do Not
 Disturb**. The
 state is detected automatically from which app has your microphone — Zoom,
-Teams, Google Meet, FaceTime, or anything else.
+Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
+it warns people ten minutes before a call (**CALL IN 09:41**), says when
+you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY** and **OUT OF
+OFFICE**, and on a call counts down to when you're free.
+[More below](#your-calendar).
 
 **See it without installing anything:** download the repo and open
-`simulator/index.html` in a browser. It runs the same drawing engine as the
-app, on your real clock. Its buttons show the floating window and the
-stacked layout; double-click it for Do Not Disturb.
+`simulator/index.html` in a browser. It runs the same drawing engine and
+the same calendar rules as the app, on your real clock. Its buttons show the
+floating window and the stacked layout, **Calendar day** plays a working day
+through the rules, and the redesigned settings window is beneath; double-click
+the bar for Do Not Disturb.
 
 The first version — a broadcast studio clock beside an on-air-style sign,
 called Studio Call Sign — is kept on the
@@ -51,11 +57,14 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
-(`.github/workflows/build.yml`) and replaces the release.
+(`.github/workflows/build.yml`) and replaces the release. A pull request's
+build is published as the **preview** pre-release instead, for trying before
+it's merged.
 
-> **Built, but not yet run.** It compiles cleanly with Xcode 16.4 (no errors,
-> no warnings) and its checks pass on macOS, but nobody has yet opened it on a
-> real screen. See [What's been verified](#whats-been-verified--and-what-hasnt).
+> **Built, but not yet run.** It compiles with Xcode 16.4 and its checks pass
+> on macOS, but nobody has yet opened it on a real screen, and the calendar
+> has only been tested with scripted days. See
+> [What's been verified](#whats-been-verified--and-what-hasnt).
 
 ## Build it yourself
 
@@ -158,21 +167,76 @@ the Dock menu and the floating window's right-click menu (**Do Not Disturb
 - If it runs out during a call, the bar returns to FREE when the call ends.
 - It survives quitting and reopening the app.
 
+## Your calendar
+
+The sign follows the calendar macOS Calendar shows — for Outlook, add your
+Microsoft 365 account in Calendar ▸ Settings ▸ Accounts — read-only. Allow
+calendar access when it asks on first launch, then check **Calendar** in the
+controls window's Calendar tab is the one you use. It picks the Exchange
+account's own "Calendar" by itself.
+
+| The bar | What puts it there |
+|---|---|
+| **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
+| **MEETING** · *countdown* | A meeting with invitees and no Teams, Zoom or Meet link. |
+| **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
+| **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then gives up and shows FREE. |
+| **FREE TILL** · *11:00* | You left a call before its slot ended: free, but the time was booked. |
+| **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
+| **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
+| **LUNCH** | An event of your own with **lunch** in the title. It beats any meeting over it, warnings included. |
+| **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
+| **OUT OF OFFICE** | Show As **Out of Office**, an all-day busy event, or **✈** in the title (flight apps put it there). |
+
+Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
+events that aren't busy. Declined meetings leave Outlook, so they never count.
+
+**Who wins**, highest first: your **Sign** setting; the microphone; a
+double-click Do Not Disturb; then the calendar — out of office, lunch, away,
+a phone-call block, an in-person meeting, a call you're late for, a warning,
+a tentative meeting, a no-meetings block, and a call you left early.
+
+The title words for your own events are in the Calendar tab: whole words,
+any case, separated by commas. Meetings are sorted by their invitees and
+join link, so their titles never matter.
+
+Worth knowing:
+
+- **Exchange Web Services is being switched off.** macOS Calendar syncs
+  Microsoft 365 over EWS, which Microsoft began turning off on 1 October 2026
+  and removes on 1 April 2027; Apple says Calendar will move to Microsoft
+  Graph in a macOS 27 update. The app reads whatever Calendar.app holds, so
+  it won't need changing — but if your company's EWS goes off before Apple's
+  update arrives, Calendar.app stops updating without saying so. The
+  controls warn when nothing in the calendar has changed for a couple of
+  working days.
+- macOS can lag Exchange: a meeting moved in Outlook may take a while to
+  move on the Mac. `killall exchangesyncd` makes it sync again.
+- When the Mac is locked, the lock screen covers every display, the wall
+  included; no app can draw over it.
+
 ## The controls
 
 The same controls are in three places:
 
 - **The controls window** — click the app's Dock icon, or press ⌘, while the
-  app is in front. It opens by itself on first launch.
+  app is in front. It opens by itself on first launch. Four tabs:
+  **Status** (the bar live, why it says what it says, Sign and Do Not
+  Disturb), **Displays** (the full-screen display and the floating window
+  side by side), **Calendar** (which calendar, the warning and late times, a
+  guide to what to put in Outlook, and the title words) and **Microphone**
+  (what counts as a call, and what's using the mic now, to ignore).
 - **The Dock icon's right-click menu** — full-screen on/off, which monitor,
   floating on/off.
-- **The menu-bar icon** — a tick when free, a microphone on a call, a moon
-  for Do Not Disturb. On a
-  crowded menu bar macOS may hide it; the other two always work.
+- **The menu-bar icon** — the state's own mark: a tick when free, a
+  microphone on a call, a bell before one, a moon for Do Not Disturb, a
+  knife and fork at lunch. On a crowded menu bar macOS may hide it; the other
+  two always work.
 
 The full menu:
 
-- **Status** — what the detector sees, e.g. "Source — zoom.us · mic active · cam active".
+- **Status** — what the sign says and why, e.g. "Call soon: “Weekly review”",
+  and what the detector sees, e.g. "Source — zoom.us · mic active · cam active".
 - **Sign** — Automatic, or force ON A CALL / FREE (for in-person meetings, recording).
 - **Detect** — *Any app except ignored* (default) or *Known call apps only*.
 - **Do Not Disturb (30 min)** / **End Do Not Disturb**.
@@ -183,6 +247,7 @@ The full menu:
   controls window calls it Monitor) and **Layout** (Wide bar, or Stacked
   for small screens).
 - **Floating window** (on/off) and **Floating size**.
+- **Follow My Calendar** (on/off).
 - **Settings…** (⌘,) opens the controls window; **Quit** (⌘Q). Opening the app again with nothing showing brings the
   full-screen display back.
 
@@ -256,11 +321,14 @@ In the code:
 | `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body and where the LEDs go. |
 | `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
 | `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
+| `Sources/StatusRules.swift` | Decides what the sign says from the controls, the mic and the calendar. A line-for-line port of `simulator/rules.js`. |
+| `Sources/CalendarSource.swift` | Reads the calendar from macOS Calendar (EventKit). |
+| `Sources/StatusModel.swift` | Runs the rules once a second and on every change; everything that shows the sign reads it. |
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
 | `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
-| `simulator/` | The browser version, where the look is designed. |
+| `simulator/` | The browser version, where the look and the rules are designed. `day.js` is the sample day the day player and the checks use. |
 | `Checks/` | Tests that run anywhere Swift does. |
 
 ## What's been verified — and what hasn't
@@ -269,12 +337,21 @@ In the code:
 app, as a universal (Apple silicon + Intel) binary, ad-hoc signed; no compiler
 errors or warnings in its code.
 
-**Verified by running**, with Swift 6.0.3 on Linux and again on macOS (`Checks/run.sh`):
+**Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 17 moments —
-  the press, shockwave, announcement, collapse, slide-in, both states, cold
-  start — to within float rounding. What you see in the simulator is what the
+- **The Swift engine matches the simulator LED for LED** across 82 moments —
+  every state, wide and stacked, through the press, shockwave, announcement,
+  collapse, slide-in and LATE's pulse, each with the countdown the app gives
+  it — to within float rounding. What you see in the simulator is what the
   app draws.
+- **The Swift status rules decide exactly what the simulator's do** in 2,904
+  cases: a scripted working day every 15 seconds — a call joined late and
+  left early, one never joined, an in-person meeting, a tentative one, lunch
+  with a call inside it, a no-meetings block, phone calls, a flight — with
+  and without the manual controls, plus back-to-back chains, overruns and
+  how each kind of Outlook event is read (safelinks, Teams rooms, cancelled
+  titles, Show As). The rules themselves have 97 hand-checked cases
+  (`simulator/tools/rules-check.js`).
 - **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
   2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
   and 2×, with the whole device inside the window. (This check caught a real bug.)
@@ -285,12 +362,13 @@ errors or warnings in its code.
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a
   one-second blip don't light it; both overrides are instant; Meet in a
-  Chrome helper does light it.
+  Chrome helper does light it; and the microphone's own sessions, which the
+  calendar rules use, come out as Zoom 1–7 s and Meet from 31 s.
 - The pixel fonts decode correctly, and every source file parses.
 
-**Compiled, not yet run:** the AppKit, SwiftUI and Core Audio code —
+**Compiled, not yet run:** the AppKit, SwiftUI, Core Audio and EventKit code —
 `DisplayWindow`, `FloatingWindow`, `ControlsWindow`, `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`,
-`AudioProbe`, `CameraProbe`. If something misbehaves on first launch, these
+`AudioProbe`, `CameraProbe`, `CalendarSource`, `StatusModel`. If something misbehaves on first launch, these
 are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
@@ -300,6 +378,11 @@ are the likeliest places:
 3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
 4. `FloatingWindow.swift` — the window's shadow, traced from the device's
    outline; if it's missing or boxy, that's where to look.
+5. `CalendarSource.swift` — the permission prompt, and how Exchange events
+   arrive through EventKit: does the Calendar tab list your Outlook
+   calendar, and during a Teams meeting does the Status tab say "On
+   “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
+   instead of a call, its join link isn't where the rules look.
 
 ## Running the checks
 
