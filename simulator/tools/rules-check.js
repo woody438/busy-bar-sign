@@ -25,7 +25,7 @@ for (const [t, want, note] of D.MOMENTS) {
 const sAt = (t, extra) => R.decide(Object.assign({ now: D.at(base, t), override: 'auto', dndUntil: null }, day, extra || {}));
 expect('08:20 counts down 10:00', sAt('08:20').left, 600);
 expect('09:46 is 60 s late', sAt('09:46').left, 60);
-expect('10:15 free till 10:30', sAt('10:15').at, D.at(base, '10:30'));
+expect('14:47 free till 14:55', sAt('14:47').at, D.at(base, '14:55'));
 expect('14:09:59 still late', sAt('14:09:59').state, 'late');
 expect('14:10:00 gives up', sAt('14:10:00').state, 'free');
 expect('09:35:00 warns exactly 10 min out', sAt('09:35:00').state, 'callIn');
@@ -79,7 +79,20 @@ expect('overrun: on the mic', decide(663, two, [[598, 665]]).state, 'call');
 expect('overrun: next call is late', decide(666, two, [[598, 665]]).state, 'late');
 expect('overrun: late counts from its start', decide(666, two, [[598, 665]]).left, 360);
 // joining a few minutes early counts as joining
-expect('joined 4 min early, left early', decide(640, [call('a', 600, 660)], [[596, 630]]).state, 'freeTil');
+expect('joined 4 min early, left early', decide(640, [call('a', 600, 660), call('b', 660, 690)], [[596, 630]]).state, 'freeTil');
+// left early: FREE TILL only with something on the sign straight after (within 5 min), else FREE
+const own = (title, s, e, o) => ev(Object.assign({ title: title, start: s * M, end: e * M }, o || {}));
+expect('left early, nothing after', decide(640, [call('a', 600, 660)], [[600, 630]]).state, 'free');
+expect('left early, next call 30 min after', decide(640, [call('a', 600, 660), call('b', 690, 720)], [[600, 630]]).state, 'free');
+expect('left early, next call 5 min after', decide(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).state, 'freeTil');
+expect('…free till the slot ends', decide(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).at, 660 * M);
+expect('left early, next call 6 min after', decide(640, [call('a', 600, 660), call('b', 666, 700)], [[600, 630]]).state, 'free');
+expect('left early, lunch straight after', decide(640, [call('a', 600, 660), own('Lunch', 660, 720)], [[600, 630]]).state, 'freeTil');
+expect('left early, your own block after', decide(640, [call('a', 600, 660), own('Gym', 660, 720)], [[600, 630]]).state, 'freeTil');
+expect('left early, tentative after', decide(640, [call('a', 600, 660), call('t', 660, 690, { availability: 'tentative' })], [[600, 630]]).state, 'freeTil');
+expect('left early, cancelled after', decide(640, [call('a', 600, 660), call('x', 660, 690, { cancelled: true })], [[600, 630]]).state, 'free');
+expect('left early, show-as-free after', decide(640, [call('a', 600, 660), call('x', 660, 690, { availability: 'free' })], [[600, 630]]).state, 'free');
+expect('left early, one inside the slot', decide(640, [call('a', 600, 660), own('Gym', 645, 660)], [[600, 630]]).state, 'free');
 // a confirmed call beats a tentative one starting sooner
 expect('confirmed beats tentative', decide(595, [call('t', 598, 630, { availability: 'tentative' }), call('c', 602, 630)]).state, 'callIn');
 expect('tentative call soon', decide(595, [call('t', 600, 630, { availability: 'tentative' })]).state, 'callTbc');

@@ -37,6 +37,11 @@ const scenario = (events, sessions, times, extra) => {
 };
 scenario([call('a', 600, 660), call('b', 660, 690)], [[598, 665]], [599, 630, 663, 664.9, 666, 680, 691]);
 scenario([call('a', 600, 660)], [[596, 630]], [596, 610, 640, 659.9, 660]);
+for (const next of [[660, 690], [665, 700], [666, 700], [690, 720]]) {
+  scenario([call('a', 600, 660), call('b', next[0], next[1])], [[600, 630]], [640, 659.9, 661]);
+}
+scenario([call('a', 600, 660), ev({ title: 'Lunch', start: 660 * M, end: 720 * M })], [[600, 630]], [640]);
+scenario([call('a', 600, 660), call('x', 660, 690, { cancelled: true })], [[600, 630]], [640]);
 scenario([call('t', 598, 630, { availability: 'tentative' }), call('c', 602, 630)], [], [585, 595, 599, 601, 605, 629]);
 scenario([call('a', 600, 660), call('b', 652, 700)], [[600, 640]], [645, 651, 653, 662]);
 scenario([call('a', 600, 660), call('b', 610, 640)], [], [601, 603, 611]);

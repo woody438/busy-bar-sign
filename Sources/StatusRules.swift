@@ -196,6 +196,18 @@ enum StatusRules {
     }
 
     /*
+     * Whether something on the sign follows this event straight after: any
+     * event in the calendar — a call, a meeting, lunch, a block of your own —
+     * starting after now and no more than a few minutes after this one ends,
+     * and still on after it. Leave a call early and the sign says FREE TILL
+     * its end only then; with nothing straight after, you're just free.
+     */
+    static func followed(_ e: Sorted, _ evs: [Sorted], _ now: Double, _ cfg: StatusConfig) -> Bool {
+        let gap = cfg.chainGapMinutes * minute
+        return evs.contains { $0.start > now && $0.start <= e.end + gap && $0.end > e.end }
+    }
+
+    /*
      * The sign at `input.now`. ON A CALL and MEETING count down to when you're
      * free: the end of the event, carried through back-to-back ones.
      */
@@ -273,9 +285,9 @@ enum StatusRules {
             return sign(tbc(e), "Tentative, soon: " + quote(e), event: e, left: (e.start - now) / 1000, at: e.start)
         }
 
-        // a no-meetings block, then a call you've left early
+        // a no-meetings block, then a call you've left early with something straight after it
         if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }
-        if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) }) {
+        if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) && followed($0, evs, now, cfg) }) {
             return sign("freeTil", "Left " + quote(e) + " early", event: e, at: e.end)
         }
 

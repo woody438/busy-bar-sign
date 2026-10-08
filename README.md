@@ -220,7 +220,7 @@ account's own "Calendar" by itself.
 | **MEETING** · *countdown* | A meeting with invitees and no Teams, Zoom or Meet link. |
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then gives up and shows FREE. |
-| **FREE TILL** · *11:00* | You left a call before its slot ended: free, but the time was booked. |
+| **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** | An event of your own with **lunch** in the title. It beats any meeting over it, warnings included. |
@@ -233,7 +233,8 @@ events that aren't busy. Declined meetings leave Outlook, so they never count.
 **Who wins**, highest first: your **Sign** setting; the microphone; a
 double-click Do Not Disturb; then the calendar — out of office, lunch, away,
 a phone-call block, an in-person meeting, a call you're late for, a warning,
-a tentative meeting, a no-meetings block, and a call you left early.
+a tentative meeting, a no-meetings block, and a call you left early with
+something straight after it.
 
 The title words for your own events are in the Calendar tab: whole words,
 any case, separated by commas. Meetings are sorted by their invitees and
@@ -385,13 +386,14 @@ errors or warnings in its code.
   collapse, slide-in and LATE's pulse, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 2,904
+- **The Swift status rules decide exactly what the simulator's do** in 2,918
   cases: a scripted working day every 15 seconds — a call joined late and
-  left early, one never joined, an in-person meeting, a tentative one, lunch
+  left early with nothing after it, one left early with a call straight
+  after, one never joined, an in-person meeting, a tentative one, lunch
   with a call inside it, a no-meetings block, phone calls, a flight — with
   and without the manual controls, plus back-to-back chains, overruns and
   how each kind of Outlook event is read (safelinks, Teams rooms, cancelled
-  titles, Show As). The rules themselves have 97 hand-checked cases
+  titles, Show As). The rules themselves have 110 hand-checked cases
   (`simulator/tools/rules-check.js`).
 - **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
   2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
