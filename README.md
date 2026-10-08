@@ -64,9 +64,9 @@ to `main` rebuilds it on GitHub's Mac runners
 build is published as the **preview** pre-release instead, for trying before
 it's merged.
 
-> **Built, but not yet run.** It compiles with Xcode 16.4 and its checks pass
-> on macOS, but nobody has yet opened it on a real screen, and the calendar
-> has only been tested with scripted days. See
+> **In use on one Mac.** It runs day to day on its author's Mac — the sign,
+> the microphone, an Outlook calendar and the Stream Deck key — and its
+> checks pass on every build, but it hasn't been tried on other setups. See
 > [What's been verified](#whats-been-verified--and-what-hasnt).
 
 ## Build it yourself
@@ -422,11 +422,21 @@ errors or warnings in its code.
   the plugin reads.
 - The pixel fonts decode correctly, and every source file parses.
 
-**Compiled, not yet run:** the AppKit, SwiftUI, Core Audio, EventKit and Network code —
-`DisplayWindow`, `FloatingWindow`, `ControlsWindow`, `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`,
-`AudioProbe`, `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — and the
-Stream Deck plugin inside the real Stream Deck app. If something misbehaves on first launch, these
-are the likeliest places:
+**Run on a real Mac** — its author's, with an Outlook calendar through
+Calendar.app and an Elgato Stream Deck:
+
+- The app follows the microphone and the calendar through real calls. That
+  is how it was found that leaving a call early showed FREE TILL even with
+  nothing after it; it now shows FREE (see [Your calendar](#your-calendar)).
+- The Stream Deck plugin, installed from its release file, shows the sign
+  live on a key through the app's web server.
+
+**Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
+Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
+`BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`, `AudioProbe`,
+`CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — has no
+automated checks. If something misbehaves on another Mac, these are the
+likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
    Microphone list show the app you're calling from?
@@ -455,10 +465,10 @@ Checks/run.sh          # needs swiftc (Xcode), node and npm
 
 From the project directory run `claude`, then:
 
-> This SwiftUI macOS app builds but hasn't been tried on a real screen — read
-> README.md. Run `xcodegen generate`, build with xcodebuild, run
-> Checks/run.sh, then launch the app and compare it against
-> simulator/index.html.
+> This SwiftUI macOS app, and its Stream Deck plugin in streamdeck/, are in
+> use on one Mac — read README.md. Run `xcodegen generate`, build with
+> xcodebuild, run Checks/run.sh (it tests the plugin too), then launch the
+> app and compare it against simulator/index.html.
 
 ## Credits and licences
 
