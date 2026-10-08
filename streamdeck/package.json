@@ -1,0 +1,23 @@
+{
+  "name": "busy-bar-sign-stream-deck",
+  "private": true,
+  "description": "A Stream Deck key that shows what Busy Bar Sign says, and starts or ends Do Not Disturb.",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "rollup -c && node test/keys.js && node test/e2e.js",
+    "pack": "rollup -c && streamdeck pack com.woodall.busybarsign.sdPlugin --output dist --force --no-update-check",
+    "icons": "node tools/icons.js",
+    "sheet": "node tools/sheet.js keys.png"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "3.0.2"
+  },
+  "devDependencies": {
+    "@elgato/cli": "1.10.2",
+    "@rollup/plugin-commonjs": "29.0.3",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "rollup": "4.64.2",
+    "ws": "8.22.0"
+  }
+}

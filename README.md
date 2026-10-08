@@ -14,7 +14,8 @@ Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
 it warns people ten minutes before a call (**CALL IN 09:41**), says when
 you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY** and **OUT OF
 OFFICE**, and on a call counts down to when you're free.
-[More below](#your-calendar).
+[More below](#your-calendar). A **Stream Deck** key can show it too, and
+start Do Not Disturb when you press it ([below](#stream-deck)).
 
 **See it without installing anything:** download the repo and open
 `simulator/index.html` in a browser. It runs the same drawing engine and
@@ -54,6 +55,8 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 3. The full-screen display opens on your second monitor, and a **controls
    window** opens on your main one. Click the app's Dock icon to bring the
    controls back at any time.
+4. For a Stream Deck, also download `BusyBarSign.streamDeckPlugin` from the
+   same release ([more below](#stream-deck)).
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
@@ -61,9 +64,9 @@ to `main` rebuilds it on GitHub's Mac runners
 build is published as the **preview** pre-release instead, for trying before
 it's merged.
 
-> **Built, but not yet run.** It compiles with Xcode 16.4 and its checks pass
-> on macOS, but nobody has yet opened it on a real screen, and the calendar
-> has only been tested with scripted days. See
+> **In use on one Mac.** It runs day to day on its author's Mac — the sign,
+> the microphone, an Outlook calendar and the Stream Deck key — and its
+> checks pass on every build, but it hasn't been tried on other setups. See
 > [What's been verified](#whats-been-verified--and-what-hasnt).
 
 ## Build it yourself
@@ -167,6 +170,42 @@ the Dock menu and the floating window's right-click menu (**Do Not Disturb
 - If it runs out during a call, the bar returns to FREE when the call ends.
 - It survives quitting and reopening the app.
 
+## Stream Deck
+
+![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
+
+A **Status** key for an Elgato Stream Deck: the bar on a key, live — its
+colour, its words, and beneath them the countdown or the time, drawn by
+the bar's own engine and fonts. **Press it** for Do Not Disturb, as you'd
+double-click the bar; press again to end it. On a call the sign stays ON A
+CALL, so the key flashes a tick to say the press counted.
+
+1. Download **`BusyBarSign.streamDeckPlugin`** from the
+   [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
+   and double-click it. Stream Deck asks to install it. (Stream Deck 7.1 or
+   later.)
+2. In Stream Deck, drag **Busy Bar Sign ▸ Status** onto a key — on as many
+   keys, pages and Stream Decks as you like.
+
+- The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
+  meeting, CALL / IN 09:41, FREE / TILL 15:00, TBC / TILL once a tentative
+  meeting is on, OOO.
+- It asks the app once a second, on the second, so its countdown turns with
+  the bar's. While the app isn't running the key says **APP OFF**, and a
+  press flashes a warning.
+- It reaches the app through a small web server on the Mac itself,
+  `127.0.0.1:47811`, which nothing on the network can reach and a web page
+  can't use (`Sources/LocalAPI.swift`). If the controls say the Stream Deck
+  can't reach the app, something else has that port.
+- If double-clicking doesn't install it, quit Stream Deck, unzip the file
+  (it's a zip) and copy `com.woodall.busybarsign.sdPlugin` into
+  `~/Library/Application Support/com.elgato.StreamDeck/Plugins`, then open
+  Stream Deck again.
+- To work on it: `cd streamdeck && npm ci && npm run build`, then
+  `npx streamdeck link com.woodall.busybarsign.sdPlugin` runs it from the
+  source folder; `npm run pack` makes the `.streamDeckPlugin`, and
+  `npm run sheet` draws every state to `keys.png` to check by eye.
+
 ## Your calendar
 
 The sign follows the calendar macOS Calendar shows — for Outlook, add your
@@ -181,7 +220,7 @@ account's own "Calendar" by itself.
 | **MEETING** · *countdown* | A meeting with invitees and no Teams, Zoom or Meet link. |
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then gives up and shows FREE. |
-| **FREE TILL** · *11:00* | You left a call before its slot ended: free, but the time was booked. |
+| **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** | An event of your own with **lunch** in the title. It beats any meeting over it, warnings included. |
@@ -194,7 +233,8 @@ events that aren't busy. Declined meetings leave Outlook, so they never count.
 **Who wins**, highest first: your **Sign** setting; the microphone; a
 double-click Do Not Disturb; then the calendar — out of office, lunch, away,
 a phone-call block, an in-person meeting, a call you're late for, a warning,
-a tentative meeting, a no-meetings block, and a call you left early.
+a tentative meeting, a no-meetings block, and a call you left early with
+something straight after it.
 
 The title words for your own events are in the Calendar tab: whole words,
 any case, separated by commas. Meetings are sorted by their invitees and
@@ -327,6 +367,8 @@ In the code:
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
+| `Sources/LocalAPI.swift`, `LocalServer.swift` | The web server on 127.0.0.1 that the Stream Deck plugin asks. |
+| `streamdeck/` | The Stream Deck plugin: `src/key.js` draws the key with the simulator's engine; `src/status-action.js` asks the app and handles presses. |
 | `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
 | `simulator/` | The browser version, where the look and the rules are designed. `day.js` is the sample day the day player and the checks use. |
 | `Checks/` | Tests that run anywhere Swift does. |
@@ -344,13 +386,14 @@ errors or warnings in its code.
   collapse, slide-in and LATE's pulse, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 2,904
+- **The Swift status rules decide exactly what the simulator's do** in 2,918
   cases: a scripted working day every 15 seconds — a call joined late and
-  left early, one never joined, an in-person meeting, a tentative one, lunch
+  left early with nothing after it, one left early with a call straight
+  after, one never joined, an in-person meeting, a tentative one, lunch
   with a call inside it, a no-meetings block, phone calls, a flight — with
   and without the manual controls, plus back-to-back chains, overruns and
   how each kind of Outlook event is read (safelinks, Teams rooms, cancelled
-  titles, Show As). The rules themselves have 97 hand-checked cases
+  titles, Show As). The rules themselves have 110 hand-checked cases
   (`simulator/tools/rules-check.js`).
 - **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
   2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
@@ -364,12 +407,36 @@ errors or warnings in its code.
   one-second blip don't light it; both overrides are instant; Meet in a
   Chrome helper does light it; and the microphone's own sessions, which the
   calendar rules use, come out as Zoom 1–7 s and Meet from 31 s.
+- **The Stream Deck plugin works end to end** against a stand-in Stream
+  Deck and a stand-in app (`streamdeck/test/e2e.js`): it registers, draws
+  the key in the sign's colour, redraws a countdown once a second within
+  300 ms of the second turning, starts and ends Do Not Disturb on a press,
+  shows a tick on a call, says APP OFF and warns on a press while the app is
+  away, recovers when it's back, and stops asking when no key shows it. Its
+  key drawing has 69 checks of its own: every state the engine has, every
+  word and countdown inside the key, and the countdown text against the
+  bar's (`streamdeck/test/keys.js`).
+- **The web server's request handling** (`Checks/http`): requests read
+  whole when they arrive in pieces, anything from a web page (an Origin, or
+  a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
+  the plugin reads.
 - The pixel fonts decode correctly, and every source file parses.
 
-**Compiled, not yet run:** the AppKit, SwiftUI, Core Audio and EventKit code —
-`DisplayWindow`, `FloatingWindow`, `ControlsWindow`, `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`,
-`AudioProbe`, `CameraProbe`, `CalendarSource`, `StatusModel`. If something misbehaves on first launch, these
-are the likeliest places:
+**Run on a real Mac** — its author's, with an Outlook calendar through
+Calendar.app and an Elgato Stream Deck:
+
+- The app follows the microphone and the calendar through real calls. That
+  is how it was found that leaving a call early showed FREE TILL even with
+  nothing after it; it now shows FREE (see [Your calendar](#your-calendar)).
+- The Stream Deck plugin, installed from its release file, shows the sign
+  live on a key through the app's web server.
+
+**Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
+Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
+`BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`, `AudioProbe`,
+`CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — has no
+automated checks. If something misbehaves on another Mac, these are the
+likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
    Microphone list show the app you're calling from?
@@ -383,21 +450,25 @@ are the likeliest places:
    calendar, and during a Teams meeting does the Status tab say "On
    “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
    instead of a call, its join link isn't where the rules look.
+6. `LocalServer.swift` — if the Stream Deck key says APP OFF while the app
+   is running, `curl http://127.0.0.1:47811/status` should answer with the
+   sign's state; if it doesn't, the listener didn't start (the controls'
+   Status tab says why).
 
 ## Running the checks
 
 ```sh
-Checks/run.sh          # needs swiftc (Xcode) and node
+Checks/run.sh          # needs swiftc (Xcode), node and npm
 ```
 
 ## Handing this to Claude Code on your Mac
 
 From the project directory run `claude`, then:
 
-> This SwiftUI macOS app builds but hasn't been tried on a real screen — read
-> README.md. Run `xcodegen generate`, build with xcodebuild, run
-> Checks/run.sh, then launch the app and compare it against
-> simulator/index.html.
+> This SwiftUI macOS app, and its Stream Deck plugin in streamdeck/, are in
+> use on one Mac — read README.md. Run `xcodegen generate`, build with
+> xcodebuild, run Checks/run.sh (it tests the plugin too), then launch the
+> app and compare it against simulator/index.html.
 
 ## Credits and licences
 
