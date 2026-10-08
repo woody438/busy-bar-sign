@@ -1,0 +1,5 @@
+node_modules/
+# built by `npm run build` / `npm run pack`
+com.woodall.busybarsign.sdPlugin/bin/
+com.woodall.busybarsign.sdPlugin/logs/
+dist/

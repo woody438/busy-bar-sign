@@ -14,7 +14,8 @@ Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
 it warns people ten minutes before a call (**CALL IN 09:41**), says when
 you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY** and **OUT OF
 OFFICE**, and on a call counts down to when you're free.
-[More below](#your-calendar).
+[More below](#your-calendar). A **Stream Deck** key can show it too, and
+start Do Not Disturb when you press it ([below](#stream-deck)).
 
 **See it without installing anything:** download the repo and open
 `simulator/index.html` in a browser. It runs the same drawing engine and
@@ -54,6 +55,8 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 3. The full-screen display opens on your second monitor, and a **controls
    window** opens on your main one. Click the app's Dock icon to bring the
    controls back at any time.
+4. For a Stream Deck, also download `BusyBarSign.streamDeckPlugin` from the
+   same release ([more below](#stream-deck)).
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
@@ -166,6 +169,42 @@ the Dock menu and the floating window's right-click menu (**Do Not Disturb
   Do Not Disturb leaves about 20 minutes.
 - If it runs out during a call, the bar returns to FREE when the call ends.
 - It survives quitting and reopening the app.
+
+## Stream Deck
+
+![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
+
+A **Status** key for an Elgato Stream Deck: the bar on a key, live — its
+colour, its words, and beneath them the countdown or the time, drawn by
+the bar's own engine and fonts. **Press it** for Do Not Disturb, as you'd
+double-click the bar; press again to end it. On a call the sign stays ON A
+CALL, so the key flashes a tick to say the press counted.
+
+1. Download **`BusyBarSign.streamDeckPlugin`** from the
+   [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
+   and double-click it. Stream Deck asks to install it. (Stream Deck 7.1 or
+   later.)
+2. In Stream Deck, drag **Busy Bar Sign ▸ Status** onto a key — on as many
+   keys, pages and Stream Decks as you like.
+
+- The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
+  meeting, CALL / IN 09:41, FREE / TILL 15:00, TBC / TILL once a tentative
+  meeting is on, OOO.
+- It asks the app once a second, on the second, so its countdown turns with
+  the bar's. While the app isn't running the key says **APP OFF**, and a
+  press flashes a warning.
+- It reaches the app through a small web server on the Mac itself,
+  `127.0.0.1:47811`, which nothing on the network can reach and a web page
+  can't use (`Sources/LocalAPI.swift`). If the controls say the Stream Deck
+  can't reach the app, something else has that port.
+- If double-clicking doesn't install it, quit Stream Deck, unzip the file
+  (it's a zip) and copy `com.woodall.busybarsign.sdPlugin` into
+  `~/Library/Application Support/com.elgato.StreamDeck/Plugins`, then open
+  Stream Deck again.
+- To work on it: `cd streamdeck && npm ci && npm run build`, then
+  `npx streamdeck link com.woodall.busybarsign.sdPlugin` runs it from the
+  source folder; `npm run pack` makes the `.streamDeckPlugin`, and
+  `npm run sheet` draws every state to `keys.png` to check by eye.
 
 ## Your calendar
 
@@ -327,6 +366,8 @@ In the code:
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
+| `Sources/LocalAPI.swift`, `LocalServer.swift` | The web server on 127.0.0.1 that the Stream Deck plugin asks. |
+| `streamdeck/` | The Stream Deck plugin: `src/key.js` draws the key with the simulator's engine; `src/status-action.js` asks the app and handles presses. |
 | `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
 | `simulator/` | The browser version, where the look and the rules are designed. `day.js` is the sample day the day player and the checks use. |
 | `Checks/` | Tests that run anywhere Swift does. |
@@ -364,11 +405,25 @@ errors or warnings in its code.
   one-second blip don't light it; both overrides are instant; Meet in a
   Chrome helper does light it; and the microphone's own sessions, which the
   calendar rules use, come out as Zoom 1–7 s and Meet from 31 s.
+- **The Stream Deck plugin works end to end** against a stand-in Stream
+  Deck and a stand-in app (`streamdeck/test/e2e.js`): it registers, draws
+  the key in the sign's colour, redraws a countdown once a second within
+  300 ms of the second turning, starts and ends Do Not Disturb on a press,
+  shows a tick on a call, says APP OFF and warns on a press while the app is
+  away, recovers when it's back, and stops asking when no key shows it. Its
+  key drawing has 69 checks of its own: every state the engine has, every
+  word and countdown inside the key, and the countdown text against the
+  bar's (`streamdeck/test/keys.js`).
+- **The web server's request handling** (`Checks/http`): requests read
+  whole when they arrive in pieces, anything from a web page (an Origin, or
+  a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
+  the plugin reads.
 - The pixel fonts decode correctly, and every source file parses.
 
-**Compiled, not yet run:** the AppKit, SwiftUI, Core Audio and EventKit code —
+**Compiled, not yet run:** the AppKit, SwiftUI, Core Audio, EventKit and Network code —
 `DisplayWindow`, `FloatingWindow`, `ControlsWindow`, `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`,
-`AudioProbe`, `CameraProbe`, `CalendarSource`, `StatusModel`. If something misbehaves on first launch, these
+`AudioProbe`, `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — and the
+Stream Deck plugin inside the real Stream Deck app. If something misbehaves on first launch, these
 are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
@@ -383,11 +438,15 @@ are the likeliest places:
    calendar, and during a Teams meeting does the Status tab say "On
    “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
    instead of a call, its join link isn't where the rules look.
+6. `LocalServer.swift` — if the Stream Deck key says APP OFF while the app
+   is running, `curl http://127.0.0.1:47811/status` should answer with the
+   sign's state; if it doesn't, the listener didn't start (the controls'
+   Status tab says why).
 
 ## Running the checks
 
 ```sh
-Checks/run.sh          # needs swiftc (Xcode) and node
+Checks/run.sh          # needs swiftc (Xcode), node and npm
 ```
 
 ## Handing this to Claude Code on your Mac
