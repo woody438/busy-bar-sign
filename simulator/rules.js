@@ -113,6 +113,18 @@
   }
 
   /*
+   * Whether something on the sign follows this event straight after: any
+   * event in the calendar — a call, a meeting, lunch, a block of your own —
+   * starting after now and no more than a few minutes after this one ends,
+   * and still on after it. Leave a call early and the sign says FREE TILL
+   * its end only then; with nothing straight after, you're just free.
+   */
+  function followed(e, evs, now, cfg) {
+    const gap = cfg.chainGapMinutes * MINUTE;
+    return evs.some((x) => x.start > now && x.start <= e.end + gap && x.end > e.end);
+  }
+
+  /*
    * The sign at `now`.
    *   input = { now, override: 'auto' | 'onCall' | 'free', dndUntil (ms or null),
    *             micSessions: [{ start, end }]  — debounced, end null while on,
@@ -188,9 +200,9 @@
       return sign(tbc(e), 'Tentative, soon: ' + quote(e), { event: e, left: (e.start - now) / 1000, at: e.start });
     }
 
-    // a no-meetings block, then a call you've left early
+    // a no-meetings block, then a call you've left early with something straight after it
     if ((e = first((x) => x.kind === 'dndBlock'))) return sign('dnd', 'Do Not Disturb block: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg)))) {
+    if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg) && followed(x, evs, now, cfg)))) {
       return sign('freeTil', 'Left ' + quote(e) + ' early', { event: e, at: e.end });
     }
 

@@ -1,0 +1,44 @@
+{
+	"Name": "Busy Bar Sign",
+	"Version": "1.0.0.0",
+	"Author": "Ian Woodall",
+	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it.",
+	"URL": "https://github.com/woody438/busy-bar-sign",
+	"UUID": "com.woodall.busybarsign",
+	"Icon": "imgs/plugin/marketplace",
+	"Category": "Busy Bar Sign",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "14.4"
+		}
+	],
+	"Nodejs": {
+		"Version": "24",
+		"Debug": "disabled"
+	},
+	"Actions": [
+		{
+			"Name": "Status",
+			"UUID": "com.woodall.busybarsign.status",
+			"Icon": "imgs/actions/status/icon",
+			"Tooltip": "What the sign says, live. Press to start or end Do Not Disturb.",
+			"Controllers": [
+				"Keypad"
+			],
+			"SupportedInMultiActions": false,
+			"States": [
+				{
+					"Image": "imgs/actions/status/key",
+					"ShowTitle": false
+				}
+			]
+		}
+	]
+}

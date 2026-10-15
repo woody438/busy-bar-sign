@@ -7,8 +7,9 @@ on a grid of LEDs.
     python3 tools/icon/make_icon.py        # needs Pillow and NumPy
 
 Writes Resources/Assets.xcassets/AppIcon.appiconset (every size macOS asks
-for) and docs/icon.png. Large sizes show the LED dots; 64 px and below
-draw the LEDs edge to edge, which reads better when each is a few pixels.
+for), docs/icon.png and the Stream Deck plugin's icon. Large sizes show the
+LED dots; 64 px and below draw the LEDs edge to edge, which reads better
+when each is a few pixels.
 """
 import json
 import os
@@ -235,6 +236,11 @@ def main():
         json.dump({"info": {"author": "xcode", "version": 1}}, f, indent=2)
         f.write("\n")
     detailed.save(os.path.join(ROOT, "docs", "icon.png"))
+    # the Stream Deck plugin's icon, in Stream Deck's list of plugins
+    plugin = os.path.join(ROOT, "streamdeck", "com.woodall.busybarsign.sdPlugin", "imgs", "plugin")
+    os.makedirs(plugin, exist_ok=True)
+    for px, name in ((288, "marketplace.png"), (512, "marketplace@2x.png")):
+        detailed.resize((px, px), Image.LANCZOS).save(os.path.join(plugin, name))
     print("wrote", ICONSET)
 
 

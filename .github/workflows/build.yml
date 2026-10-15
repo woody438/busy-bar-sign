@@ -1,5 +1,5 @@
-# Builds the Mac app on GitHub's Mac runners and publishes it as the
-# "latest" release, so it can be downloaded without Xcode:
+# Builds the Mac app and its Stream Deck plugin on GitHub's Mac runners and
+# publishes them as the "latest" release, so they can be downloaded without Xcode:
 #   https://github.com/woody438/busy-bar-sign/releases/latest
 # Pull requests build and check too; their app is attached to the run
 # (Actions ▸ the run ▸ Artifacts ▸ BusyBarSign) and published as the
@@ -25,6 +25,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24          # what Stream Deck runs plugins on
 
       - name: Show toolchain
         run: xcodebuild -version && swift --version
@@ -55,10 +59,19 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$APP" BusyBarSign.zip
           ls -l BusyBarSign.zip
 
+      - name: Build the Stream Deck plugin
+        run: |
+          cd streamdeck
+          npm ci
+          npm run pack
+          cp dist/com.woodall.busybarsign.streamDeckPlugin ../BusyBarSign.streamDeckPlugin
+
       - uses: actions/upload-artifact@v4
         with:
           name: BusyBarSign
-          path: BusyBarSign.zip
+          path: |
+            BusyBarSign.zip
+            BusyBarSign.streamDeckPlugin
 
       - name: Publish as the latest release
         if: github.ref == 'refs/heads/main'
@@ -66,7 +79,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest BusyBarSign.zip \
+          gh release create latest BusyBarSign.zip BusyBarSign.streamDeckPlugin \
             --target "$GITHUB_SHA" \
             --title "Busy Bar Sign — latest build" \
             --notes "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
@@ -74,6 +87,8 @@ jobs:
           **Install:** download BusyBarSign.zip, double-click to unzip, drag **Busy Bar Sign** to Applications.
 
           **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. (Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/Busy\\ Bar\\ Sign.app\`.)
+
+          **Stream Deck:** download BusyBarSign.streamDeckPlugin and double-click it, then drag **Busy Bar Sign ▸ Status** onto a key. Needs Stream Deck 7.1 or later.
 
           Needs macOS 14.4 or later."
 
@@ -83,16 +98,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete preview --yes --cleanup-tag || true
-          gh release create preview BusyBarSign.zip --prerelease \
+          gh release create preview BusyBarSign.zip BusyBarSign.streamDeckPlugin --prerelease \
             --target "${{ github.event.pull_request.head.sha }}" \
             --title "Busy Bar Sign — preview (PR #${{ github.event.pull_request.number }})" \
             --notes "Built from pull request #${{ github.event.pull_request.number }} (\`${{ github.head_ref }}\`) at ${{ github.event.pull_request.head.sha }}. For testing; the latest release is still the one built from main.
 
           **Install:** download BusyBarSign.zip, double-click to unzip, drag **Busy Bar Sign** to Applications (replacing the old one).
 
-          **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. Allow calendar access when it asks."
+          **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. Allow calendar access when it asks.
 
-      - name: Checks (parity, geometry, frame time, detector, rules)
+          **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin."
+
+      - name: Checks (parity, geometry, frame time, detector, rules, local API, Stream Deck plugin)
         run: |
           set -o pipefail
           Checks/run.sh 2>&1 | tee checks.log

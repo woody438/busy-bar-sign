@@ -14,13 +14,16 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
     private let calendar: CalendarSource
     private let wall: DisplayWindow
     private let floating: FloatingWindow
+    private let server: LocalServer
 
-    init(detector: CallDetector, status: StatusModel, calendar: CalendarSource, wall: DisplayWindow, floating: FloatingWindow) {
+    init(detector: CallDetector, status: StatusModel, calendar: CalendarSource, wall: DisplayWindow, floating: FloatingWindow,
+         server: LocalServer) {
         self.detector = detector
         self.status = status
         self.calendar = calendar
         self.wall = wall
         self.floating = floating
+        self.server = server
         super.init()
     }
 
@@ -30,7 +33,8 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
 
     func show() {
         if window == nil {
-            let view = ControlsView(detector: detector, status: status, calendar: calendar, wall: wall, floating: floating)
+            let view = ControlsView(detector: detector, status: status, calendar: calendar, wall: wall, floating: floating,
+                                    server: server)
             let controller = NSHostingController(rootView: view)
             // the window follows the tab's height
             controller.sizingOptions = [.preferredContentSize]
@@ -62,6 +66,7 @@ struct ControlsView: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
+    @ObservedObject var server: LocalServer
     @AppStorage("controlsTab") private var tab: Tab = .status
 
     enum Tab: String, CaseIterable {
@@ -102,7 +107,7 @@ struct ControlsView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 switch tab {
-                case .status: StatusTab(detector: detector, status: status, calendar: calendar, wall: wall)
+                case .status: StatusTab(detector: detector, status: status, calendar: calendar, wall: wall, server: server)
                 case .displays: DisplaysTab(wall: wall, floating: floating)
                 case .calendar: CalendarTab(calendar: calendar)
                 case .microphone: MicrophoneTab(detector: detector)
@@ -184,6 +189,7 @@ private struct StatusTab: View {
     @ObservedObject var status: StatusModel
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
+    @ObservedObject var server: LocalServer
 
     var body: some View {
         Card {
@@ -238,6 +244,7 @@ private struct StatusTab: View {
         } else if wall.onScaledScreen {
             Warning(text: "The wall display is in a scaled mode, so the LEDs may shimmer. Use its default or native resolution.")
         }
+        if let problem = server.problem { Warning(text: problem) }
     }
 }
 

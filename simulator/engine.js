@@ -848,7 +848,7 @@
 
   root.BusyEngine = {
     STACKED: STACKED, renderStacked: renderStacked,
-    clockTextWidth: clockTextWidth, ICONS: ICONS, statusContentWidth: statusContentWidth,
+    clockTextWidth: clockTextWidth, drawClockText: drawClockText, ICONS: ICONS, statusContentWidth: statusContentWidth,
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,

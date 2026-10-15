@@ -2,7 +2,8 @@
  * A sample working day in the calendar, for the simulator's day player and
  * for tools/rules-check.js. Times are 'HH:MM' or 'HH:MM:SS' from midnight;
  * BusyDay.at(base, '09:45') turns one into milliseconds after `base`.
- * The events cover every rule: a call joined late and left early, one never
+ * The events cover every rule: a call joined late and left early with
+ * nothing after it, one left early with a call straight after, one never
  * joined, an in-person meeting, a tentative one, lunch with a call inside
  * it, a no-meetings block, your own blocks, a cancelled and a show-as-free
  * meeting, and a flight.
@@ -27,6 +28,8 @@
     { id: 'quoting', title: 'Daily quoting needs', start: '13:00', end: '13:15', attendees: 11,
       location: 'Microsoft Teams Meeting', notes: TEAMS_NOTES },
     { id: 'oneone', title: 'Monthly 1:1', start: '14:00', end: '14:30', attendees: 2, notes: TEAMS_NOTES },
+    { id: 'pricing', title: 'Pricing check', start: '14:30', end: '14:55', attendees: 3,
+      location: 'Microsoft Teams Meeting', notes: TEAMS_NOTES },
     { id: 'phone', title: 'Call - mortgage advisor', start: '15:00', end: '15:30', notes: 'She will call your mobile.' },
     { id: 'drive', title: 'Drive home', start: '15:30', end: '15:55' },
     { id: 'cancelled', title: 'Canceled: Supplier sync', start: '16:00', end: '16:30', attendees: 5, cancelled: true,
@@ -42,7 +45,8 @@
   const MIC = [
     { start: '08:29', end: '08:58' },       // the ops review, joined a minute early
     { start: '09:48:20', end: '10:12' },     // the network call: 3 min late, out 18 min early
-    { start: '13:02', end: '13:14' }         // jumped on the quoting call from lunch
+    { start: '13:02', end: '13:14' },        // jumped on the quoting call from lunch
+    { start: '14:29', end: '14:45' }         // the pricing check, out 10 min early
   ];
 
   function at(base, hhmm) {
@@ -70,7 +74,7 @@
     ['09:35', 'callIn', 'Network call at 09:45'],
     ['09:46', 'late', 'Not on it yet'],
     ['09:50', 'call', 'Joined, 3 min late'],
-    ['10:15', 'freeTil', 'Left 18 min early'],
+    ['10:15', 'free', 'Left 18 min early; nothing straight after'],
     ['10:35', 'free', 'Slot over'],
     ['10:52', 'busyIn', 'In-person meeting at 11:00'],
     ['11:10', 'meeting', 'In the meeting'],
@@ -83,6 +87,8 @@
     ['13:52', 'callIn', '1:1 at 14:00'],
     ['14:05', 'late', 'Not joined'],
     ['14:11', 'free', 'Gave up after 10 min'],
+    ['14:40', 'call', 'On the pricing check'],
+    ['14:47', 'freeTil', 'Left early; the mortgage call is straight after'],
     ['15:10', 'call', '“Call - …” block: phone call'],
     ['15:40', 'away', 'Drive home'],
     ['16:10', 'free', 'Cancelled meeting: ignored'],

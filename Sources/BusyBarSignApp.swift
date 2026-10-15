@@ -7,7 +7,7 @@ struct BusyBarSignApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuContent(detector: delegate.detector, status: delegate.status, calendar: delegate.calendar,
-                        window: delegate.window, floating: delegate.floating,
+                        window: delegate.window, floating: delegate.floating, server: delegate.server,
                         openControls: { delegate.controls.show() })
         } label: {
             MenuBarIcon(status: delegate.status)
@@ -28,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     lazy var status = StatusModel(detector: detector, calendar: calendar)
     lazy var window = DisplayWindow(detector: detector, status: status)
     lazy var floating = FloatingWindow(detector: detector, status: status)
-    lazy var controls = ControlsWindow(detector: detector, status: status, calendar: calendar, wall: window, floating: floating)
+    lazy var server = LocalServer(detector: detector, status: status)
+    lazy var controls = ControlsWindow(detector: detector, status: status, calendar: calendar, wall: window, floating: floating,
+                                       server: server)
 
     /// Opens whichever views were up last time — the full-screen display on
     /// first launch, with the controls window so they're easy to find.
@@ -36,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         detector.start()
         calendar.start()
         status.start()
+        server.start()
         if DisplayWindow.wasShown { window.show() }
         if FloatingWindow.wasShown { floating.show() }
         if ControlsWindow.neverShown { controls.show() }
@@ -112,6 +115,7 @@ private struct MenuContent: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var window: DisplayWindow
     @ObservedObject var floating: FloatingWindow
+    @ObservedObject var server: LocalServer
     let openControls: () -> Void
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
@@ -124,6 +128,7 @@ private struct MenuContent: View {
         Text(status.decision.why)
         Text(detector.detection.sourceLine)
         if calendar.enabled, let problem = calendar.problem { Text(problem) }
+        if let problem = server.problem { Text(problem) }
         if window.waitingForScreen {
             Text("Waiting for the wall display to reconnect")
         } else if window.onScaledScreen {

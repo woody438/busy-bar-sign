@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Builds the platform-independent parts of the app and checks them:
 # LED-for-LED parity with the simulator, pixel alignment on common displays,
-# frame time, and the call detector's decisions on a scripted afternoon.
+# frame time, the call detector's decisions on a scripted afternoon, the
+# status rules, the local web server's request handling, and the Stream
+# Deck plugin end to end.
 #
-#   Checks/run.sh                 # uses swiftc and node from PATH
+#   Checks/run.sh                 # uses swiftc, node and npm from PATH
 #   SWIFTC=/path/to/swiftc Checks/run.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -43,5 +45,12 @@ node simulator/tools/rules-check.js
 node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
 "$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
 "$OUT/rules" "$OUT/rules.json"
+
+echo; echo "== local API (what the Stream Deck plugin talks to)"
+"$SWIFTC" Sources/LocalAPI.swift Checks/http/main.swift -o "$OUT/http"
+"$OUT/http"
+
+echo; echo "== Stream Deck plugin (key drawing, and a fake Stream Deck and app)"
+(cd streamdeck && npm ci --silent && npm test)
 
 echo; echo "all checks passed"
