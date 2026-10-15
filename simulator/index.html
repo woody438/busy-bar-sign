@@ -243,7 +243,7 @@
 
 <section class="settings" id="settings">
   <p class="eyebrow">The settings window, redesigned</p>
-  <p class="lead">One window, four tabs, in place of the long list. <strong>Status</strong> shows the bar live and why it says what it says; <strong>Displays</strong> puts the wall and the floating window side by side; <strong>Calendar</strong> explains what to put in Outlook to trigger each state; <strong>Microphone</strong> holds the detection settings. It's live: the preview follows the bar above, and the Sign buttons drive it.</p>
+  <p class="lead">One window, five tabs, in place of the long list. <strong>Status</strong> shows the bar live and why it says what it says, and keeps the app up to date; <strong>Displays</strong> puts the wall and the floating window side by side; <strong>Calendar</strong> explains what to put in Outlook to trigger each state; <strong>Microphone</strong> holds the detection settings; <strong>Meetings</strong> covers Teams and Zoom — showing you're muted, and the Stream Deck's Mute and Leave keys. It's live: the preview follows the bar above, and the Sign buttons drive it.</p>
   <div class="mac" role="group" aria-label="Busy Bar Sign settings mock">
     <div class="mac-bar">
       <div class="mac-dots" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -253,6 +253,7 @@
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="displays"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6M12 17v4"/></svg> Displays</button>
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> Calendar</button>
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg> Microphone</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="meetings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg> Meetings</button>
       </div>
     </div>
 
@@ -271,6 +272,13 @@
         <div class="m-row"><span class="k">Microphone</span><span style="color:var(--m-dim)">idle</span></div>
         <div class="m-row"><span class="k">Calendar</span><span style="color:var(--m-dim)"><span class="m-ok">●</span> up to date · checked 1 min ago</span></div>
       </div>
+      <p class="m-h">Updates</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Version</span><span style="color:var(--m-dim)">2.1 (build 37)</span></div>
+        <div class="m-row"><span class="k">Updates</span><span style="display:flex;gap:10px;align-items:center;color:var(--m-dim)">Up to date · checked 14:30 <button class="m-btn">Check Now</button></span></div>
+        <div class="m-row"><span class="k">Install updates automatically</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Install updates automatically"></button></div>
+      </div>
+      <p class="m-sub">Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed.</p>
     </div>
 
     <div class="mac-body" data-pane="displays" role="tabpanel">
@@ -315,19 +323,39 @@
         <div class="m-row"><span class="k">Count as a call</span><span class="m-seg" data-seg><button aria-pressed="true">Any app except ignored</button><button aria-pressed="false">Known call apps</button></span></div>
         <div class="m-row"><span class="k">Status</span><span style="color:var(--m-dim)">Source — Microsoft Teams · mic active</span></div>
       </div>
-      <p class="m-h">Muted on a call</p>
-      <div class="m-card">
-        <div class="m-row"><span class="k">Show when I'm muted</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Show when I'm muted"></button></div>
-        <div class="m-row"><span class="k">Accessibility</span><span style="color:var(--m-dim)">Allowed</span></div>
-        <div class="m-row"><span class="k">Now</span><span style="color:var(--m-dim)">Microsoft Teams · “Unmute mic” · muted</span></div>
-      </div>
-      <p class="m-sub">While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. It reads the call app's own mute button through macOS Accessibility, never the dictation apps; if it can't tell, it shows the mic as live.</p>
       <p class="m-h">Using the microphone now</p>
       <div class="m-card">
         <div class="m-row"><span class="m-app"><i style="background:#5059C9"></i>Microsoft Teams</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignore <button class="m-switch" role="switch" aria-checked="false" aria-label="Ignore Microsoft Teams"></button></span></div>
         <div class="m-row"><span class="m-app"><i style="background:#8E5CF7"></i>Wispr Flow</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignored (dictation)</span></div>
       </div>
       <p class="m-sub">The sign lights 2 seconds after an app takes the mic and goes dark 10 seconds after it lets go. Dictation tools and Apple's own listeners are ignored already; switch on Ignore for anything else that isn't a call.</p>
+    </div>
+
+    <div class="mac-body" data-pane="meetings" role="tabpanel">
+      <div class="m-card">
+        <div class="m-row"><span class="k">Accessibility</span><span style="color:var(--m-dim)">Allowed</span></div>
+        <div class="m-row"><span class="k">Microsoft Teams</span><span style="color:var(--m-dim)">“Weekly review | Microsoft Teams” · “Unmute mic” · muted · the keys act here</span></div>
+        <div class="m-row"><span class="k">Zoom</span><span style="color:var(--m-dim)">Not in a meeting</span></div>
+      </div>
+      <p class="m-h">On the sign</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Show when I'm muted</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Show when I'm muted"></button></div>
+        <div class="m-row"><span class="k">Now</span><span style="color:var(--m-dim)">Teams · “Unmute mic” · muted</span></div>
+      </div>
+      <p class="m-sub">While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.</p>
+      <p class="m-h">Stream Deck keys</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Close the call-quality survey after a call</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Close the call-quality survey"></button></div>
+        <div class="m-row"><span class="k">Last key press</span><span style="color:var(--m-dim)">14:02 · Pressed Teams's own mute button.</span></div>
+        <div class="m-row"><span class="k">Last popup after a call</span><span style="color:var(--m-blue)">13:31 · Teams: pressed “Dismiss”</span></div>
+      </div>
+      <p class="m-sub">The Mute and Leave keys press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. Hold Leave a second to end a Zoom meeting you're hosting for everyone. The survey is only ever closed with a Dismiss, Close or Skip-type button.</p>
+      <p class="m-h">If a meeting app isn't read right</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 2px">
+        <button class="m-btn">Inspect meeting controls</button><button class="m-btn">Capture popups</button>
+        <span style="flex:1"></span><button class="m-btn">Edit patterns…</button><button class="m-btn">Reload</button>
+      </div>
+      <p class="m-sub">Inspect lists the buttons Busy Bar Sign can see in a Teams meeting window and Zoom's Meeting menu; Capture lists what's open after a call, touching nothing. Copy either and send it over if the sign or a key gets it wrong.</p>
     </div>
     <div class="mac-body on" style="padding-top:0"><p class="m-foot">Also in the menu-bar icon and the Dock icon's menu. Reopen this window from the Dock.</p></div>
   </div>

@@ -9,6 +9,8 @@ name: Build Mac app
 on:
   push:
     branches: [main]
+    # every build on main reaches everyone through the updater: words and pictures alone don't make one
+    paths-ignore: ['**.md', 'docs/**', 'simulator/index.html', 'mock.html']
   pull_request:
     branches: [main]
   workflow_dispatch:
