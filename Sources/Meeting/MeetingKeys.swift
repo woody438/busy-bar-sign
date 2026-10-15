@@ -167,9 +167,10 @@ final class MeetingKeys: ObservableObject {
     }
 
     init() {
-        closeSurveys = UserDefaults.standard.object(forKey: "closeSurveys") as? Bool ?? true
+        let close = UserDefaults.standard.object(forKey: "closeSurveys") as? Bool ?? true
+        closeSurveys = close
         let loaded = MeetingPatterns.load(Self.patternsFile)
-        worker = MeetingWorker(patterns: loaded.patterns, dismissSurveys: closeSurveys)
+        worker = MeetingWorker(patterns: loaded.patterns, dismissSurveys: close)
         problems = loaded.problems
         worker.onState = { [weak self] s in
             DispatchQueue.main.async { MainActor.assumeIsolated { if self?.snapshot != s { self?.snapshot = s } } }
