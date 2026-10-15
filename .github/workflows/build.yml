@@ -26,6 +26,9 @@ jobs:
     env:
       # the project's signing certificate, once it's been added (tools/make-signing-cert.sh)
       HAS_SIGNING_CERT: ${{ secrets.SIGNING_CERT_P12 != '' }}
+      # each build's number, which the updater compares, and the release it goes to
+      BUILD_NUMBER: ${{ github.run_number }}
+      UPDATE_CHANNEL: ${{ github.event_name == 'pull_request' && 'preview' || 'latest' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +51,7 @@ jobs:
             -configuration Release -derivedDataPath build \
             -destination 'generic/platform=macOS' \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" UPDATE_CHANNEL="$UPDATE_CHANNEL" \
             build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/)|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log                  # a failed build can still leave a partial app
           test -d "build/Build/Products/Release/Busy Bar Sign.app"
@@ -80,8 +84,15 @@ jobs:
           lipo -info "$APP/Contents/MacOS/Busy Bar Sign"
           test -f "$APP/Contents/Resources/AppIcon.icns"                 # the icon made it in
           plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
+          test "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" = "$BUILD_NUMBER"
+          test "$(plutil -extract BBSUpdateChannel raw "$APP/Contents/Info.plist")" = "$UPDATE_CHANNEL"
           ditto -c -k --sequesterRsrc --keepParent "$APP" BusyBarSign.zip
           ls -l BusyBarSign.zip
+          # what the updater reads (Sources/UpdateCheck.swift)
+          cat > BusyBarSign.json <<EOF
+          {"build": $BUILD_NUMBER, "version": "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")", "commit": "$(echo "${{ github.event.pull_request.head.sha || github.sha }}" | cut -c1-7)", "channel": "$UPDATE_CHANNEL", "plugin": "$(plutil -extract Version raw streamdeck/com.woodall.busybarsign.sdPlugin/manifest.json)"}
+          EOF
+          cat BusyBarSign.json
 
       - name: Build the Stream Deck plugin
         run: |
@@ -96,6 +107,7 @@ jobs:
           path: |
             BusyBarSign.zip
             BusyBarSign.streamDeckPlugin
+            BusyBarSign.json
 
       - name: Publish as the latest release
         if: github.ref == 'refs/heads/main'
@@ -103,7 +115,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest BusyBarSign.zip BusyBarSign.streamDeckPlugin \
+          gh release create latest BusyBarSign.zip BusyBarSign.streamDeckPlugin BusyBarSign.json \
             --target "$GITHUB_SHA" \
             --title "Busy Bar Sign — latest build" \
             --notes "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
@@ -122,7 +134,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete preview --yes --cleanup-tag || true
-          gh release create preview BusyBarSign.zip BusyBarSign.streamDeckPlugin --prerelease \
+          gh release create preview BusyBarSign.zip BusyBarSign.streamDeckPlugin BusyBarSign.json --prerelease \
             --target "${{ github.event.pull_request.head.sha }}" \
             --title "Busy Bar Sign — preview (PR #${{ github.event.pull_request.number }})" \
             --notes "Built from pull request #${{ github.event.pull_request.number }} (\`${{ github.head_ref }}\`) at ${{ github.event.pull_request.head.sha }}. For testing; the latest release is still the one built from main.

@@ -22,6 +22,8 @@ final class StatusModel: ObservableObject {
     /// Teams and Zoom: their mute and leave controls, for the sign and the Stream Deck keys.
     let meeting = MeetingKeys()
     let mute: MuteDetector
+    /// New builds from GitHub, installed when you're off calls.
+    let updater = Updater()
     private var timer: Timer?
     private var watching = Set<AnyCancellable>()
 
@@ -47,6 +49,12 @@ final class StatusModel: ObservableObject {
         RunLoop.main.add(t, forMode: .common)
         timer = t
         meeting.start()
+        // an update reopens the app: never on a call or in a meeting
+        updater.isBusy = { [weak self] in
+            guard let self else { return false }
+            return self.detector.micOn || self.meeting.snapshot.active != nil || [.call, .callMuted, .meeting].contains(self.state)
+        }
+        updater.start()
         evaluate()
     }
 

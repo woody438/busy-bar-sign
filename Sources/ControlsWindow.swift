@@ -247,6 +247,44 @@ private struct StatusTab: View {
             Warning(text: "The wall display is in a scaled mode, so the LEDs may shimmer. Use its default or native resolution.")
         }
         if let problem = server.problem { Warning(text: problem) }
+        UpdatesCard(updater: status.updater)
+    }
+}
+
+/// Which build this is, and newer ones from GitHub.
+private struct UpdatesCard: View {
+    @ObservedObject var updater: Updater
+
+    var body: some View {
+        Heading("Updates")
+        Card {
+            Row(label: "Version", divider: false) {
+                Text("\(updater.version) (build \(updater.build))\(updater.channel == "preview" ? " · preview" : "")")
+                    .foregroundStyle(.secondary)
+            }
+            Row(label: "Updates") {
+                Text(updater.statusLine).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.trailing)
+                switch updater.phase {
+                case .available, .failed where updater.available != nil:
+                    Button("Install Now") { updater.install() }
+                case .checking, .downloading, .installing:
+                    ProgressView().controlSize(.small)
+                default:
+                    Button("Check Now") { updater.check() }
+                }
+            }
+            Row(label: "Install updates automatically") {
+                Toggle("Install updates automatically", isOn: $updater.automatic).labelsHidden().toggleStyle(.switch)
+            }
+            if let plugin = updater.plugin {
+                Row(label: "Stream Deck plugin") {
+                    Text("\(plugin.installed) installed, \(plugin.available) out").foregroundStyle(.secondary)
+                    Button("Update…") { updater.updatePlugin() }
+                }
+            }
+        }
+        if let problem = updater.installProblem { Warning(text: problem) }
+        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed.")
     }
 }
 

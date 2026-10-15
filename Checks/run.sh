@@ -55,6 +55,10 @@ M=Sources/Meeting
 "$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Checks/meeting/main.swift -o "$OUT/meeting"
 "$OUT/meeting" Checks/meeting/teams-ui.json
 
+echo; echo "== updates (which GitHub release is newer)"
+"$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"
+"$OUT/update"
+
 echo; echo "== local API (what the Stream Deck plugin talks to)"
 "$SWIFTC" Sources/LocalAPI.swift Checks/http/main.swift -o "$OUT/http"
 "$OUT/http"

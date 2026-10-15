@@ -585,6 +585,31 @@ on another Mac, these are the likeliest places:
    patterns file needs adding. The keys still work meanwhile, through the
    keyboard shortcut.
 
+## Updates
+
+Busy Bar Sign updates itself from this repository's releases. It looks at
+launch and every four hours, and installs a newer build when you're not on a
+call or in a meeting: it closes, swaps in the new copy and reopens, in a
+second or two. **Settings ▸ Status ▸ Updates** shows the build you have,
+checks or installs on demand, and can switch the automatic install off; the
+menu-bar menu has **Check for Updates** too.
+
+- A copy built from main follows the **latest** release; a pull request's
+  preview build follows the **preview** release, then main's once it's
+  merged. Each build is numbered by its CI run, and only a higher number is
+  an update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
+- It only installs a download signed with the project's certificate — the
+  same one as the running copy ([Signing](#signing)) — so the update is the
+  same app to macOS and keeps its permissions. A download the app makes
+  itself isn't quarantined, so there's no Open Anyway. A copy signed ad hoc
+  (built before the certificate, or locally in Xcode) never installs one.
+- It needs to be able to replace itself: in Applications, opened from there,
+  by someone allowed to change Applications. Otherwise Settings says so, and
+  the release page is the way.
+- The Stream Deck plugin isn't installed for you — Stream Deck always asks
+  first — but a newer one is offered: **Update…** in Settings, or the menu's
+  **Update the Stream Deck Plugin…**, opens it in Stream Deck.
+
 ## Signing
 
 macOS gives permissions such as Accessibility to an app as it's signed. A
