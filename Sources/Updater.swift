@@ -78,6 +78,7 @@ final class Updater: ObservableObject {
 
     private func tick() {
         if Date().timeIntervalSince(lastChecked ?? .distantPast) >= Self.checkEvery { check() }
+        if lastChecked != nil { refreshPlugin() }        // so it goes once Stream Deck has installed it
         guard automatic, !isBusy() else { return }
         if let next = available, next.build != failedBuild, phase == .available, installProblem == nil {
             install()       // the app first: the new one then offers its plugin
@@ -123,7 +124,7 @@ final class Updater: ObservableObject {
             } else {
                 phase = available == nil ? .upToDate : .available
             }
-            self.found = found
+            if !found.isEmpty { self.found = found }      // GitHub out of reach: keep what it last said
             refreshPlugin()
         }
     }
@@ -268,7 +269,7 @@ final class Updater: ObservableObject {
         let installed = Self.installedPlugin()
         pluginInstalled = installed
         plugin = installed.flatMap { have in
-            Updates.newerPlugin(found, than: have).map { PluginUpdate(installed: have, available: $0) }
+            Updates.newerPlugin(found, than: have, app: build).map { PluginUpdate(installed: have, available: $0) }
         }
     }
 
@@ -285,8 +286,7 @@ final class Updater: ObservableObject {
             try? FileManager.default.removeItem(at: named)
             do {
                 try FileManager.default.moveItem(at: got.0, to: named)
-                NSWorkspace.shared.open(named)
-                plugin = nil
+                NSWorkspace.shared.open(named)     // the offer stays until Stream Deck has installed it
             } catch {
                 phase = .failed("The Stream Deck plugin couldn't be opened")
             }

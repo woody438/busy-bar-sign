@@ -283,7 +283,8 @@ private struct UpdatesCard: View {
                 }
             } else if let installed = updater.pluginInstalled {
                 Row(label: "Stream Deck plugin") {
-                    Text("\(installed) · up to date").foregroundStyle(.secondary)
+                    // up to date only once checked, with the app up to date too
+                    Text(updater.phase == .upToDate ? "\(installed) · up to date" : installed).foregroundStyle(.secondary)
                 }
             }
         }
