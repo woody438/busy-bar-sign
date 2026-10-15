@@ -281,10 +281,15 @@ private struct UpdatesCard: View {
                     Text("\(plugin.installed) installed, \(plugin.available) out").foregroundStyle(.secondary)
                     Button("Update…") { updater.updatePlugin() }
                 }
+            } else if let installed = updater.pluginInstalled {
+                Row(label: "Stream Deck plugin") {
+                    Text("\(installed) · up to date").foregroundStyle(.secondary)
+                }
             }
         }
+        .onAppear { updater.refreshPlugin() }
         if let problem = updater.installProblem { Warning(text: problem) }
-        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed.")
+        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")
     }
 }
 

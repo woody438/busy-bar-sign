@@ -111,6 +111,13 @@ jobs:
             BusyBarSign.streamDeckPlugin
             BusyBarSign.json
 
+      # before publishing: a published build reaches every copy through the updater
+      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, local API, Stream Deck plugin)
+        run: |
+          set -o pipefail
+          Checks/run.sh 2>&1 | tee checks.log
+          grep -q "^all checks passed" checks.log      # every check ran to the end
+
       - name: Publish as the latest release
         if: github.ref == 'refs/heads/main'
         env:
@@ -148,12 +155,6 @@ jobs:
           **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin. New: **Mute** and **Leave** keys for Teams and Zoom (Settings ▸ Meetings; remove the old Teams Meeting Keys plugin).
 
           **Accessibility:** if Settings ▸ Meetings says it isn't allowed though Busy Bar Sign is switched on in Privacy & Security ▸ Accessibility, that entry belongs to an older build: press **Reset and ask again**, then switch it on."
-
-      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, local API, Stream Deck plugin)
-        run: |
-          set -o pipefail
-          Checks/run.sh 2>&1 | tee checks.log
-          grep -q "^all checks passed" checks.log      # every check ran to the end
 
       - name: Keep the build log
         if: always()

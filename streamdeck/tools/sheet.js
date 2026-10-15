@@ -34,12 +34,13 @@ const keys = [
 
 const readme = process.argv.includes('--readme') || process.argv.includes('--meeting');
 if (process.argv.includes('--meeting')) {
-  keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'active', true], ['leave', 'idle']]
+  // HOLD only shows with the Leave key set to "hold", so it's not in the README's row
+  keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'idle']]
     .map((m) => ({ meeting: m })));
 } else if (readme) {
   keys.splice(0, keys.length, ...['call', 'free', 'dnd', 'callIn', 'late', 'lunch'].map((s) => keys.find((k) => k && k.state === s)));
 }
-const G = readme ? 16 : 12, COLS = 6, rows = Math.ceil(keys.length / COLS);
+const G = readme ? 16 : 12, COLS = readme ? keys.length : 6, rows = Math.ceil(keys.length / COLS);
 const W = COLS * (SIZE + G) + G, H = rows * (SIZE + G) + G;
 const sheet = Buffer.alloc(W * H * 3, readme ? 20 : 48);
 keys.forEach((k, i) => {

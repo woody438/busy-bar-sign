@@ -230,7 +230,7 @@ engine and fonts:
 
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, HOLD after a tap on a held key, dark outside a meeting](docs/stream-deck-meeting-keys.png)
+![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, dark outside a meeting](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in —
 what the separate Teams Meeting Keys plugin did, now done by the app, so
@@ -651,9 +651,13 @@ menu-bar menu has **Check for Updates** too.
 - It needs to be able to replace itself: in Applications, opened from there,
   by someone allowed to change Applications. Otherwise Settings says so, and
   the release page is the way.
-- The Stream Deck plugin isn't installed for you — Stream Deck always asks
-  first — but a newer one is offered: **Update…** in Settings, or the menu's
-  **Update the Stream Deck Plugin…**, opens it in Stream Deck.
+- The Stream Deck plugin can't be installed for you — Stream Deck always
+  asks first — so once the app is up to date, a newer plugin is opened in
+  Stream Deck for you, once per version and only when you're off calls (and
+  installing updates automatically): click **Install** when Stream Deck
+  asks. Missed it? **Update…** in Settings ▸ Status, or the menu's **Update
+  the Stream Deck Plugin…**, opens it again. Settings ▸ Status shows the
+  plugin's version.
 
 ## Signing
 
