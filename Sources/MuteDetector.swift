@@ -107,6 +107,24 @@ final class MuteDetector: ObservableObject {
         }
     }
 
+    /// Clears macOS's Accessibility entry for this app, then asks again. Each
+    /// build is signed afresh (ad hoc), so an entry an earlier build left no
+    /// longer matches this one — switched on in the list, it still says no —
+    /// and switching it off and on doesn't change that. tccutil only resets
+    /// this app's own entry.
+    func resetTrust() {
+        let reset = Process()
+        reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        reset.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "com.woodall.BusyBarSign"]
+        do {
+            try reset.run()
+            reset.waitUntilExit()
+        } catch {
+            NSLog("Busy Bar Sign: couldn't reset the Accessibility permission: %@", error.localizedDescription)
+        }
+        requestTrust()
+    }
+
     /// The first time the app runs with this switched on, ask for the permission once.
     func askOnce() {
         guard enabled, !trusted, !UserDefaults.standard.bool(forKey: "askedAccessibility") else { return }

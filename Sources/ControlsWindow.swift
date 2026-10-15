@@ -585,6 +585,7 @@ private struct MeetingsTab: View {
                         Text("Allowed").foregroundStyle(.secondary)
                     } else {
                         Button("Allow…") { mute.requestTrust() }
+                        Button("Reset and ask again") { mute.resetTrust() }
                     }
                 }
                 ForEach(MeetingApp.allCases, id: \.self) { app in
@@ -594,7 +595,7 @@ private struct MeetingsTab: View {
                 }
             }
             if !mute.trusted {
-                Warning(text: "Without Accessibility the sign can't tell you're muted, and the Stream Deck's Mute and Leave keys can't press anything. After installing a new build you may need to turn Busy Bar Sign off and on again in System Settings ▸ Privacy & Security ▸ Accessibility.")
+                Warning(text: "Without Accessibility the sign can't tell you're muted, and the Stream Deck's Mute and Leave keys can't press anything. Switched on already? Each new build of the app looks new to macOS, so the entry an earlier build left in the list doesn't count for this one, and switching it off and on doesn't help. Press Reset and ask again, then switch Busy Bar Sign on when System Settings opens.")
             }
         }
         Group {

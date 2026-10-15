@@ -390,8 +390,12 @@ some apps upsets window managers such as Rectangle.
 
 - macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
   Accessibility). The app is signed to run locally rather than by a
-  developer, so after installing a new build you may need to turn Busy Bar
-  Sign off and on again in that list.
+  developer, so **each new build looks like a new app to macOS**: the entry
+  an earlier build left in that list stays switched on but no longer counts,
+  and switching it off and on doesn't help. Press **Reset and ask again** in
+  Settings ▸ Meetings (or remove the entry with **–**, or run
+  `tccutil reset Accessibility com.woodall.BusyBarSign`), then switch Busy
+  Bar Sign on when System Settings opens.
 - If it can't tell — no permission, no mute button found, a label it doesn't
   know — it shows the mic as **live**. It never tells the room it can talk
   unless the app says you're muted.
