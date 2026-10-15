@@ -107,11 +107,11 @@ final class MuteDetector: ObservableObject {
         }
     }
 
-    /// Clears macOS's Accessibility entry for this app, then asks again. Each
-    /// build is signed afresh (ad hoc), so an entry an earlier build left no
-    /// longer matches this one — switched on in the list, it still says no —
-    /// and switching it off and on doesn't change that. tccutil only resets
-    /// this app's own entry.
+    /// Clears macOS's Accessibility entry for this app, then asks again. An
+    /// entry left by a build signed differently (ad hoc, or before the project's
+    /// certificate) doesn't match this one — switched on in the list, it still
+    /// says no — and switching it off and on doesn't change that. tccutil only
+    /// resets this app's own entry.
     func resetTrust() {
         let reset = Process()
         reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")

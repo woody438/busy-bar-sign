@@ -23,6 +23,9 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
+    env:
+      # the project's signing certificate, once it's been added (tools/make-signing-cert.sh)
+      HAS_SIGNING_CERT: ${{ secrets.SIGNING_CERT_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,10 +52,31 @@ jobs:
           grep -q "BUILD SUCCEEDED" build.log                  # a failed build can still leave a partial app
           test -d "build/Build/Products/Release/Busy Bar Sign.app"
 
+      # Signed with the project's certificate, macOS knows each build as the same app,
+      # so Accessibility carries over between updates; ad hoc, each build looks new.
+      - name: Sign with the project's certificate
+        if: env.HAS_SIGNING_CERT == 'true'
+        env:
+          SIGNING_CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          echo "$SIGNING_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          tools/sign.sh "build/Build/Products/Release/Busy Bar Sign.app" "$RUNNER_TEMP/cert.p12" "$SIGNING_CERT_PASSWORD"
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Check signing works (no certificate yet, so a throwaway one, on a copy)
+        if: env.HAS_SIGNING_CERT != 'true'
+        run: |
+          PASS=$(tools/make-signing-cert.sh "$RUNNER_TEMP/test.p12")
+          ditto "build/Build/Products/Release/Busy Bar Sign.app" "$RUNNER_TEMP/Test.app"
+          tools/sign.sh "$RUNNER_TEMP/Test.app" "$RUNNER_TEMP/test.p12" "$PASS"
+          echo "::notice::Signed ad hoc: add SIGNING_CERT_P12 and SIGNING_CERT_PASSWORD (tools/make-signing-cert.sh) so permissions survive updates"
+
       - name: Package
         run: |
           APP="build/Build/Products/Release/Busy Bar Sign.app"
           codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -d -r- "$APP" 2>&1 | grep designated                    # what macOS knows this build by
           lipo -info "$APP/Contents/MacOS/Busy Bar Sign"
           test -f "$APP/Contents/Resources/AppIcon.icns"                 # the icon made it in
           plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
@@ -109,7 +133,7 @@ jobs:
 
           **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin. New: **Mute** and **Leave** keys for Teams and Zoom (Settings ▸ Meetings; remove the old Teams Meeting Keys plugin).
 
-          **Accessibility after an update:** macOS sees each build as a new app, so the old entry in Privacy & Security ▸ Accessibility no longer counts even switched on. Press **Reset and ask again** in Settings ▸ Meetings, then switch Busy Bar Sign on."
+          **Accessibility:** if Settings ▸ Meetings says it isn't allowed though Busy Bar Sign is switched on in Privacy & Security ▸ Accessibility, that entry belongs to an older build: press **Reset and ask again**, then switch it on."
 
       - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, local API, Stream Deck plugin)
         run: |

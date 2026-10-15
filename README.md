@@ -389,13 +389,13 @@ empty, it's asked as VoiceOver asks (`AXEnhancedUserInterface`), which in
 some apps upsets window managers such as Rectangle.
 
 - macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
-  Accessibility). The app is signed to run locally rather than by a
-  developer, so **each new build looks like a new app to macOS**: the entry
-  an earlier build left in that list stays switched on but no longer counts,
-  and switching it off and on doesn't help. Press **Reset and ask again** in
-  Settings ▸ Meetings (or remove the entry with **–**, or run
-  `tccutil reset Accessibility com.woodall.BusyBarSign`), then switch Busy
-  Bar Sign on when System Settings opens.
+  Accessibility), and keeps it across updates as long as each build is signed
+  with the project's certificate ([Signing](#signing)). If the app says it
+  isn't allowed though Busy Bar Sign is switched on in that list, the entry
+  belongs to a build signed differently, and switching it off and on doesn't
+  help: press **Reset and ask again** in Settings ▸ Meetings (or remove the
+  entry with **–**, or run `tccutil reset Accessibility com.woodall.BusyBarSign`),
+  then switch Busy Bar Sign on when System Settings opens.
 - If it can't tell — no permission, no mute button found, a label it doesn't
   know — it shows the mic as **live**. It never tells the room it can talk
   unless the app says you're muted.
@@ -574,6 +574,23 @@ on another Mac, these are the likeliest places:
    isn't exposing its toolbar; a different label means a mute rule in the
    patterns file needs adding. The keys still work meanwhile, through the
    keyboard shortcut.
+
+## Signing
+
+macOS gives permissions such as Accessibility to an app as it's signed. A
+build signed ad hoc (Xcode's "Sign to Run Locally") is known only by its own
+contents, so every new build is a stranger and has to be allowed again. So
+GitHub signs each build with the project's own certificate
+(`tools/sign.sh`), and macOS knows them all as the same app.
+
+The certificate is self-signed — made once with
+[`tools/make-signing-cert.sh`](tools/make-signing-cert.sh) and kept in the
+repository's Actions secrets `SIGNING_CERT_P12` and `SIGNING_CERT_PASSWORD`.
+It changes nothing about installing: Apple doesn't vouch for it, so the first
+open still needs **Open Anyway**. Without the secrets, builds are signed ad
+hoc as before, and the build checks the signing steps with a throwaway
+certificate instead. Whoever has the secrets could sign an app macOS would
+take for Busy Bar Sign, so they stay secret.
 
 ## Running the checks
 
