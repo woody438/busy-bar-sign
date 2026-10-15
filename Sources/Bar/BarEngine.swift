@@ -522,7 +522,7 @@ enum BarEngine {
                          baseY: h.base, colour: white, style: style)
             }
             if fadeIn > 0 {
-                drawStatusContent(&f, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
+                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
             }
             // the time slides in from the right as the pill makes room, as the
             // firmware's timer label does
@@ -563,6 +563,18 @@ enum BarEngine {
         return textWidth(h.font, heroWord(state, timer), space: h.space)
     }
 
+    /// The muted mic flashes, slowly, so a glance tells the room it can talk:
+    /// on 1.1 s, a 0.2 s fade, off 0.5 s, a 0.2 s fade back — every 2 s. The
+    /// words stay put.
+    static func iconAlphaAt(_ now: Double, _ state: BarState) -> Double {
+        guard state == .callMuted else { return 1 }
+        let p = now.truncatingRemainder(dividingBy: 2.0)
+        if p < 1.1 { return 1 }
+        if p < 1.3 { return 1 - (p - 1.1) / 0.2 }
+        if p < 1.8 { return 0 }
+        return (p - 1.8) / 0.2
+    }
+
     /// How far the pill is dimmed. LATE FOR breathes: by up to a third and
     /// back every 1.6 s, so it reads as urgent rather than as an opening. ON A
     /// CALL with the mic muted glows at 45%: bright means quiet, dim means the
@@ -585,7 +597,7 @@ enum BarEngine {
                            timer: BarTimer?, slide: Int) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
-        drawStatusContent(&f, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
         drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
     }
 
@@ -664,13 +676,13 @@ enum BarEngine {
         (icons[state]?.first?.count ?? 0) + Layout.iconGap + textWidth(Layout.statusFont, state.word)
     }
 
-    static func drawStatusContent(_ f: inout LEDFrame, state: BarState, pal: BarPalette, x0: Double, w: Double,
+    static func drawStatusContent(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, x0: Double, w: Double,
                                   alpha: Double, clip: (lo: Int, hi: Int)?) {
         guard let icon = icons[state] else { return }
         let iconW = icon.first?.count ?? 0
         let x = jsRound(x0 + (w - Double(statusContentWidth(state))) / 2)
         drawIcon(&f, rows: icon, x: x, bottomY: Layout.statusBase - (iconLift[state] ?? 0),
-                 colour: white, shadow: pal.shadow, alpha: alpha, clip: clip)
+                 colour: white, shadow: pal.shadow, alpha: alpha * iconAlphaAt(now, state), clip: clip)
         drawText(&f, font: Layout.statusFont, state.word, x: Double(x + iconW + Layout.iconGap),
                  baseY: Layout.statusBase, colour: white,
                  style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * alpha, alpha: alpha, clip: clip))
@@ -954,7 +966,7 @@ enum BarEngine {
             let fadeIn = smooth(0.14, 0.4, k)
             if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1), timer: timer) }
             if fadeIn > 0 {
-                drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
+                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
             }
             // ...and the clock rises into the space it leaves
             let slide = jsRound(Stacked.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
@@ -971,7 +983,7 @@ enum BarEngine {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH,
                  dim: pulseAt(now, state))
-        drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
     }
 

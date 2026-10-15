@@ -532,10 +532,11 @@
   function statusContentWidth(state) {
     return ICONS[state][0].length + LAYOUT.iconGap + textWidth(LAYOUT.statusFont, WORDS[state]);
   }
-  function drawStatusContent(f, state, pal, x0, w, alpha, clip) {
+  function drawStatusContent(f, now, state, pal, x0, w, alpha, clip) {
     const cw = statusContentWidth(state);
     const x = Math.round(x0 + (w - cw) / 2);
-    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow, alpha, clip);
+    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow,
+      alpha * iconAlphaAt(now, state), clip);
     drawText(f, LAYOUT.statusFont, WORDS[state], x + ICONS[state][0].length + LAYOUT.iconGap,
       LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
   }
@@ -601,7 +602,7 @@
         drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
           HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
       }
-      if (inn > 0) drawStatusContent(f, state, pal, LAYOUT.heroX, w, inn, clip);
+      if (inn > 0) drawStatusContent(f, now, state, pal, LAYOUT.heroX, w, inn, clip);
       // the time slides in from the right as the pill makes room, as the
       // firmware's timer label does
       const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
@@ -630,6 +631,18 @@
     return 0.34 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (now % 1.6) / 1.6));
   }
 
+  /* The muted mic flashes, slowly, so a glance tells the room it can talk:
+     on 1.1 s, a 0.2 s fade, off 0.5 s, a 0.2 s fade back — every 2 s. The
+     words stay put. */
+  function iconAlphaAt(now, state) {
+    if (state !== 'callMuted') return 1;
+    const p = now % 2.0;
+    if (p < 1.1) return 1;
+    if (p < 1.3) return 1 - (p - 1.1) / 0.2;
+    if (p < 1.8) return 0;
+    return (p - 1.8) / 0.2;
+  }
+
   function drawHero(f, now, state, pal, timer) {
     drawPill(f, LAYOUT.heroX, LAYOUT.heroW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
     const w = heroWidth(state, timer);
@@ -640,7 +653,7 @@
   function drawSteady(f, now, state, clock, timer, slide) {
     const pal = palOf(state);
     drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
-    drawStatusContent(f, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
+    drawStatusContent(f, now, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
     drawRight(f, state, clock, timer, slide, 0);
   }
 
@@ -809,7 +822,7 @@
       const out = 1 - smooth(0.08, 0.34, k);
       const inn = smooth(0.14, 0.4, k);
       if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer);
-      if (inn > 0) drawStatusContent(f, state, pal, S.pillX, S.pillW, inn);
+      if (inn > 0) drawStatusContent(f, now, state, pal, S.pillX, S.pillW, inn);
       // ...and the clock rises into the space it leaves
       const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
@@ -823,7 +836,7 @@
   function drawStackedSteady(f, now, state, clock, timer, slide) {
     const S = STACKED, pal = palOf(state);
     drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
-    drawStatusContent(f, state, pal, S.pillX, S.pillW, 1);
+    drawStatusContent(f, now, state, pal, S.pillX, S.pillW, 1);
     drawStackedClock(f, state, clock, timer, slide, 0);
   }
 

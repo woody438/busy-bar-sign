@@ -364,9 +364,10 @@ Worth knowing:
 
 With people in the room on a call, they need to know whether they can talk.
 While you're muted the bar still says **ON A CALL** — a passer-by sees the
-same red — but the mic gets a slash and the pill dims to a glow: bright
-means quiet, dim means the room can talk. Muting and unmuting change it
-straight away, without the change animation.
+same red — but the mic gets a slash and flashes slowly (on a second, off
+half a second), and the pill dims to a glow: bright means quiet, dim and
+flashing means the room can talk. Muting and unmuting change it straight
+away, without the change animation.
 
 The Mac's audio system can't see a mute in Teams or Zoom (they keep the mic
 open), so the app reads the call app's own mute button through **macOS
@@ -475,9 +476,9 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 89 moments —
+- **The Swift engine matches the simulator LED for LED** across 93 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
-  collapse, slide-in, LATE's pulse and the muted call's glow, each with the countdown the app gives
+  collapse, slide-in, LATE's pulse and the muted call's glow and flashing mic, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 2,918

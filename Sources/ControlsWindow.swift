@@ -610,7 +610,7 @@ private struct MeetingsTab: View {
                     }
                 }
             }
-            Note("While you're muted the bar still says ON A CALL, with a slashed mic and the pill dimmed: bright means quiet, dim means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
+            Note("While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
         }
         Group {
             Heading("Stream Deck keys")
