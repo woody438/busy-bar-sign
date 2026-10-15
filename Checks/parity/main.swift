@@ -34,13 +34,18 @@ let calendarCases: [(BarState, BarState?, Double, String?)] = [
     (.callTbc, .free, 2.0, "soon"), (.callTbc, .free, 9.0, "soon"), (.callTbc, .free, 9.0, "till"),
     (.busyTbc, .free, 9.0, "till"),
     (.away, .free, 2.0, nil), (.away, .free, 9.0, nil), (.lunch, .away, 2.0, nil), (.lunch, .away, 3.75, nil), (.lunch, nil, 9.0, nil),
-    (.ooo, .free, 2.0, nil), (.ooo, .free, 3.8, nil), (.ooo, .free, 9.0, nil)
+    (.ooo, .free, 2.0, nil), (.ooo, .free, 3.8, nil), (.ooo, .free, 9.0, nil),
+    (.callMuted, .call, 9.0, "free"), (.callMuted, .free, 2.0, "free"), (.callMuted, .free, 3.75, "free"),
+    (.callMuted, nil, 9.0, nil), (.call, .callMuted, 0.05, "free"),
+    // the muted mic's slow flash: fading out, off, fading back
+    (.callMuted, nil, 9.2, nil), (.callMuted, nil, 9.5, nil), (.callMuted, .call, 9.9, "free")
 ]
 let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.meeting, .free, 2.0, "free"), (.meeting, .free, 9.0, "free"), (.callIn, .free, 2.0, "soon"), (.callIn, .free, 3.8, "soon"),
     (.late, .callIn, 2.0, "late"), (.late, .callIn, 9.3, "late"), (.freeTil, .call, 2.0, "till"), (.freeTil, .call, 9.0, "till"),
     (.callTbc, .free, 2.0, "till"), (.busyTbc, .free, 9.0, "soon"), (.lunch, .free, 2.0, nil), (.ooo, .free, 2.0, nil),
-    (.ooo, .free, 9.0, nil), (.away, .free, 2.0, nil)
+    (.ooo, .free, 9.0, nil), (.away, .free, 2.0, nil), (.callMuted, .free, 2.0, "free"), (.callMuted, .call, 9.0, "free"),
+    (.callMuted, .call, 9.5, "free")
 ]
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)
 var out = Data()

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Leave</title>
+<!--
+  The Leave key's one setting: leave on a press, or only when the key is
+  held for half a second, so a stray tap can't end your meeting. Held
+  longer, either way, it ends a Zoom meeting you host for everyone. Talks to
+  Stream Deck the plain way (connectElgatoStreamDeckSocket), nothing loaded
+  from the internet.
+-->
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 6px 12px;
+    font: 9pt -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #d8d8d8; background: #2d2d2d;
+  }
+  .item { display: flex; align-items: center; gap: 12px; min-height: 30px; }
+  .item label { flex: 0 0 72px; text-align: right; color: #969696; }
+  select {
+    flex: 1; min-width: 0; height: 24px; padding: 0 6px;
+    font: inherit; color: #d8d8d8; background: #3d3d3d;
+    border: 1px solid #4a4a4a; border-radius: 3px;
+  }
+  p { margin: 8px 0 0 84px; color: #969696; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <div class="item">
+    <label for="confirm">Leave</label>
+    <select id="confirm">
+      <option value="press">On a press</option>
+      <option value="hold">When held for half a second</option>
+    </select>
+  </div>
+  <p>On a press, it leaves when you let go. Held for a second, it ends a Zoom meeting you're hosting for everyone (anything else, it just leaves).</p>
+  <p>When held: a tap only says HOLD, so a stray press can't end your meeting; hold half a second to leave, 1.6 seconds to end it for everyone.</p>
+  <p>Teams and Zoom are pressed by the Busy Bar Sign app, which needs Accessibility (its Meetings settings).</p>
+<script>
+  // Stream Deck calls this once the panel has loaded.
+  function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, actionInfo) {
+    const action = JSON.parse(actionInfo);
+    const settings = Object.assign({}, action.payload && action.payload.settings);
+    const select = document.getElementById('confirm');
+    select.value = settings.confirm === 'hold' ? 'hold' : 'press';
+
+    const socket = new WebSocket('ws://127.0.0.1:' + port);
+    socket.onopen = () => socket.send(JSON.stringify({ event: registerEvent, uuid: uuid }));
+    select.onchange = () => {
+      settings.confirm = select.value;
+      socket.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
+    };
+  }
+</script>
+</body>
+</html>

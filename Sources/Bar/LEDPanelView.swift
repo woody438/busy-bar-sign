@@ -42,6 +42,12 @@ final class BarModel: ObservableObject {
             return
         }
         guard next != state else { return }
+        // muting and unmuting mid-call change the bar quietly, with no announcement
+        let onCall: Set<BarState> = [.call, .callMuted]
+        if onCall.contains(state) && onCall.contains(next) {
+            state = next
+            return
+        }
         prev = state
         state = next
         since = CACurrentMediaTime()

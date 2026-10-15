@@ -23,6 +23,12 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
+    env:
+      # the project's signing certificate, once it's been added (tools/make-signing-cert.sh)
+      HAS_SIGNING_CERT: ${{ secrets.SIGNING_CERT_P12 != '' }}
+      # each build's number, which the updater compares, and the release it goes to
+      BUILD_NUMBER: ${{ github.run_number }}
+      UPDATE_CHANNEL: ${{ github.event_name == 'pull_request' && 'preview' || 'latest' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,19 +51,48 @@ jobs:
             -configuration Release -derivedDataPath build \
             -destination 'generic/platform=macOS' \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" UPDATE_CHANNEL="$UPDATE_CHANNEL" \
             build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/)|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log                  # a failed build can still leave a partial app
           test -d "build/Build/Products/Release/Busy Bar Sign.app"
+
+      # Signed with the project's certificate, macOS knows each build as the same app,
+      # so Accessibility carries over between updates; ad hoc, each build looks new.
+      - name: Sign with the project's certificate
+        if: env.HAS_SIGNING_CERT == 'true'
+        env:
+          SIGNING_CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          echo "$SIGNING_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          tools/sign.sh "build/Build/Products/Release/Busy Bar Sign.app" "$RUNNER_TEMP/cert.p12" "$SIGNING_CERT_PASSWORD"
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Check signing works (no certificate yet, so a throwaway one, on a copy)
+        if: env.HAS_SIGNING_CERT != 'true'
+        run: |
+          PASS=$(tools/make-signing-cert.sh "$RUNNER_TEMP/test.p12")
+          ditto "build/Build/Products/Release/Busy Bar Sign.app" "$RUNNER_TEMP/Test.app"
+          tools/sign.sh "$RUNNER_TEMP/Test.app" "$RUNNER_TEMP/test.p12" "$PASS"
+          echo "::notice::Signed ad hoc: add SIGNING_CERT_P12 and SIGNING_CERT_PASSWORD (tools/make-signing-cert.sh) so permissions survive updates"
 
       - name: Package
         run: |
           APP="build/Build/Products/Release/Busy Bar Sign.app"
           codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -d -r- "$APP" 2>&1 | grep designated                    # what macOS knows this build by
           lipo -info "$APP/Contents/MacOS/Busy Bar Sign"
           test -f "$APP/Contents/Resources/AppIcon.icns"                 # the icon made it in
           plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
+          test "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" = "$BUILD_NUMBER"
+          test "$(plutil -extract BBSUpdateChannel raw "$APP/Contents/Info.plist")" = "$UPDATE_CHANNEL"
           ditto -c -k --sequesterRsrc --keepParent "$APP" BusyBarSign.zip
           ls -l BusyBarSign.zip
+          # what the updater reads (Sources/UpdateCheck.swift)
+          cat > BusyBarSign.json <<EOF
+          {"build": $BUILD_NUMBER, "version": "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")", "commit": "$(echo "${{ github.event.pull_request.head.sha || github.sha }}" | cut -c1-7)", "channel": "$UPDATE_CHANNEL", "plugin": "$(plutil -extract Version raw streamdeck/com.woodall.busybarsign.sdPlugin/manifest.json)"}
+          EOF
+          cat BusyBarSign.json
 
       - name: Build the Stream Deck plugin
         run: |
@@ -72,6 +107,7 @@ jobs:
           path: |
             BusyBarSign.zip
             BusyBarSign.streamDeckPlugin
+            BusyBarSign.json
 
       - name: Publish as the latest release
         if: github.ref == 'refs/heads/main'
@@ -79,7 +115,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest BusyBarSign.zip BusyBarSign.streamDeckPlugin \
+          gh release create latest BusyBarSign.zip BusyBarSign.streamDeckPlugin BusyBarSign.json \
             --target "$GITHUB_SHA" \
             --title "Busy Bar Sign — latest build" \
             --notes "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}.
@@ -88,7 +124,7 @@ jobs:
 
           **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. (Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/Busy\\ Bar\\ Sign.app\`.)
 
-          **Stream Deck:** download BusyBarSign.streamDeckPlugin and double-click it, then drag **Busy Bar Sign ▸ Status** onto a key. Needs Stream Deck 7.1 or later.
+          **Stream Deck:** download BusyBarSign.streamDeckPlugin and double-click it, then drag **Busy Bar Sign ▸ Status** onto a key — and **Mute** and **Leave** for Teams and Zoom meetings (they need Accessibility for Busy Bar Sign; remove the old Teams Meeting Keys plugin). Needs Stream Deck 7.1 or later.
 
           Needs macOS 14.4 or later."
 
@@ -98,7 +134,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete preview --yes --cleanup-tag || true
-          gh release create preview BusyBarSign.zip BusyBarSign.streamDeckPlugin --prerelease \
+          gh release create preview BusyBarSign.zip BusyBarSign.streamDeckPlugin BusyBarSign.json --prerelease \
             --target "${{ github.event.pull_request.head.sha }}" \
             --title "Busy Bar Sign — preview (PR #${{ github.event.pull_request.number }})" \
             --notes "Built from pull request #${{ github.event.pull_request.number }} (\`${{ github.head_ref }}\`) at ${{ github.event.pull_request.head.sha }}. For testing; the latest release is still the one built from main.
@@ -107,9 +143,11 @@ jobs:
 
           **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. Allow calendar access when it asks.
 
-          **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin."
+          **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin. New: **Mute** and **Leave** keys for Teams and Zoom (Settings ▸ Meetings; remove the old Teams Meeting Keys plugin).
 
-      - name: Checks (parity, geometry, frame time, detector, rules, local API, Stream Deck plugin)
+          **Accessibility:** if Settings ▸ Meetings says it isn't allowed though Busy Bar Sign is switched on in Privacy & Security ▸ Accessibility, that entry belongs to an older build: press **Reset and ask again**, then switch it on."
+
+      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, local API, Stream Deck plugin)
         run: |
           set -o pipefail
           Checks/run.sh 2>&1 | tee checks.log

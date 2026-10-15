@@ -1,10 +1,14 @@
 /*
  * The key's picture: every state the bar has is drawn, its words fit, and
- * the line under the pill says what the bar's right-hand side says.
+ * the line under the pill says what the bar's right-hand side says. The
+ * Mute and Leave keys: the right face for what the app says, every face
+ * inside the panel, and the app's answer read as the keys use it.
  */
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
-import { N, SIZE, STATES, clockOf, drawKey, keyImage, keyText, timerOf } from '../src/key.js';
+import { N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText, leaveFace, MEETING_FACES, meetingKeyImage,
+  muteFace, timerOf } from '../src/key.js';
+import { viewOf } from '../src/app.js';
 
 const E = globalThis.BusyEngine;
 let checks = 0;
@@ -28,6 +32,7 @@ check(() => assert.deepEqual(say('call', { at: now + 47 * min + 12000 - 30, kind
   { lines: ['ON A', 'CALL'], detail: '47:12', blink: true }));
 check(() => assert.equal(say('meeting', { at: now + 65 * min, kind: 'countdown' }).detail, '1H05'));
 check(() => assert.deepEqual(say('free', null), { lines: ['FREE'], detail: '14:32', blink: true }));
+check(() => assert.deepEqual(say('callMuted', { at: now + 47 * min + 12000 - 30, kind: 'countdown' }).lines, ['ON A', 'CALL']));
 check(() => assert.deepEqual(say('late', { at: now - 80030, kind: 'countUp' }), { lines: ['LATE'], detail: '+01:20', blink: false }));
 check(() => assert.deepEqual(say('callTbc', { at: now + 250000, kind: 'countdown' }).lines, ['CALL', 'TBC']));
 check(() => assert.deepEqual(say('busyTbc', { at: new Date(2026, 9, 6, 15, 30).getTime(), kind: 'fixed' }),
@@ -70,5 +75,40 @@ check(() => assert.equal(readPNG(image).length, (SIZE * 3 + 1) * SIZE));
 check(() => assert.equal(image, keyImage({ state: 'dnd', moment: { at: now + 600000, kind: 'countdown' }, dnd: true }, new Date(now))));
 check(() => assert.notEqual(image, keyImage(null, new Date(now))));
 check(() => assert.doesNotThrow(() => keyImage({ state: 'notAState', moment: null, dnd: false }, new Date(now))));
+
+// the app's answer, as the keys read it
+check(() => assert.deepEqual(viewOf({ state: 'call', muted: true, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }),
+  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }));
+check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, meeting: { app: 'zoom', canLeave: true } }).meeting,
+  { app: 'zoom', muted: null, canLeave: true }));
+check(() => assert.equal(viewOf({ state: 'free', dnd: false }).meeting, null));
+check(() => assert.throws(() => viewOf({ dnd: false })));
+
+// the Mute and Leave keys' faces
+const inMeeting = (muted, canLeave = true) => ({ state: 'call', moment: null, dnd: false, meeting: { app: 'teams', muted, canLeave } });
+check(() => assert.equal(muteFace(null), 'off'));
+check(() => assert.equal(muteFace({ state: 'free', moment: null, dnd: false, meeting: null }), 'idle'));
+check(() => assert.equal(muteFace(inMeeting(false)), 'live'));
+check(() => assert.equal(muteFace(inMeeting(true)), 'muted'));
+check(() => assert.equal(muteFace(inMeeting(null)), 'unknown'));
+check(() => assert.equal(leaveFace(null), 'off'));
+check(() => assert.equal(leaveFace(inMeeting(false)), 'active'));
+check(() => assert.equal(leaveFace(inMeeting(false, false)), 'idle'));
+check(() => assert.equal(leaveFace({ state: 'free', moment: null, dnd: false, meeting: null }), 'idle'));
+for (const face of [...MEETING_FACES.map((f) => f.split(':')), ['leave', 'active', true], ['mute', 'off']]) {
+  const frame = drawMeetingKey(...face);
+  let lit = 0;
+  const cols = new Set();
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const [r, g, b] = frame.get(x, y);
+    if (r + g + b > 0.3) lit++;
+    if (y > 22 && r + g + b > 2.4) cols.add(x);         // the word beneath the pill
+  }
+  check(() => assert.ok(lit > 100, `${face.join(':')}: drawn`));
+  if (cols.size) check(() => assert.ok(Math.min(...cols) >= 1 && Math.max(...cols) <= N - 2, `${face.join(':')}: word cut off`));
+}
+check(() => assert.equal(meetingKeyImage('mute', 'live'), meetingKeyImage('mute', 'live')));
+check(() => assert.notEqual(meetingKeyImage('mute', 'live'), meetingKeyImage('mute', 'muted')));
+check(() => assert.notEqual(meetingKeyImage('leave', 'active'), meetingKeyImage('leave', 'active', true)));
 
 console.log(`key drawing: ${checks} checks passed`);

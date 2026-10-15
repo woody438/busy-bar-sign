@@ -24,6 +24,7 @@ extension SIMD3 where Scalar == Double {
 /// What the sign says. The raw values are simulator/rules.js's state names.
 enum BarState: String, CaseIterable {
     case call, meeting, free, dnd
+    case callMuted               // on a call with the mic muted: the same words, a slashed mic, the pill dimmed
     case callIn, busyIn          // 10 minutes before: a countdown on the right
     case late                    // a call has started without you: CALL and how late
     case freeTil                 // you left a call early: free till its slot ends
@@ -32,7 +33,7 @@ enum BarState: String, CaseIterable {
 
     var word: String {
         switch self {
-        case .call: return "ON A CALL"
+        case .call, .callMuted: return "ON A CALL"
         case .meeting: return "MEETING"
         case .free: return "FREE"
         case .dnd: return "DND"
@@ -91,7 +92,7 @@ struct BarPalette {
 
     static func of(_ state: BarState) -> BarPalette {
         switch state {
-        case .call, .meeting: return call
+        case .call, .callMuted, .meeting: return call
         case .free: return free
         case .dnd: return dnd
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return amber
@@ -314,6 +315,21 @@ enum BarEngine {
             ".####.....",
             "..##......"
         ],
+        // the mic, slashed, with the gap on one side as the Mac's mic.slash: muted
+        .callMuted: [
+            "#..###...",
+            ".#.####..",
+            ".#.####..",
+            "..#.###..",
+            "..##.##..",
+            "#.###.#.#",
+            "#.###.#.#",
+            "#..###..#",
+            ".#....#..",
+            "..######.",
+            "....#..#.",
+            "..#####.#"
+        ],
         // two people
         .meeting: [
             ".###...###.",
@@ -410,7 +426,7 @@ enum BarEngine {
     ]
     /// Rows above the baseline for the icon's bottom row.
     static let iconLift: [BarState: Int] = [
-        .call: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
+        .call: -1, .callMuted: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
         .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1
     ]
 
@@ -423,7 +439,7 @@ enum BarEngine {
     }
     static func hero(_ state: BarState) -> Hero {
         switch state {
-        case .call: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .call, .callMuted: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .free: return Hero(word: "FREE", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .dnd: return Hero(word: "DO NOT DISTURB", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .meeting: return Hero(word: "MEETING", font: "busy_regular_14", base: 14, depth: 2, space: 6)
@@ -506,7 +522,7 @@ enum BarEngine {
                          baseY: h.base, colour: white, style: style)
             }
             if fadeIn > 0 {
-                drawStatusContent(&f, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
+                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
             }
             // the time slides in from the right as the pill makes room, as the
             // firmware's timer label does
@@ -547,9 +563,24 @@ enum BarEngine {
         return textWidth(h.font, heroWord(state, timer), space: h.space)
     }
 
-    /// LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
-    /// so it reads as urgent rather than as an opening.
+    /// The muted mic flashes, slowly, so a glance tells the room it can talk:
+    /// on 1.1 s, a 0.2 s fade, off 0.5 s, a 0.2 s fade back — every 2 s. The
+    /// words stay put.
+    static func iconAlphaAt(_ now: Double, _ state: BarState) -> Double {
+        guard state == .callMuted else { return 1 }
+        let p = now.truncatingRemainder(dividingBy: 2.0)
+        if p < 1.1 { return 1 }
+        if p < 1.3 { return 1 - (p - 1.1) / 0.2 }
+        if p < 1.8 { return 0 }
+        return (p - 1.8) / 0.2
+    }
+
+    /// How far the pill is dimmed. LATE FOR breathes: by up to a third and
+    /// back every 1.6 s, so it reads as urgent rather than as an opening. ON A
+    /// CALL with the mic muted glows at 45%: bright means quiet, dim means the
+    /// room can talk.
     static func pulseAt(_ now: Double, _ state: BarState) -> Double {
+        if state == .callMuted { return 0.55 }
         guard state == .late else { return 0 }
         return 0.34 * (0.5 - 0.5 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: 1.6) / 1.6))
     }
@@ -566,7 +597,7 @@ enum BarEngine {
                            timer: BarTimer?, slide: Int) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
-        drawStatusContent(&f, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
         drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
     }
 
@@ -580,7 +611,7 @@ enum BarEngine {
         if let timer {
             let at = String(format: "%02d:%02d", timer.h, timer.m)
             switch state {
-            case .dnd, .call, .meeting:
+            case .dnd, .call, .callMuted, .meeting:
                 // Do Not Disturb, or on a call / in a meeting: how long till you're free, and when
                 let c = countdownText(timer)
                 return RightText(top: c.mmss, bottom: c.until, blink: true)
@@ -645,13 +676,13 @@ enum BarEngine {
         (icons[state]?.first?.count ?? 0) + Layout.iconGap + textWidth(Layout.statusFont, state.word)
     }
 
-    static func drawStatusContent(_ f: inout LEDFrame, state: BarState, pal: BarPalette, x0: Double, w: Double,
+    static func drawStatusContent(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, x0: Double, w: Double,
                                   alpha: Double, clip: (lo: Int, hi: Int)?) {
         guard let icon = icons[state] else { return }
         let iconW = icon.first?.count ?? 0
         let x = jsRound(x0 + (w - Double(statusContentWidth(state))) / 2)
         drawIcon(&f, rows: icon, x: x, bottomY: Layout.statusBase - (iconLift[state] ?? 0),
-                 colour: white, shadow: pal.shadow, alpha: alpha, clip: clip)
+                 colour: white, shadow: pal.shadow, alpha: alpha * iconAlphaAt(now, state), clip: clip)
         drawText(&f, font: Layout.statusFont, state.word, x: Double(x + iconW + Layout.iconGap),
                  baseY: Layout.statusBase, colour: white,
                  style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * alpha, alpha: alpha, clip: clip))
@@ -884,7 +915,7 @@ enum BarEngine {
         /// The announcement fills the panel, a word or two per line.
         static func hero(_ state: BarState) -> [Line] {
             switch state {
-            case .call: return [Line("ON A"), Line("CALL")]
+            case .call, .callMuted: return [Line("ON A"), Line("CALL")]
             case .free: return [Line("FREE")]
             case .dnd: return [Line("DO NOT"), Line("DISTURB")]
             case .meeting: return [Line("MEETING", tracking: -1)]
@@ -935,7 +966,7 @@ enum BarEngine {
             let fadeIn = smooth(0.14, 0.4, k)
             if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1), timer: timer) }
             if fadeIn > 0 {
-                drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
+                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
             }
             // ...and the clock rises into the space it leaves
             let slide = jsRound(Stacked.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
@@ -952,7 +983,7 @@ enum BarEngine {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH,
                  dim: pulseAt(now, state))
-        drawStatusContent(&f, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
     }
 

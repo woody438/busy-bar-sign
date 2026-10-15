@@ -6,7 +6,8 @@ struct BusyBarSignApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(detector: delegate.detector, status: delegate.status, calendar: delegate.calendar,
+            MenuContent(detector: delegate.detector, status: delegate.status, updater: delegate.status.updater,
+                        calendar: delegate.calendar,
                         window: delegate.window, floating: delegate.floating, server: delegate.server,
                         openControls: { delegate.controls.show() })
         } label: {
@@ -38,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         detector.start()
         calendar.start()
         status.start()
+        status.mute.askOnce()
         server.start()
         if DisplayWindow.wasShown { window.show() }
         if FloatingWindow.wasShown { floating.show() }
@@ -112,6 +114,7 @@ private struct MenuBarIcon: View {
 private struct MenuContent: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var status: StatusModel
+    @ObservedObject var updater: Updater
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var window: DisplayWindow
     @ObservedObject var floating: FloatingWindow
@@ -178,6 +181,13 @@ private struct MenuContent: View {
 
         Divider()
 
+        if let next = updater.available, updater.phase == .available {
+            Button("Install Update (Build \(next.build)) and Reopen") { updater.install() }
+        }
+        if updater.plugin != nil {
+            Button("Update the Stream Deck Plugin…") { updater.updatePlugin() }
+        }
+        Button("Check for Updates") { updater.check() }
         Button("Settings…") { openControls() }
             .keyboardShortcut(",")
         Button("Quit") { NSApplication.shared.terminate(nil) }

@@ -5,8 +5,10 @@ import SwiftUI
  * What the sign says, all things considered: the manual controls and the
  * microphone (CallDetector), Do Not Disturb, and the calendar
  * (CalendarSource), decided by StatusRules once a second and whenever
- * one of them changes. Every view of the bar, the menus and the controls
- * read it from here.
+ * one of them changes. On a call, the call app's own mute button
+ * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
+ * its muted look. Every view of the bar, the menus and the controls read
+ * it from here.
  */
 @MainActor
 final class StatusModel: ObservableObject {
@@ -17,14 +19,21 @@ final class StatusModel: ObservableObject {
 
     let detector: CallDetector
     let calendar: CalendarSource
+    /// Teams and Zoom: their mute and leave controls, for the sign and the Stream Deck keys.
+    let meeting = MeetingKeys()
+    let mute: MuteDetector
+    /// New builds from GitHub, installed when you're off calls.
+    let updater = Updater()
     private var timer: Timer?
     private var watching = Set<AnyCancellable>()
 
     init(detector: CallDetector, calendar: CalendarSource) {
         self.detector = detector
         self.calendar = calendar
+        mute = MuteDetector(meeting: meeting)
         // objectWillChange fires before the change lands: decide on the next turn
-        for publisher in [detector.objectWillChange.eraseToAnyPublisher(), calendar.objectWillChange.eraseToAnyPublisher()] {
+        for publisher in [detector.objectWillChange.eraseToAnyPublisher(), calendar.objectWillChange.eraseToAnyPublisher(),
+                          mute.objectWillChange.eraseToAnyPublisher(), meeting.objectWillChange.eraseToAnyPublisher()] {
             publisher
                 .receive(on: RunLoop.main)
                 .sink { [weak self] _ in MainActor.assumeIsolated { self?.evaluate() } }
@@ -39,6 +48,13 @@ final class StatusModel: ObservableObject {
         t.tolerance = 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t
+        meeting.start()
+        // an update reopens the app: never on a call or in a meeting
+        updater.isBusy = { [weak self] in
+            guard let self else { return false }
+            return self.detector.micOn || self.meeting.snapshot.active != nil || [.call, .callMuted, .meeting].contains(self.state)
+        }
+        updater.start()
         evaluate()
     }
 
@@ -51,7 +67,17 @@ final class StatusModel: ObservableObject {
         input.events = calendar.isActive ? calendar.events : []
         input.config = calendar.config
         let d = StatusRules.decide(input)
-        let next = BarState(rawValue: d.state) ?? .free
+        var next = BarState(rawValue: d.state) ?? .free
+
+        // the apps that count as your call, for their mute buttons (FaceTime's audio runs in avconferenced)
+        var callApps: [String] = []
+        for holder in detector.detection.holders where holder.counts {
+            let id = holder.bundleID ?? "com.apple.FaceTime"
+            if !callApps.contains(id) { callApps.append(id) }
+        }
+        mute.update(onCall: detector.micOn, apps: callApps)
+        // muted, by the call app's own button: the same ON A CALL, quieter
+        if next == .call && mute.muted { next = .callMuted }
 
         // what the right of the pill counts to, or from
         var m: BarMoment?
@@ -72,6 +98,7 @@ extension BarState {
     var name: String {
         switch self {
         case .call: return "On a call"
+        case .callMuted: return "On a call, muted"
         case .meeting: return "In a meeting"
         case .free: return "Free"
         case .dnd: return "Do Not Disturb"
@@ -91,6 +118,7 @@ extension BarState {
     var symbol: String {
         switch self {
         case .call: return "mic.circle.fill"
+        case .callMuted: return "mic.slash.circle.fill"
         case .meeting: return "person.2.circle.fill"
         case .free: return "checkmark.circle"
         case .dnd: return "moon.circle.fill"
@@ -107,7 +135,7 @@ extension BarState {
     /// The pill's colour, for dots and swatches.
     var colour: Color {
         switch self {
-        case .call, .meeting: return Color(red: 1, green: 0.114, blue: 0.208)
+        case .call, .callMuted, .meeting: return Color(red: 1, green: 0.114, blue: 0.208)
         case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
         case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)

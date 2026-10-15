@@ -33,14 +33,17 @@ targets:
         # Asked for on first launch: the sign follows your calendar (read-only).
         NSCalendarsFullAccessUsageDescription: Busy Bar Sign reads your calendar to show meetings, lunch and time away on the sign, and to warn people before a call. It never changes your calendar.
         NSCalendarsUsageDescription: Busy Bar Sign reads your calendar to show meetings, lunch and time away on the sign, and to warn people before a call. It never changes your calendar.
+        # Which GitHub release the updater follows: CI sets "preview" for a pull request's build.
+        BBSUpdateChannel: $(UPDATE_CHANNEL)
     settings:
       base:
         PRODUCT_NAME: Busy Bar Sign            # the name in Finder and the Dock
         PRODUCT_MODULE_NAME: BusyBarSign
         PRODUCT_BUNDLE_IDENTIFIER: com.woodall.BusyBarSign
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "2.0"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.1"
+        CURRENT_PROJECT_VERSION: "2"           # CI sets the run number: the updater installs higher builds
+        UPDATE_CHANNEL: latest
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"          # Sign to Run Locally: no Apple developer team needed

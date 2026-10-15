@@ -2,17 +2,34 @@
  * Asks Busy Bar Sign, on this Mac, what the sign says
  * (Sources/LocalAPI.swift has the details).
  *
- *   getStatus()  {"state":"call","moment":{"at":1760000000000,"kind":"countdown"},"dnd":false}
- *   toggleDND()  as a double-click on the bar; resolves to the new status
+ *   getStatus()   {"state":"call","moment":{"at":1760000000000,"kind":"countdown"},"dnd":false,
+ *                  "meeting":{"app":"teams","muted":true,"canLeave":true}}
+ *   toggleDND()   as a double-click on the bar; resolves to the new status
+ *   pressMute()   mutes or unmutes the Teams or Zoom meeting;
+ *   pressLeave()  leaves it;
+ *   pressEnd()    ends it for everyone if it's a Zoom meeting you host (else
+ *                 leaves); each resolves to { view, pressed: { ok, message } }
  */
 import http from 'node:http';
 
 export const PORT = Number(process.env.BUSY_BAR_SIGN_PORT) || 47811;
 
-function ask(method, path) {
+/* The app's answer as the keys use it. */
+export function viewOf(status) {
+  if (typeof status.state !== 'string') throw new Error('no state');
+  // muted on a call: the app says "call" with muted alongside; the key draws it as the bar does
+  const state = status.state === 'call' && status.muted === true ? 'callMuted' : status.state;
+  const m = status.meeting;
+  const meeting = m && typeof m.app === 'string'
+    ? { app: m.app, muted: typeof m.muted === 'boolean' ? m.muted : null, canLeave: !!m.canLeave }
+    : null;
+  return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting };
+}
+
+function ask(method, path, timeout) {
   return new Promise((resolve, reject) => {
     const req = http.request({
-      host: '127.0.0.1', port: PORT, method, path, agent: false, timeout: 800,
+      host: '127.0.0.1', port: PORT, method, path, agent: false, timeout: timeout,
       headers: { 'Content-Length': 0 }
     }, (res) => {
       let body = '';
@@ -22,8 +39,7 @@ function ask(method, path) {
         if (res.statusCode !== 200) return reject(new Error(`${method} ${path}: HTTP ${res.statusCode}`));
         try {
           const status = JSON.parse(body);
-          if (typeof status.state !== 'string') throw new Error('no state');
-          resolve({ state: status.state, moment: status.moment || null, dnd: !!status.dnd });
+          resolve({ view: viewOf(status), pressed: status.pressed || null });
         } catch (e) {
           reject(new Error(`${method} ${path}: unreadable answer (${e.message})`));
         }
@@ -35,5 +51,9 @@ function ask(method, path) {
   });
 }
 
-export const getStatus = () => ask('GET', '/status');
-export const toggleDND = () => ask('POST', '/dnd/toggle');
+export const getStatus = () => ask('GET', '/status', 800).then((a) => a.view);
+export const toggleDND = () => ask('POST', '/dnd/toggle', 800).then((a) => a.view);
+// a press can take a few seconds: the meeting's button, then perhaps its shortcut
+export const pressMute = () => ask('POST', '/meeting/mute', 12000);
+export const pressLeave = () => ask('POST', '/meeting/leave', 12000);
+export const pressEnd = () => ask('POST', '/meeting/end', 12000);

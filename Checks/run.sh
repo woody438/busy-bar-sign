@@ -46,6 +46,19 @@ node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
 "$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
 "$OUT/rules" "$OUT/rules.json"
 
+echo; echo "== mute controls (what MuteDetector reads in the call apps)"
+"$SWIFTC" Sources/MuteLabels.swift Checks/mute/main.swift -o "$OUT/mute"
+"$OUT/mute" | tail -1
+
+echo; echo "== meeting keys (Teams and Zoom, scripted: their mute and leave controls, the post-call survey)"
+M=Sources/Meeting
+"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Checks/meeting/main.swift -o "$OUT/meeting"
+"$OUT/meeting" Checks/meeting/teams-ui.json
+
+echo; echo "== updates (which GitHub release is newer)"
+"$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"
+"$OUT/update"
+
 echo; echo "== local API (what the Stream Deck plugin talks to)"
 "$SWIFTC" Sources/LocalAPI.swift Checks/http/main.swift -o "$OUT/http"
 "$OUT/http"

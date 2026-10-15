@@ -6,14 +6,23 @@ import Foundation
  * the answer. LocalServer listens and answers. Foundation only, so
  * Checks/http can test it anywhere Swift runs.
  *
- *   GET  /status       {"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}
- *   POST /dnd/toggle   as a double-click on the bar; answers with the new status
+ *   GET  /status          {"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}
+ *   POST /dnd/toggle      as a double-click on the bar; answers with the new status
+ *   POST /meeting/mute    mutes or unmutes the Teams or Zoom meeting; answers
+ *   POST /meeting/leave   leaves it;
+ *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
+ *                         (else leaves); each answers with the status and how
+ *                         the press went: "pressed":{"ok":true,"message":"…"}
  *
  * `state` is a BarState. `moment` is what the right of the pill is about,
  * in ms since 1970 — counted down to ("countdown"), up from ("countUp",
  * LATE) or just shown ("fixed", FREE TILL) — and absent while the bar
  * shows the clock. `dnd` is whether a Do Not Disturb is running, shown or
- * not: a call outranks it.
+ * not: a call outranks it. `muted` appears, true, only while you're muted
+ * on a call; `state` stays "call" then, so older plugins read it as before.
+ * `meeting` appears while you're in a Teams or Zoom meeting:
+ * {"app":"teams","canLeave":true,"muted":false}, `muted` left out when the
+ * meeting's mute can't be read.
  *
  * For programs on this Mac only. LocalServer listens on 127.0.0.1, and
  * this turns away what a web page could send: a request with an Origin
@@ -56,7 +65,7 @@ enum LocalAPI {
         return .complete(Request(method: String(start[0]), path: String(start[1]), headers: headers))
     }
 
-    enum Route: Equatable { case status, toggleDND, reject(Int) }
+    enum Route: Equatable { case status, toggleDND, meetingMute, meetingLeave, meetingEnd, reject(Int) }
 
     /// What a request asks for, or the status code it's turned away with.
     static func route(_ request: Request) -> Route {
@@ -66,7 +75,11 @@ enum LocalAPI {
         switch (request.method, request.path) {
         case ("GET", "/status"): return .status
         case ("POST", "/dnd/toggle"): return .toggleDND
-        case (_, "/status"), (_, "/dnd/toggle"): return .reject(405)
+        case ("POST", "/meeting/mute"): return .meetingMute
+        case ("POST", "/meeting/leave"): return .meetingLeave
+        case ("POST", "/meeting/end"): return .meetingEnd
+        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"):
+            return .reject(405)
         default: return .reject(404)
         }
     }
@@ -76,9 +89,24 @@ enum LocalAPI {
             var at: Int64                       // ms since 1970
             var kind: String                    // countdown, countUp, fixed
         }
+        /// The Teams or Zoom meeting you're in.
+        struct Meeting: Encodable, Equatable {
+            var app: String                     // teams, zoom
+            var muted: Bool?                    // left out when it can't be read
+            var canLeave: Bool
+        }
+        /// How a press of the Mute or Leave key went.
+        struct Pressed: Encodable, Equatable {
+            var ok: Bool
+            var message: String
+        }
         var state: String
         var moment: Moment?
         var dnd: Bool
+        /// Only there, and true, while you're muted on a call: `state` stays "call".
+        var muted: Bool? = nil
+        var meeting: Meeting? = nil
+        var pressed: Pressed? = nil
     }
 
     static func encode(_ status: Status) -> Data {

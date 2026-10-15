@@ -74,7 +74,7 @@
   };
   /* Which palette each state is lit in. */
   const STATE_PALETTE = {
-    call: 'call', meeting: 'call',
+    call: 'call', callMuted: 'call', meeting: 'call',
     free: 'free',
     dnd: 'dnd',
     callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
@@ -313,7 +313,7 @@
   };
 
   const WORDS = {
-    call: 'ON A CALL', free: 'FREE', dnd: 'DND',
+    call: 'ON A CALL', callMuted: 'ON A CALL', free: 'FREE', dnd: 'DND',
     meeting: 'MEETING',
     callIn: 'CALL IN', busyIn: 'BUSY IN',                        // + the countdown on the right
     late: 'LATE FOR',                                            // + CALL on the right
@@ -327,6 +327,7 @@
     call: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     free: { word: 'FREE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    callMuted: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     meeting:   { word: 'MEETING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
@@ -389,6 +390,21 @@
       '######....',
       '.####.....',
       '..##......'
+    ],
+    // the mic, slashed, with the gap on one side as the Mac's mic.slash: muted
+    callMuted: [
+      '#..###...',
+      '.#.####..',
+      '.#.####..',
+      '..#.###..',
+      '..##.##..',
+      '#.###.#.#',
+      '#.###.#.#',
+      '#..###..#',
+      '.#....#..',
+      '..######.',
+      '....#..#.',
+      '..#####.#'
     ],
     // two people
     meeting: [
@@ -486,7 +502,7 @@
   ICONS.callTbc = ICONS.busyTbc = ICONS.tbc;
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
-    call: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
+    call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
     freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1
   };   // rows above the baseline for the icon's bottom row
 
@@ -516,10 +532,11 @@
   function statusContentWidth(state) {
     return ICONS[state][0].length + LAYOUT.iconGap + textWidth(LAYOUT.statusFont, WORDS[state]);
   }
-  function drawStatusContent(f, state, pal, x0, w, alpha, clip) {
+  function drawStatusContent(f, now, state, pal, x0, w, alpha, clip) {
     const cw = statusContentWidth(state);
     const x = Math.round(x0 + (w - cw) / 2);
-    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow, alpha, clip);
+    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow,
+      alpha * iconAlphaAt(now, state), clip);
     drawText(f, LAYOUT.statusFont, WORDS[state], x + ICONS[state][0].length + LAYOUT.iconGap,
       LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
   }
@@ -585,7 +602,7 @@
         drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
           HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
       }
-      if (inn > 0) drawStatusContent(f, state, pal, LAYOUT.heroX, w, inn, clip);
+      if (inn > 0) drawStatusContent(f, now, state, pal, LAYOUT.heroX, w, inn, clip);
       // the time slides in from the right as the pill makes room, as the
       // firmware's timer label does
       const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
@@ -604,11 +621,26 @@
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
   }
 
-  /* LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
-     so it reads as urgent rather than as an opening. */
+  /* How far the pill is dimmed. LATE FOR breathes: by up to a third and
+     back every 1.6 s, so it reads as urgent rather than as an opening. ON A
+     CALL with the mic muted glows at 45%: bright means quiet, dim means the
+     room can talk. */
   function pulseAt(now, state) {
+    if (state === 'callMuted') return 0.55;
     if (state !== 'late') return 0;
     return 0.34 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (now % 1.6) / 1.6));
+  }
+
+  /* The muted mic flashes, slowly, so a glance tells the room it can talk:
+     on 1.1 s, a 0.2 s fade, off 0.5 s, a 0.2 s fade back — every 2 s. The
+     words stay put. */
+  function iconAlphaAt(now, state) {
+    if (state !== 'callMuted') return 1;
+    const p = now % 2.0;
+    if (p < 1.1) return 1;
+    if (p < 1.3) return 1 - (p - 1.1) / 0.2;
+    if (p < 1.8) return 0;
+    return (p - 1.8) / 0.2;
   }
 
   function drawHero(f, now, state, pal, timer) {
@@ -621,7 +653,7 @@
   function drawSteady(f, now, state, clock, timer, slide) {
     const pal = palOf(state);
     drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
-    drawStatusContent(f, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
+    drawStatusContent(f, now, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
     drawRight(f, state, clock, timer, slide, 0);
   }
 
@@ -641,7 +673,7 @@
       switch (state) {
         case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         // on a call or in a meeting: how long till you're free, and when
-        case 'call': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
+        case 'call': case 'callMuted': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         case 'callIn': case 'busyIn':
           return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };
         // tentative: a countdown to the start, then the end time once it's on
@@ -746,6 +778,7 @@
      a line won't fit the 82-LED pill in it. */
   const STACKED_HERO = {
     call: ['ON A', 'CALL'],
+    callMuted: ['ON A', 'CALL'],
     free: ['FREE'],
     dnd: ['DO NOT', 'DISTURB'],
     meeting: [{ t: 'MEETING', tracking: -1 }],
@@ -789,7 +822,7 @@
       const out = 1 - smooth(0.08, 0.34, k);
       const inn = smooth(0.14, 0.4, k);
       if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer);
-      if (inn > 0) drawStatusContent(f, state, pal, S.pillX, S.pillW, inn);
+      if (inn > 0) drawStatusContent(f, now, state, pal, S.pillX, S.pillW, inn);
       // ...and the clock rises into the space it leaves
       const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
@@ -803,7 +836,7 @@
   function drawStackedSteady(f, now, state, clock, timer, slide) {
     const S = STACKED, pal = palOf(state);
     drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
-    drawStatusContent(f, state, pal, S.pillX, S.pillW, 1);
+    drawStatusContent(f, now, state, pal, S.pillX, S.pillW, 1);
     drawStackedClock(f, state, clock, timer, slide, 0);
   }
 
