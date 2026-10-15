@@ -165,6 +165,12 @@ final class AXMeetingBackend: MeetingBackend {
     /// Brings an app back to the front after a meeting app raised itself.
     func activate(_ pid: Int32) {
         guard pid > 0 else { return }
+        // Busy Bar Sign itself (its settings were in front): Accessibility asked of our own
+        // process is answered right here, on this thread, and AppKit crashes off the main one
+        if pid == getpid() {
+            DispatchQueue.main.async { MainActor.assumeIsolated { NSApp.activate() } }
+            return
+        }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetAttributeValue(app, "AXFrontmost" as CFString, kCFBooleanTrue)
         if let w = element(app, "AXFocusedWindow") { AXUIElementPerformAction(w, "AXRaise" as CFString) }
