@@ -4,9 +4,10 @@
  *
  *   node tools/sheet.js out.png
  *   node tools/sheet.js ../docs/stream-deck-keys.png --readme    # six in a row, for the README
+ *   node tools/sheet.js ../docs/stream-deck-meeting-keys.png --meeting   # the Mute and Leave keys, for the README
  */
 import fs from 'node:fs';
-import { drawKey, paint, SIZE, STATES } from '../src/key.js';
+import { drawKey, drawMeetingKey, MEETING_FACES, paint, SIZE, STATES } from '../src/key.js';
 import { png } from '../src/png.js';
 
 const at = new Date(2026, 9, 6, 14, 32, 27).getTime();       // Tue 6 Oct, 14:32:27, an odd second
@@ -25,16 +26,24 @@ const keys = [
   { state: 'call', moment: null },        // on a call the calendar doesn't know about: the time
   { state: 'late', moment: { at: at - 81000, kind: 'countUp' }, even: true },   // LATE's other blink
   null,                                   // the app isn't answering
-  { state: 'somethingNew', moment: null }
+  { state: 'somethingNew', moment: null },
+  // the Mute and Leave keys
+  ...MEETING_FACES.map((f) => ({ meeting: f.split(':') })),
+  { meeting: ['leave', 'active', true] }  // a tap on a hold-to-leave key
 ];
 
-const readme = process.argv.includes('--readme');
-if (readme) keys.splice(0, keys.length, ...['call', 'free', 'dnd', 'callIn', 'late', 'lunch'].map((s) => keys.find((k) => k && k.state === s)));
+const readme = process.argv.includes('--readme') || process.argv.includes('--meeting');
+if (process.argv.includes('--meeting')) {
+  keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'active', true], ['leave', 'idle']]
+    .map((m) => ({ meeting: m })));
+} else if (readme) {
+  keys.splice(0, keys.length, ...['call', 'free', 'dnd', 'callIn', 'late', 'lunch'].map((s) => keys.find((k) => k && k.state === s)));
+}
 const G = readme ? 16 : 12, COLS = 6, rows = Math.ceil(keys.length / COLS);
 const W = COLS * (SIZE + G) + G, H = rows * (SIZE + G) + G;
 const sheet = Buffer.alloc(W * H * 3, readme ? 20 : 48);
 keys.forEach((k, i) => {
-  const img = paint(drawKey(k, new Date(at + (readme || (k && k.even) ? 1000 : 0))));
+  const img = paint(k && k.meeting ? drawMeetingKey(...k.meeting) : drawKey(k, new Date(at + (readme || (k && k.even) ? 1000 : 0))));
   const ox = G + (i % COLS) * (SIZE + G), oy = G + Math.floor(i / COLS) * (SIZE + G);
   for (let y = 0; y < SIZE; y++) img.copy(sheet, ((oy + y) * W + ox) * 3, y * SIZE * 3, (y + 1) * SIZE * 3);
 });

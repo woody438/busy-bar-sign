@@ -1,8 +1,8 @@
 {
 	"Name": "Busy Bar Sign",
-	"Version": "1.0.0.0",
+	"Version": "1.1.0.0",
 	"Author": "Ian Woodall",
-	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it.",
+	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it. Mute and Leave keys for your Teams or Zoom meeting.",
 	"URL": "https://github.com/woody438/busy-bar-sign",
 	"UUID": "com.woodall.busybarsign",
 	"Icon": "imgs/plugin/marketplace",
@@ -36,6 +36,39 @@
 			"States": [
 				{
 					"Image": "imgs/actions/status/key",
+					"ShowTitle": false
+				}
+			]
+		},
+		{
+			"Name": "Mute",
+			"UUID": "com.woodall.busybarsign.mute",
+			"Icon": "imgs/actions/mute/icon",
+			"Tooltip": "Mutes or unmutes your Teams or Zoom meeting. Green LIVE, red MUTED.",
+			"Controllers": [
+				"Keypad"
+			],
+			"SupportedInMultiActions": true,
+			"States": [
+				{
+					"Image": "imgs/actions/mute/key",
+					"ShowTitle": false
+				}
+			]
+		},
+		{
+			"Name": "Leave",
+			"UUID": "com.woodall.busybarsign.leave",
+			"Icon": "imgs/actions/leave/icon",
+			"Tooltip": "Leaves your Teams or Zoom meeting. Can be set to leave only when held.",
+			"Controllers": [
+				"Keypad"
+			],
+			"SupportedInMultiActions": true,
+			"PropertyInspectorPath": "ui/leave.html",
+			"States": [
+				{
+					"Image": "imgs/actions/leave/key",
 					"ShowTitle": false
 				}
 			]

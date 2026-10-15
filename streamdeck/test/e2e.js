@@ -2,8 +2,9 @@
  * The built plugin against a fake Stream Deck and a fake Busy Bar Sign:
  * it registers, draws the key in the sign's colour on the second, toggles
  * Do Not Disturb on a press (with a tick when the sign can't show it),
- * says APP OFF and warns on a press when the app's gone, comes back with
- * it, and stops asking once its key is gone.
+ * mutes and leaves a meeting from the Mute and Leave keys (a held Leave
+ * key only on a hold), says APP OFF and warns on a press when the app's
+ * gone, comes back with it, and stops asking once its keys are gone.
  *
  *   npm run build && node test/e2e.js
  */
@@ -19,17 +20,25 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out: ${what}`)), ms));
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
-const app = { state: 'free', moment: null, dnd: false, requests: [] };
+const app = { state: 'free', moment: null, dnd: false, meeting: null, pressWorks: true, requests: [] };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
+  let pressed = null;
   if (req.method === 'POST' && req.url === '/dnd/toggle') {
     app.dnd = !app.dnd;
     if (app.state !== 'call') app.state = app.dnd ? 'dnd' : 'free';      // a call outranks it
+  } else if (req.method === 'POST' && req.url === '/meeting/mute') {
+    pressed = { ok: app.pressWorks && !!app.meeting, message: 'Pressed Teams’s own mute button.' };
+    if (pressed.ok) app.meeting.muted = !app.meeting.muted;
+  } else if (req.method === 'POST' && req.url === '/meeting/leave') {
+    pressed = { ok: !!app.meeting, message: 'Pressed Teams’s own leave button.' };
+    app.meeting = null;
   } else if (!(req.method === 'GET' && req.url === '/status')) {
     res.writeHead(404).end();
     return;
   }
-  const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {}));
+  const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {},
+    app.meeting ? { meeting: app.meeting } : {}, pressed ? { pressed } : {}));
   res.writeHead(200, { 'Content-Type': 'application/json', Connection: 'close' }).end(body);
 }
 let appServer = http.createServer(appHandler);
@@ -78,7 +87,13 @@ function pillColour(dataURL) {
   if (r > 150 && g > 100 && b < 80) return 'amber';
   return r >= g && r >= b ? 'red' : g >= b ? 'green' : 'blue';
 }
-const image = (colour, ms, what) => next((m) => m.event === 'setImage' && m.context === 'k1' && pillColour(m.payload.image) === colour, ms, what);
+/* A picture on a key, sent since message `since` or yet to come. */
+const imageOn = (context, colour, ms, what, since = sent.length) => {
+  const pred = (m) => m.event === 'setImage' && m.context === context && pillColour(m.payload.image) === colour;
+  const already = sent.slice(since).find(pred);
+  return already ? Promise.resolve(already) : next(pred, ms, what);
+};
+const image = (colour, ms, what) => imageOn('k1', colour, ms, what);
 
 try {
   const reg = await next((m) => m.event === 'registerPlugin', 5000, 'registration');
@@ -129,6 +144,56 @@ try {
   await next((m) => m.event === 'showOk' && m.context === 'k1', 2000, 'showOk on a call');
   assert.equal(app.dnd, true);
   console.log('ok  on a call, a press shows a tick');
+
+  // the Mute and Leave keys: dark outside a meeting
+  const meetingKey = (kind, context, settings) => ({ action: `com.woodall.busybarsign.${kind}`, context, device: 'deck',
+    payload: { controller: 'Keypad', coordinates: { column: 1, row: 0 }, isInMultiAction: false, settings, state: 0 } });
+  const mute = meetingKey('mute', 'm1', {});
+  const leave = meetingKey('leave', 'l1', { confirm: 'hold' });
+  app.state = 'free';
+  toPlugin(Object.assign({ event: 'willAppear' }, mute));
+  await imageOn('m1', 'dark', 3000, 'Mute key outside a meeting');
+  toPlugin(Object.assign({ event: 'willAppear' }, leave));
+  await imageOn('l1', 'dark', 3000, 'Leave key outside a meeting');
+  console.log('ok  Mute and Leave keys are dark outside a meeting');
+
+  // in a meeting: LIVE in green, LEAVE in red; a press mutes, at once
+  app.state = 'call';
+  app.meeting = { app: 'teams', muted: false, canLeave: true };
+  const joined = sent.length;
+  await imageOn('m1', 'green', 3000, 'LIVE', joined);
+  await imageOn('l1', 'red', 3000, 'LEAVE', joined);
+  const pressAt = sent.length;
+  toPlugin(Object.assign({ event: 'keyDown' }, mute));
+  await imageOn('m1', 'red', 1500, 'MUTED after a press', pressAt);
+  assert.ok(app.requests.some((r) => r.method === 'POST' && r.url === '/meeting/mute' && r.headers.origin === undefined));
+  console.log('ok  in a meeting: LIVE and LEAVE; a press mutes');
+
+  // a press the app couldn't do warns
+  app.pressWorks = false;
+  toPlugin(Object.assign({ event: 'keyDown' }, mute));
+  await next((m) => m.event === 'showAlert' && m.context === 'm1', 2000, 'showAlert when the press failed');
+  app.pressWorks = true;
+  console.log('ok  a press that didn\'t take warns');
+
+  // Leave, set to hold: a tap doesn't leave; a hold does
+  toPlugin(Object.assign({ event: 'keyDown' }, leave));
+  await wait(100);
+  toPlugin(Object.assign({ event: 'keyUp' }, leave));
+  await wait(900);
+  assert.ok(!app.requests.some((r) => r.url === '/meeting/leave'), 'a tap left the meeting');
+  const held = sent.length;
+  toPlugin(Object.assign({ event: 'keyDown' }, leave));
+  await wait(750);
+  toPlugin(Object.assign({ event: 'keyUp' }, leave));
+  await imageOn('l1', 'dark', 2000, 'Leave key dark after leaving', held);
+  assert.equal(app.requests.filter((r) => r.url === '/meeting/leave').length, 1);
+  assert.equal(app.meeting, null);
+  console.log('ok  a held Leave key leaves only when held');
+
+  toPlugin(Object.assign({ event: 'willDisappear' }, mute));
+  toPlugin(Object.assign({ event: 'willDisappear' }, leave));
+  app.state = 'free';
 
   // the app quits: APP OFF; a press warns; it comes back
   await new Promise((r) => { appServer.close(r); appServer.closeAllConnections(); });

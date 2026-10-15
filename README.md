@@ -201,6 +201,38 @@ CALL, so the key flashes a tick to say the press counted.
   (it's a zip) and copy `com.woodall.busybarsign.sdPlugin` into
   `~/Library/Application Support/com.elgato.StreamDeck/Plugins`, then open
   Stream Deck again.
+### Mute and Leave keys, for Teams and Zoom
+
+![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, HOLD after a tap on a held key, dark outside a meeting](docs/stream-deck-meeting-keys.png)
+
+Two more keys in the same plugin, for the Teams or Zoom meeting you're in —
+what Woody's Teams Meeting Keys plugin did, now done by the app:
+
+- **Mute** shows green **LIVE** or red **MUTED**, read from the meeting's
+  own mute control; **MIC ?** if the meeting's there but its mute can't be
+  read (Zoom before you join its audio); dark outside a meeting. Press to
+  mute or unmute.
+- **Leave** shows red **LEAVE** in a meeting, dark otherwise. Press to
+  leave. In its settings it can be set to leave only when **held** for half
+  a second; a tap then just says HOLD.
+- A press clicks the meeting's own button through Accessibility and checks
+  it took. If it can't, it brings the meeting window forward, sends the
+  app's shortcut (Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W, then Zoom's "Leave
+  meeting" prompt is confirmed — unless you're the host, when "End meeting
+  for all" is left to you) and hands you back the app you were in. A press
+  that reached the app is never followed by the shortcut until it's had 2.5
+  seconds to show, so mute can't toggle twice; an app that ignores its own
+  button twice gets the shortcut from then on.
+- With Teams and Zoom both in meetings, the keys act on the one joined last.
+- After a call, Teams' "rate your call" survey (and Zoom's "How was the
+  audio and video?") is closed — only ever with a Dismiss, Close, Skip or
+  Cancel-type button, then the dialog's own cancel, its window's close button
+  (never the main window's), then Escape; never Submit or a thumbs. Settings
+  ▸ Meetings switches it off and shows the last popup and what was done.
+- The app does the pressing, with its own Accessibility permission, so the
+  keys need it running. **Remove the old Teams Meeting Keys plugin**: the two
+  would both press, and both close the survey.
+
 - To work on it: `cd streamdeck && npm ci && npm run build`, then
   `npx streamdeck link com.woodall.busybarsign.sdPlugin` runs it from the
   source folder; `npm run pack` makes the `.streamDeckPlugin`, and
@@ -337,10 +369,24 @@ open), so the app reads the call app's own mute button through **macOS
 Accessibility** — as MuteMe and MuteDeck have done for Teams since Microsoft
 retired its device API on 30 June 2026. It reads only the app that has the
 mic and counts as your call, so Wispr Flow and the other dictation tools are
-never read. Labels it knows: Teams ("Mute mic" / "Unmute mic", and in
-French), Zoom ("Mute" / "Unmute", "Mute Audio" in its menu), Meet in Chrome,
-Edge, Arc or Safari ("Turn off microphone"), Webex, Slack huddles, and
-FaceTime's ticked "Mute" menu item. `Checks/mute` tries each.
+never read.
+
+- **Teams and Zoom** are read as the Stream Deck's Mute key reads them
+  (`Sources/Meeting/`, a port of Teams Meeting Keys' helper): Teams' mic
+  button found by its own id (`microphone-button`) in the meeting window,
+  its name read with the patterns below; Zoom's **Meeting** menu, which says
+  "Mute audio" or "Unmute audio" only in a meeting. `Checks/meeting` runs a
+  scripted Teams and Zoom through it.
+- **Anything else** — Meet in Chrome, Edge, Arc or Safari ("Turn off
+  microphone"), Webex, Slack huddles, FaceTime's ticked "Mute" menu item — is
+  searched for a button whose name reads as a mic mute. `Checks/mute` tries
+  each.
+
+Each control is read in one round trip and the search walks the window in
+order, which is what lets it reach the button in a big Teams window. Teams
+is asked to build its accessibility tree quietly first; if it comes back
+empty, it's asked as VoiceOver asks (`AXEnhancedUserInterface`), which in
+some apps upsets window managers such as Rectangle.
 
 - macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
   Accessibility). The app is signed to run locally rather than by a
@@ -350,9 +396,14 @@ FaceTime's ticked "Mute" menu item. `Checks/mute` tries each.
   know — it shows the mic as **live**. It never tells the room it can talk
   unless the app says you're muted.
 - A redesign of Teams' or Zoom's meeting window can hide the button until the
-  labels are updated. Settings ▸ Microphone shows what it's reading, e.g.
-  "Microsoft Teams · “Unmute mic” · muted".
-- Switch it off in Settings ▸ Microphone ▸ **Show when I'm muted**.
+  patterns are updated. Settings ▸ Meetings shows what it's reading, e.g.
+  "“Eagle Dragon crew | Microsoft Teams” · “Unmute mic” · muted", and
+  **Inspect meeting controls** lists every button it can see — copy that and
+  send it over. The words it reads (mute labels, survey wording, which
+  buttons it may press) are in `~/Library/Application Support/Busy Bar
+  Sign/meeting-ui.json` (**Edit patterns…**), in the same format as Teams
+  Meeting Keys' `teams-ui.json`; **Reload** picks up a change.
+- Switch it off in Settings ▸ Meetings ▸ **Show when I'm muted**.
 - The Stream Deck key still reads a muted call as ON A CALL; the local API
   adds `"muted": true` for it.
 
@@ -397,12 +448,13 @@ In the code:
 | `Sources/StatusRules.swift` | Decides what the sign says from the controls, the mic and the calendar. A line-for-line port of `simulator/rules.js`. |
 | `Sources/CalendarSource.swift` | Reads the calendar from macOS Calendar (EventKit). |
 | `Sources/MuteDetector.swift`, `MuteLabels.swift` | Whether you're muted, from the call app's own mute button (Accessibility). |
+| `Sources/Meeting/` | Teams and Zoom through Accessibility, for the sign and the Mute and Leave keys: `MeetingEngine` (a port of Teams Meeting Keys' helper), `MeetingPatterns` (the words it reads), `AXMeetingBackend` (the Mac's side, and the shortcut fallback), `MeetingKeys` (a key press, start to finish). |
 | `Sources/StatusModel.swift` | Runs the rules once a second and on every change; everything that shows the sign reads it. |
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
 | `Sources/LocalAPI.swift`, `LocalServer.swift` | The web server on 127.0.0.1 that the Stream Deck plugin asks. |
-| `streamdeck/` | The Stream Deck plugin: `src/key.js` draws the key with the simulator's engine; `src/status-action.js` asks the app and handles presses. |
+| `streamdeck/` | The Stream Deck plugin: `src/key.js` draws the keys with the simulator's engine; `src/live.js` asks the app once a second for every key; `src/status-action.js` and `src/meeting-actions.js` handle presses. |
 | `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
 | `simulator/` | The browser version, where the look and the rules are designed. `day.js` is the sample day the day player and the checks use. |
 | `Checks/` | Tests that run anywhere Swift does. |
@@ -445,11 +497,26 @@ errors or warnings in its code.
   Deck and a stand-in app (`streamdeck/test/e2e.js`): it registers, draws
   the key in the sign's colour, redraws a countdown once a second within
   300 ms of the second turning, starts and ends Do Not Disturb on a press,
-  shows a tick on a call, says APP OFF and warns on a press while the app is
-  away, recovers when it's back, and stops asking when no key shows it. Its
-  key drawing has 69 checks of its own: every state the engine has, every
-  word and countdown inside the key, and the countdown text against the
-  bar's (`streamdeck/test/keys.js`).
+  shows a tick on a call, turns the Mute key from LIVE to MUTED on a press,
+  warns when a press didn't take, leaves only when a held Leave key is held,
+  says APP OFF and warns on a press while the app is away, recovers when
+  it's back, and stops asking when no key shows it. Its key drawing has 103
+  checks of its own: every state the engine has, every word and countdown
+  inside the key, the countdown text against the bar's, and every face of
+  the Mute and Leave keys (`streamdeck/test/keys.js`).
+- **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
+  Meeting Keys' helper tests carried across, 105 checks) against a scripted
+  Teams and Zoom: the mute state from the mic button and Zoom's menu; a
+  flyout covering the toolbar keeps the last reading for 20 s, a closed
+  window or "Rejoin" ends the meeting at once; a press of the meeting's own
+  button is checked, and one with no effect asks for the shortcut; Zoom's
+  "Leave meeting?" confirmed for an attendee and left alone for the host;
+  the survey closed with Dismiss and focus handed back, never Submit or a
+  thumbs, a stubborn one tried once each way then left, a live meeting
+  window never touched, an unknown popup reported once and left alone, a
+  chat window full of text never taken for a survey; Inspect and Capture
+  never showing chat; and Teams Meeting Keys' own `teams-ui.json` loading
+  as a patterns file.
 - **Mute buttons are read right** (`Checks/mute`): 37 labels from Teams (in
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
   live, and the look-alikes — "Mute all", "Mute notifications", "Mute
@@ -473,9 +540,11 @@ Calendar.app and an Elgato Stream Deck:
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
 `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`, `AudioProbe`,
 `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — has no
-automated checks. `MuteDetector`, which reads the call apps through
-Accessibility, hasn't been run on a Mac yet at all. If something misbehaves on another Mac, these are the
-likeliest places:
+automated checks. `MuteDetector` and `Sources/Meeting/`, which read and
+press the call apps through Accessibility, have only been checked against a
+scripted Teams and Zoom — not yet against the real ones (nor had Teams
+Meeting Keys' helper, which they're ported from). If something misbehaves
+on another Mac, these are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
    Microphone list show the app you're calling from?
@@ -493,11 +562,14 @@ likeliest places:
    is running, `curl http://127.0.0.1:47811/status` should answer with the
    sign's state; if it doesn't, the listener didn't start (the controls'
    Status tab says why).
-7. `MuteDetector.swift` — on a call, Settings ▸ Microphone ▸ Now should name
-   the call app and its mute button (“Unmute mic” · muted). "No mute button
-   found" means the app labels it some way `MuteLabels.swift` doesn't know
-   yet; macOS's Accessibility Inspector (in Xcode's developer tools) shows
-   what the button is called.
+7. `Sources/Meeting/` and `MuteDetector.swift` — on a Teams call, Settings ▸
+   Meetings should show the meeting window and its mute button (“Unmute
+   mic” · muted). If it says "Not in a meeting" or "mute unknown", press
+   **Inspect meeting controls**: it lists the meeting windows and every
+   button with an id. No `#microphone-button` means Teams has renamed it, or
+   isn't exposing its toolbar; a different label means a mute rule in the
+   patterns file needs adding. The keys still work meanwhile, through the
+   keyboard shortcut.
 
 ## Running the checks
 

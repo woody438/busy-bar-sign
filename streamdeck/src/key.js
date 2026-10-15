@@ -5,7 +5,8 @@
  *
  * The lit pill holds the status in a word or two, cut to fit; beneath it,
  * white on black, what the right of the bar shows — the countdown, or the
- * time with its colon blinking.
+ * time with its colon blinking. The Mute and Leave keys are drawn the same
+ * way: an icon in the pill, LIVE, MUTED or LEAVE beneath.
  */
 import '../../simulator/fonts.js';
 import '../../simulator/engine.js';
@@ -93,6 +94,112 @@ export function drawKey(view, date) {
   return f;
 }
 
+/* The Mute and Leave keys: an icon in the lit pill, a word beneath it.
+   The bar's own mic, drawn bigger for a key a finger's width across; the
+   slashed one cut on one side as the bar's is; the handset laid down, as
+   every meeting app draws "leave". */
+export const KEY_ICONS = {
+  mic: [
+    '.....###.....',
+    '....#####....',
+    '...#######...',
+    '...#######...',
+    '...#######...',
+    '...#######...',
+    '...#######...',
+    '#..#######..#',
+    '#..#######..#',
+    '#...#####...#',
+    '.#...###...#.',
+    '..#.......#..',
+    '...#######...',
+    '......#......',
+    '......#......',
+    '....#####....'
+  ],
+  micMuted: [
+    '#....###.....',
+    '.#..#####....',
+    '..#.######...',
+    '..#.######...',
+    '...#.#####...',
+    '...##.####...',
+    '...###.###...',
+    '#..####.##..#',
+    '#..####.##..#',
+    '#...####....#',
+    '.#...####..#.',
+    '..#......#...',
+    '...######.#..',
+    '......#....#.',
+    '......#.....#',
+    '....#####....'
+  ],
+  handset: [
+    '....#######....',
+    '..###########..',
+    '.#############.',
+    '###.........###',
+    '###.........###',
+    '.##.........##.'
+  ]
+};
+
+/* What the Mute key shows, from the app's status: 'off' when it isn't
+   answering, 'idle' outside a meeting, else 'live', 'muted' or 'unknown'. */
+export function muteFace(view) {
+  if (!view) return 'off';
+  if (!view.meeting) return 'idle';
+  return view.meeting.muted === true ? 'muted' : view.meeting.muted === false ? 'live' : 'unknown';
+}
+
+/* What the Leave key shows: 'active' while there's a meeting to leave. */
+export function leaveFace(view) {
+  if (!view) return 'off';
+  return view.meeting && view.meeting.canLeave ? 'active' : 'idle';
+}
+
+const FACES = {
+  'mute:live': { state: 'free', icon: 'mic', word: 'LIVE' },
+  'mute:muted': { state: 'call', icon: 'micMuted', word: 'MUTED' },
+  'mute:unknown': { state: 'away', icon: 'mic', word: 'MIC ?' },
+  'mute:idle': { state: 'away', icon: 'mic', word: '', dim: 0.62 },
+  'leave:active': { state: 'call', icon: 'handset', word: 'LEAVE' },
+  'leave:idle': { state: 'away', icon: 'handset', word: '', dim: 0.62 }
+};
+export const MEETING_FACES = Object.keys(FACES);
+
+/* An icon's rows centred across the key, white with the pill's hard shadow,
+   as the bar draws its icons. */
+function drawIcon(f, rows, top, shadow, alpha) {
+  const x0 = Math.round((N - rows[0].length) / 2);
+  for (const pass of [{ d: 1, c: shadow, a: 0.9 * alpha }, { d: 0, c: WHITE, a: alpha }]) {
+    rows.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') f.blend(x0 + c + pass.d, top + r + pass.d, pass.c, pass.a);
+    });
+  }
+}
+
+/* A Mute or Leave key as LEDs; `hold` says HOLD under the pill. */
+export function drawMeetingKey(kind, face, hold) {
+  const f = new E.Frame(N, N);
+  const spec = FACES[kind + ':' + face];
+  if (!spec) {
+    drawLines(f, ['APP', 'OFF'], E.palOf('away'), 0.5);
+    return f;
+  }
+  const pal = E.palOf(spec.state);
+  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: spec.dim || 0 });
+  const rows = KEY_ICONS[spec.icon];
+  drawIcon(f, rows, Math.round((PILL_H - rows.length) / 2), pal.shadow, spec.dim ? 0.45 : 1);
+  const word = hold ? 'HOLD' : spec.word;
+  if (word) {
+    // one face for every word, so LIVE and MUTED match: MUTED is too wide for the bold one
+    E.drawText(f, 'busy_regular_7', word, Math.round((N - E.textWidth('busy_regular_7', word)) / 2), DETAIL_BASE, WHITE, {});
+  }
+  return f;
+}
+
 /* Just a lit pill with words in it, in a state's colours: the key's
    picture before the plugin has drawn one (tools/icons.js). */
 export function drawLabel(lines, state) {
@@ -144,7 +251,17 @@ export function paint(frame) {
   return rgb;
 }
 
+const dataURL = (frame) => 'data:image/png;base64,' + png(SIZE, SIZE, paint(frame)).toString('base64');
+
 /* The key's picture as Stream Deck takes it. */
 export function keyImage(view, date) {
-  return 'data:image/png;base64,' + png(SIZE, SIZE, paint(drawKey(view, date))).toString('base64');
+  return dataURL(drawKey(view, date));
+}
+
+/* A Mute or Leave key's picture; the same face gives the same picture. */
+const meetingImages = new Map();
+export function meetingKeyImage(kind, face, hold) {
+  const key = kind + ':' + face + (hold ? ':hold' : '');
+  if (!meetingImages.has(key)) meetingImages.set(key, dataURL(drawMeetingKey(kind, face, hold)));
+  return meetingImages.get(key);
 }
