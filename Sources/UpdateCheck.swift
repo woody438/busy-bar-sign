@@ -42,11 +42,14 @@ enum Updates {
         releases.filter { $0.build > build }.max { $0.build < $1.build }
     }
 
-    /// The newest plugin among `releases`, if it's newer than the one installed.
-    static func newerPlugin(_ releases: [Release], than installed: String) -> String? {
-        let newest = releases.compactMap(\.plugin).max { isNewer($1, than: $0) }
-        guard let newest, isNewer(newest, than: installed) else { return nil }
-        return newest
+    /// The newest plugin among `releases`, if it's newer than the one installed
+    /// and the app is already the newest build: a plugin goes with its app, so
+    /// the app updates first and the plugin is offered after.
+    static func newerPlugin(_ releases: [Release], than installed: String, app build: Int) -> String? {
+        guard newest(releases, after: build) == nil else { return nil }
+        let best = releases.compactMap(\.plugin).max { isNewer($1, than: $0) }
+        guard let best, isNewer(best, than: installed) else { return nil }
+        return best
     }
 
     /// Whether dotted version `a` is newer than `b`: "1.2.0.0" over "1.1.0.0".
