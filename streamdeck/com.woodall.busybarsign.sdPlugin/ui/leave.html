@@ -35,21 +35,29 @@
       <option value="hold">When held for half a second</option>
     </select>
   </div>
-  <p>On a press, it leaves when you let go. Held for a second, it ends a Zoom meeting you're hosting for everyone (anything else, it just leaves).</p>
-  <p>When held: a tap only says HOLD, so a stray press can't end your meeting; hold half a second to leave, 1.6 seconds to end it for everyone.</p>
+  <!-- only the chosen setting's words show -->
+  <p data-for="press">A tap leaves the meeting, when you let go. Hold the key a second to end a Zoom meeting you're hosting for everyone; in any other meeting, holding just leaves.</p>
+  <p data-for="hold" hidden>A tap only shows HOLD, so a stray press can't leave your meeting. Hold the key half a second, then let go, to leave; hold it 1.6 seconds to end a Zoom meeting you're hosting for everyone.</p>
   <p>Teams and Zoom are pressed by the Busy Bar Sign app, which needs Accessibility (its Meetings settings).</p>
 <script>
+  // Shows what the chosen setting does, and only that.
+  function explain(value) {
+    for (const p of document.querySelectorAll('p[data-for]')) p.hidden = p.dataset.for !== value;
+  }
+
   // Stream Deck calls this once the panel has loaded.
   function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, actionInfo) {
     const action = JSON.parse(actionInfo);
     const settings = Object.assign({}, action.payload && action.payload.settings);
     const select = document.getElementById('confirm');
     select.value = settings.confirm === 'hold' ? 'hold' : 'press';
+    explain(select.value);
 
     const socket = new WebSocket('ws://127.0.0.1:' + port);
     socket.onopen = () => socket.send(JSON.stringify({ event: registerEvent, uuid: uuid }));
     select.onchange = () => {
       settings.confirm = select.value;
+      explain(select.value);
       socket.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
     };
   }
