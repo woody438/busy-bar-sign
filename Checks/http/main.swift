@@ -46,6 +46,8 @@ expect(route("GET", "/dnd/toggle", here) == .reject(405), "GET can't toggle")
 expect(route("POST", "/meeting/mute", here) == .meetingMute, "POST /meeting/mute")
 expect(route("POST", "/meeting/leave", here) == .meetingLeave, "POST /meeting/leave")
 expect(route("GET", "/meeting/leave", here) == .reject(405), "GET can't leave")
+expect(route("POST", "/meeting/end", here) == .meetingEnd, "POST /meeting/end")
+expect(route("GET", "/meeting/end", here) == .reject(405), "GET can't end a meeting")
 expect(route("POST", "/meeting/leave", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
        "a web page can't make you leave a meeting")
 expect(route("POST", "/status", here) == .reject(405), "POST /status")

@@ -634,7 +634,7 @@ private struct MeetingsTab: View {
                     }
                 }
             }
-            Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. With both apps in meetings they act on the one joined last. The survey is only ever closed with a Dismiss, Close or Skip-type button, never Submit or a thumbs. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
+            Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. Hold Leave a second to end a Zoom meeting you're hosting for everyone. With both apps in meetings they act on the one joined last. The survey is only ever closed with a Dismiss, Close or Skip-type button, never Submit or a thumbs. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
         }
         Group {
             Heading("If a meeting app isn't read right")

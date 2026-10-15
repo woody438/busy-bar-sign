@@ -202,13 +202,14 @@ final class AXMeetingBackend: MeetingBackend {
         }
     }
 
-    /// The app's own shortcut: Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W.
+    /// The app's own shortcut: Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W (ending for
+    /// everyone is Zoom's ⌘W too, then the other button in its prompt).
     private static func key(_ control: MeetingControl, _ app: MeetingApp) -> (code: CGKeyCode, shift: Bool) {
         switch (app, control) {
         case (.teams, .mute): return (46, true)     // M
-        case (.teams, .leave): return (4, true)     // H
+        case (.teams, .leave), (.teams, .end): return (4, true)     // H
         case (.zoom, .mute): return (0, true)       // A
-        case (.zoom, .leave): return (13, false)    // W
+        case (.zoom, .leave), (.zoom, .end): return (13, false)    // W, then its prompt
         }
     }
 

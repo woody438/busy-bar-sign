@@ -96,7 +96,7 @@ final class MeetingWorker: @unchecked Sendable {
             let r = engine.press(what)
             if r.ok || (r.delivered && effectSeen(what, app, before, within: 2.5)) {
                 misses[app] = 0
-                return report(true, "Pressed \(app.label)'s own \(what.rawValue) button.")
+                return report(true, "Pressed \(app.label)'s own \(what == .mute ? "mute" : "leave") button.")
             }
             if r.delivered {
                 misses[app, default: 0] += 1
@@ -117,8 +117,11 @@ final class MeetingWorker: @unchecked Sendable {
         case .failure(let f):
             return report(false, f.message)
         case .success(let window):
-            if what == .leave {
-                engine.left(to)
+            if what != .mute {
+                engine.left(to, endForAll: what == .end)
+                if what == .end && to == .zoom {
+                    return report(true, "Sent Zoom's shortcut to “\(window)”; ending it for everyone if you're the host.")
+                }
             } else if let before, !effectSeen(.mute, to, before, within: 1.5) {
                 return report(false, "Sent \(to.label)'s shortcut to “\(window)”, but its mute didn't change. Is that the meeting?")
             }
@@ -135,7 +138,7 @@ final class MeetingWorker: @unchecked Sendable {
             let s = engine.snapshot().apps[app] ?? MeetingAppState()
             switch what {
             case .mute: if s.inMeeting, let now = s.muted, let before, now != before { return true }
-            case .leave: if !s.inMeeting { return true }
+            case .leave, .end: if !s.inMeeting { return true }
             }
             if Date() >= end { return false }
             Thread.sleep(forTimeInterval: 0.1)

@@ -212,14 +212,18 @@ what Woody's Teams Meeting Keys plugin did, now done by the app:
   own mute control; **MIC ?** if the meeting's there but its mute can't be
   read (Zoom before you join its audio); dark outside a meeting. Press to
   mute or unmute.
-- **Leave** shows red **LEAVE** in a meeting, dark otherwise. Press to
-  leave. In its settings it can be set to leave only when **held** for half
-  a second; a tap then just says HOLD.
+- **Leave** shows red **LEAVE** in a meeting, dark otherwise. **Press** to
+  leave (on release). **Hold it a second** to end a Zoom meeting you're
+  hosting for everyone ("End meeting for all"); held in any other meeting it
+  just leaves — ending a Teams meeting for everyone isn't done yet. In its
+  settings it can be set to leave only when **held** half a second, so a
+  stray tap just says HOLD; it then ends for everyone at 1.6 seconds.
 - A press clicks the meeting's own button through Accessibility and checks
   it took. If it can't, it brings the meeting window forward, sends the
   app's shortcut (Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W, then Zoom's "Leave
-  meeting" prompt is confirmed — unless you're the host, when "End meeting
-  for all" is left to you) and hands you back the app you were in. A press
+  meeting?" prompt is answered: "Leave meeting" for a press, "End meeting
+  for all" for a hold when you're the host) and hands you back the app you
+  were in. A press
   that reached the app is never followed by the shortcut until it's had 2.5
   seconds to show, so mute can't toggle twice; an app that ignores its own
   button twice gets the shortcut from then on.
@@ -503,18 +507,23 @@ errors or warnings in its code.
   300 ms of the second turning, starts and ends Do Not Disturb on a press,
   shows a tick on a call, turns the Mute key from LIVE to MUTED on a press,
   warns when a press didn't take, leaves only when a held Leave key is held,
+  and with the Leave key left on a press, leaves on release and ends the
+  meeting for everyone when held a second,
   says APP OFF and warns on a press while the app is away, recovers when
   it's back, and stops asking when no key shows it. Its key drawing has 103
   checks of its own: every state the engine has, every word and countdown
   inside the key, the countdown text against the bar's, and every face of
   the Mute and Leave keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
-  Meeting Keys' helper tests carried across, 105 checks) against a scripted
+  Meeting Keys' helper tests carried across, and more: 112 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
   flyout covering the toolbar keeps the last reading for 20 s, a closed
   window or "Rejoin" ends the meeting at once; a press of the meeting's own
   button is checked, and one with no effect asks for the shortcut; Zoom's
-  "Leave meeting?" confirmed for an attendee and left alone for the host;
+  "Leave meeting?" answered with "Leave meeting" on a press, host or not,
+  and "End meeting for all" on a hold only when it's offered, never a
+  toolbar button of the same name; a Teams meeting window showing only its
+  title-bar buttons makes Teams be asked as VoiceOver asks;
   the survey closed with Dismiss and focus handed back, never Submit or a
   thumbs, a stubborn one tried once each way then left, a live meeting
   window never touched, an unknown popup reported once and left alone, a

@@ -9,8 +9,10 @@ import Foundation
  *   GET  /status          {"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}
  *   POST /dnd/toggle      as a double-click on the bar; answers with the new status
  *   POST /meeting/mute    mutes or unmutes the Teams or Zoom meeting; answers
- *   POST /meeting/leave   leaves it; each answers with the status and how the
- *                         press went: "pressed":{"ok":true,"message":"…"}
+ *   POST /meeting/leave   leaves it;
+ *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
+ *                         (else leaves); each answers with the status and how
+ *                         the press went: "pressed":{"ok":true,"message":"…"}
  *
  * `state` is a BarState. `moment` is what the right of the pill is about,
  * in ms since 1970 — counted down to ("countdown"), up from ("countUp",
@@ -63,7 +65,7 @@ enum LocalAPI {
         return .complete(Request(method: String(start[0]), path: String(start[1]), headers: headers))
     }
 
-    enum Route: Equatable { case status, toggleDND, meetingMute, meetingLeave, reject(Int) }
+    enum Route: Equatable { case status, toggleDND, meetingMute, meetingLeave, meetingEnd, reject(Int) }
 
     /// What a request asks for, or the status code it's turned away with.
     static func route(_ request: Request) -> Route {
@@ -75,7 +77,9 @@ enum LocalAPI {
         case ("POST", "/dnd/toggle"): return .toggleDND
         case ("POST", "/meeting/mute"): return .meetingMute
         case ("POST", "/meeting/leave"): return .meetingLeave
-        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"): return .reject(405)
+        case ("POST", "/meeting/end"): return .meetingEnd
+        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"):
+            return .reject(405)
         default: return .reject(404)
         }
     }

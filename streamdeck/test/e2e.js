@@ -30,8 +30,8 @@ function appHandler(req, res) {
   } else if (req.method === 'POST' && req.url === '/meeting/mute') {
     pressed = { ok: app.pressWorks && !!app.meeting, message: 'Pressed Teams’s own mute button.' };
     if (pressed.ok) app.meeting.muted = !app.meeting.muted;
-  } else if (req.method === 'POST' && req.url === '/meeting/leave') {
-    pressed = { ok: !!app.meeting, message: 'Pressed Teams’s own leave button.' };
+  } else if (req.method === 'POST' && (req.url === '/meeting/leave' || req.url === '/meeting/end')) {
+    pressed = { ok: !!app.meeting, message: req.url === '/meeting/end' ? 'Ended it for everyone.' : 'Pressed Teams’s own leave button.' };
     app.meeting = null;
   } else if (!(req.method === 'GET' && req.url === '/status')) {
     res.writeHead(404).end();
@@ -191,8 +191,30 @@ try {
   assert.equal(app.meeting, null);
   console.log('ok  a held Leave key leaves only when held');
 
+  // Leave, on a press: leaves when let go; held a second, ends it for everyone
+  const quick = meetingKey('leave', 'l2', {});
+  toPlugin(Object.assign({ event: 'willAppear' }, quick));
+  app.meeting = { app: 'zoom', muted: false, canLeave: true };
+  await imageOn('l2', 'red', 3000, 'LEAVE on the press key');
+  const posts = (url) => app.requests.filter((r) => r.method === 'POST' && r.url === url).length;
+  toPlugin(Object.assign({ event: 'keyDown' }, quick));
+  await wait(150);
+  toPlugin(Object.assign({ event: 'keyUp' }, quick));
+  await wait(400);
+  assert.equal(posts('/meeting/leave'), 2, 'a press leaves, on release');
+  assert.equal(posts('/meeting/end'), 0);
+  app.meeting = { app: 'zoom', muted: false, canLeave: true };
+  toPlugin(Object.assign({ event: 'keyDown' }, quick));
+  await wait(1200);
+  assert.equal(posts('/meeting/end'), 1, 'held a second, it ends the meeting for everyone');
+  toPlugin(Object.assign({ event: 'keyUp' }, quick));
+  await wait(300);
+  assert.equal(posts('/meeting/leave'), 2, 'and letting go after doesn\'t leave as well');
+  console.log('ok  a Leave key leaves on a press, and ends it for everyone when held a second');
+
   toPlugin(Object.assign({ event: 'willDisappear' }, mute));
   toPlugin(Object.assign({ event: 'willDisappear' }, leave));
+  toPlugin(Object.assign({ event: 'willDisappear' }, quick));
   app.state = 'free';
 
   // the app quits: APP OFF; a press warns; it comes back

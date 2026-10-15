@@ -6,7 +6,9 @@
  *                  "meeting":{"app":"teams","muted":true,"canLeave":true}}
  *   toggleDND()   as a double-click on the bar; resolves to the new status
  *   pressMute()   mutes or unmutes the Teams or Zoom meeting;
- *   pressLeave()  leaves it; each resolves to { view, pressed: { ok, message } }
+ *   pressLeave()  leaves it;
+ *   pressEnd()    ends it for everyone if it's a Zoom meeting you host (else
+ *                 leaves); each resolves to { view, pressed: { ok, message } }
  */
 import http from 'node:http';
 
@@ -54,3 +56,4 @@ export const toggleDND = () => ask('POST', '/dnd/toggle', 800).then((a) => a.vie
 // a press can take a few seconds: the meeting's button, then perhaps its shortcut
 export const pressMute = () => ask('POST', '/meeting/mute', 12000);
 export const pressLeave = () => ask('POST', '/meeting/leave', 12000);
+export const pressEnd = () => ask('POST', '/meeting/end', 12000);

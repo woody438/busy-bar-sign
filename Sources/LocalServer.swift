@@ -103,13 +103,15 @@ final class LocalServer: ObservableObject {
             return press(.mute, on: connection)
         case .meetingLeave:
             return press(.leave, on: connection)
+        case .meetingEnd:
+            return press(.end, on: connection)
         case .reject(let code):
             return send(LocalAPI.response(code), on: connection)
         }
         send(LocalAPI.response(200, body: LocalAPI.encode(current)), on: connection)
     }
 
-    /// A Mute or Leave key: answers once the meeting app has been pressed, with how it went.
+    /// A Mute or Leave key (held: end): answers once the meeting app has been pressed, with how it went.
     private func press(_ what: MeetingControl, on connection: NWConnection) {
         status.meeting.press(what) { [weak self] report in
             guard let self else { return connection.cancel() }

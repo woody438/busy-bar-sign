@@ -56,6 +56,7 @@ final class FakeBackend: MeetingBackend {
     var escapes = 0
     var activated: [Int32] = []
     var enables = 0
+    var fullEnables = 0
     var finds = 0
     var busy: [FakeEl] = []
 
@@ -81,7 +82,10 @@ final class FakeBackend: MeetingBackend {
     func findApp(_ app: MeetingApp) -> Int32 { finds += 1; return app == .zoom ? zoomPid : pid }
     func alive(_ p: Int32) -> Bool { p != 0 && (p == pid || p == zoomPid) }
     func application(_ p: Int32) -> AnyObject { FakeApp(p) }
-    func enable(_ app: AnyObject, full: Bool) { enables += 1 }
+    func enable(_ app: AnyObject, full: Bool) {
+        enables += 1
+        if full { fullEnables += 1 }
+    }
     func windows(_ app: AnyObject) throws -> [AnyObject] {
         let list = (app as? FakeApp)?.pid == zoomPid && zoomPid != 0 ? zoomWindows : teamsWindows
         return list.filter { !$0.gone }
@@ -445,8 +449,8 @@ do { // Zoom: mute through its menu; leave through the shortcut
     expect(!l.ok && l.error == "use the shortcut", "zoom leave: \(l)")
 }
 
-do { // Zoom's "Leave meeting?": confirmed for an attendee, left to the host
-    for host in [false, true] {
+do { // Zoom's "Leave meeting?": a press leaves, host or not; a hold ends it for all, offered only to the host
+    for (host, hold) in [(false, false), (true, false), (true, true), (false, true)] {
         let h = Harness()
         h.f.pid = 0
         let (_, win) = h.zoomMeeting("Mute audio")
@@ -454,12 +458,52 @@ do { // Zoom's "Leave meeting?": confirmed for an attendee, left to the host
         let f = h.f
         let pop = f.el(MeetingAttrs(role: "AXPopover"), f.button("", "Leave meeting"))
         if host { pop.add([f.button("", "End meeting for all")]) }
-        win.add([pop, f.button("", "Leave meeting")])     // a toolbar button of the same name must not be pressed
-        h.e.left(.zoom)
+        // toolbar buttons of the same names must never be pressed
+        let toolbarLeave = f.button("", "Leave meeting"), toolbarEnd = f.button("", "End meeting for all")
+        var toolbarPressed = false
+        toolbarLeave.onAction = { _ in toolbarPressed = true }
+        toolbarEnd.onAction = { _ in toolbarPressed = true }
+        win.add([pop, toolbarLeave, toolbarEnd])
+        h.e.left(.zoom, endForAll: hold)
         h.run(2)
-        let pressed = f.performed.filter { $0 == "AXPress “Leave meeting”" }.count
-        expect(pressed == (host ? 0 : 1), "\(host ? "host" : "attendee"): \(f.performed)")
+        let want = host && hold ? "AXPress “End meeting for all”" : "AXPress “Leave meeting”"
+        expect(f.performed == [want] && !toolbarPressed,
+               "\(host ? "host" : "attendee"), \(hold ? "held" : "pressed"): \(f.performed)\(toolbarPressed ? " (a toolbar button)" : "")")
     }
+}
+
+do { // a held Leave key: Zoom goes through its shortcut; Teams just leaves
+    let h = Harness()
+    let (win, _, hang) = h.meeting("Mute mic")
+    h.run(2)
+    hang.onAction = { _ in win.children.forEach { $0.gone = true } }
+    let r = h.e.press(.end)
+    expect(r.ok && !h.teams.inMeeting, "Teams, held: leaves: \(r)")
+    let z = Harness()
+    z.f.pid = 0
+    z.zoomMeeting("Mute audio")
+    z.run(3)
+    let e = z.e.press(.end)
+    expect(!e.ok && e.error == "use the shortcut", "Zoom, held: the shortcut: \(e)")
+}
+
+do { // a Teams meeting window showing only its title-bar buttons: Teams is asked as VoiceOver asks
+    let h = Harness()
+    let f = h.f
+    let chrome = (0..<16).map { _ in f.button("", "") } + [f.el(MeetingAttrs(role: "AXGroup", id: "view_1088"))]
+    let win = f.window("New Event | Microsoft Teams")
+    win.add(chrome)
+    f.teamsWindows = [f.window("Chat | Lydia Morgan | Microsoft Teams"), win]
+    h.run(3)
+    expect(f.fullEnables >= 1 && !h.teams.inMeeting, "no web content: asked in full \(f.fullEnables) times")
+    // once Teams shows its page, the toolbar is found
+    let mic = f.button("microphone-button", "Unmute mic")
+    win.add([f.el(MeetingAttrs(role: "AXWebArea"), f.group(mic, f.button("hangup-button", "Leave")))])
+    h.run(6)
+    expect(h.teams.inMeeting && h.teams.muted == true, "found after Teams showed its page: \(h.teams)")
+    let asked = f.fullEnables
+    h.run(10)
+    expect(f.fullEnables == asked, "not asked again once found")
 }
 
 do { // Zoom's feedback window is closed; its main window never is

@@ -1,6 +1,6 @@
 {
 	"Name": "Busy Bar Sign",
-	"Version": "1.1.0.0",
+	"Version": "1.2.0.0",
 	"Author": "Ian Woodall",
 	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it. Mute and Leave keys for your Teams or Zoom meeting.",
 	"URL": "https://github.com/woody438/busy-bar-sign",
@@ -60,7 +60,7 @@
 			"Name": "Leave",
 			"UUID": "com.woodall.busybarsign.leave",
 			"Icon": "imgs/actions/leave/icon",
-			"Tooltip": "Leaves your Teams or Zoom meeting. Can be set to leave only when held.",
+			"Tooltip": "Leaves your Teams or Zoom meeting. Hold for a second to end a Zoom meeting you host for everyone.",
 			"Controllers": [
 				"Keypad"
 			],

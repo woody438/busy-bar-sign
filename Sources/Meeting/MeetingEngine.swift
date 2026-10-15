@@ -58,7 +58,9 @@ struct MeetingPress: Equatable {
     var error = ""
 }
 
-enum MeetingControl: String { case mute, leave }
+/// What a key asks for. `end` is the Leave key held: Zoom's "End meeting for
+/// all" when you host it; anything else just leaves.
+enum MeetingControl: String { case mute, leave, end }
 
 final class MeetingEngine {
     static let micID = "microphone-button"
@@ -127,10 +129,12 @@ final class MeetingEngine {
 
         var nextDiscovery = Date.distantPast
         var slowWalk: [String: Date] = [:]
+        var askedFull = false       // Teams asked as VoiceOver asks (AXEnhancedUserInterface)
 
         var surveyUntil = Date.distantPast
         var nextSurveyScan = Date.distantPast
-        var confirmUntil = Date.distantPast   // Zoom: press "Leave meeting" in its confirmation
+        var confirmUntil = Date.distantPast   // Zoom: answer its "Leave meeting?" prompt till then
+        var endForAll = false                 // with "End meeting for all", if it offers it
 
         init(_ app: MeetingApp) { self.app = app }
     }
@@ -201,6 +205,7 @@ final class MeetingEngine {
         t.pid = pid
         t.nextDiscovery = .distantPast
         t.slowWalk = [:]
+        t.askedFull = false
         if pid != 0 {
             let app = backend.application(pid)
             t.element = app
@@ -321,7 +326,9 @@ final class MeetingEngine {
         for w in candidates.prefix(4) {
             if let next = t.slowWalk[w.title], now < next { continue }
             var mic: MeetingNode?, hang: MeetingNode?
+            var web = false
             let (tree, read, _) = MeetingNode.walk(backend, w.element, maxNodes: Self.meetingWalkCap) { n in
+                if n.attrs.role == "AXWebArea" { web = true }
                 if n.attrs.id == Self.micID { mic = n }
                 if n.attrs.id == Self.hangupID { hang = n }
                 return mic != nil && hang != nil
@@ -344,8 +351,14 @@ final class MeetingEngine {
                 return true
             }
             t.slowWalk[w.title] = now.addingTimeInterval(read >= Self.bigWindow ? Self.slowWalkBig : Self.slowWalkEvery)
-            if read < 10, let app = t.element {
-                backend.enable(app, full: true)     // an empty tree: Chromium dropped it, so ask as a screen reader does
+            // No web content in a meeting window — only its title-bar buttons — means Chromium
+            // (Teams is built on it) hasn't built the page's tree: ask as VoiceOver does
+            if read < 10 || !web, let app = t.element {
+                if !t.askedFull {
+                    log("asking Teams to show its meeting controls to Accessibility (AXEnhancedUserInterface)")
+                    t.askedFull = true
+                }
+                backend.enable(app, full: true)
             }
         }
 
@@ -401,10 +414,14 @@ final class MeetingEngine {
     // MARK: - Pressing
 
     /// After the leave shortcut went to an app (nil: the active one).
-    func left(_ app: MeetingApp?) {
+    /// `endForAll`: answer Zoom's prompt with "End meeting for all" if it offers it.
+    func left(_ app: MeetingApp?, endForAll: Bool = false) {
         let now = self.now()
         let t = app.map(tracker) ?? active ?? tracker(.teams)
-        if t.app == .zoom { t.confirmUntil = now.addingTimeInterval(Self.confirmWatch) }   // Zoom asks "Leave meeting?" first
+        if t.app == .zoom {                         // Zoom asks "Leave meeting?" first
+            t.confirmUntil = now.addingTimeInterval(Self.confirmWatch)
+            t.endForAll = endForAll
+        }
         if t.inMeeting && t.app == .teams {
             meetingEnded(t, now, why: "leave key")
         } else if !t.inMeeting {
@@ -435,9 +452,9 @@ final class MeetingEngine {
             return r
         case (.mute, _):
             target = t.mute
-        case (.leave, .teams):
+        case (.leave, .teams), (.end, .teams):     // Teams: ending for everyone isn't done; leave
             target = t.leave
-        case (.leave, .zoom):
+        case (.leave, .zoom), (.end, .zoom):
             r.error = "use the shortcut"            // Zoom's leave goes through ⌘W and its confirmation
             return r
         }
@@ -484,36 +501,35 @@ final class MeetingEngine {
             publish()
             return r
         }
-        if what == .leave { left(t.app) }
+        if what != .mute { left(t.app, endForAll: what == .end) }
         publish()
         return r
     }
 
-    /// Answers Zoom's "Leave meeting?" prompt for an attendee. If it offers
-    /// "End meeting for all" you're the host, and that choice is yours.
+    /// Answers Zoom's "Leave meeting?" prompt: "Leave meeting" for a press of
+    /// the Leave key, host or not; "End meeting for all" for a hold, when the
+    /// prompt offers it (you're the host) — else a hold just leaves. Only the
+    /// prompt's own buttons, never a toolbar button of the same name.
     private func confirmZoomLeave(_ t: Tracker) {
         for w in windows(t) where w.kind != .main {
-            var leave: MeetingNode?
-            var host = false
+            var leave: MeetingNode?, end: MeetingNode?
             let (tree, _, _) = MeetingNode.walk(backend, w.element, maxNodes: 2000)
             tree.each { n in
-                guard n.expanded, n.attrs.role == "AXButton" else { return true }
+                guard n.expanded, n.attrs.role == "AXButton", w.kind != .meeting || n.inPopup else { return true }
                 let l = n.attrs.label
-                if MeetingPatterns.matches(MeetingPatterns.zoomEndForAll, l) {
-                    host = true
-                } else if MeetingPatterns.matches(MeetingPatterns.zoomLeaveButton, l), leave == nil, w.kind != .meeting || n.inPopup {
-                    leave = n                       // the prompt's button, never a toolbar button of the same name
+                if end == nil, MeetingPatterns.matches(MeetingPatterns.zoomEndForAll, l) {
+                    end = n
+                } else if leave == nil, MeetingPatterns.matches(MeetingPatterns.zoomLeaveButton, l) {
+                    leave = n
                 }
                 return true
             }
-            if host {
-                log("Zoom is asking the host to end or leave; leaving that choice to you")
-                t.confirmUntil = .distantPast
-            } else if let leave {
-                if (try? backend.perform(leave.element, "AXPress")) != nil { log("confirmed Zoom's Leave meeting prompt") }
-                t.confirmUntil = .distantPast
+            guard let button = t.endForAll ? (end ?? leave) : leave else { continue }
+            if (try? backend.perform(button.element, "AXPress")) != nil {
+                log(button === end ? "ended the Zoom meeting for everyone" : "confirmed Zoom's Leave meeting prompt\(end == nil ? "" : " (as host)")")
             }
-            if t.confirmUntil == .distantPast { return }
+            t.confirmUntil = .distantPast
+            return
         }
     }
 
