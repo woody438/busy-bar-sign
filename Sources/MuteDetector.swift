@@ -7,11 +7,13 @@ import ApplicationServices
  * retired its device API on 30 June 2026. Teams and Zoom keep the mic open
  * while you're muted, so Core Audio can't tell; their mute button can.
  *
- * Only the apps CallDetector counts as your call are read, so dictation
- * tools and anything you've told it to ignore never are. While you're on a
- * call it finds the app's mute control once (a search of its windows and
- * menu bar, off the main thread, within a time budget), then re-reads that
- * one control each second. A control that's gone is searched for again.
+ * Teams and Zoom are read by MeetingKeys, which finds Teams' mic button by
+ * its id and reads Zoom's Meeting menu. Any other app CallDetector counts as
+ * your call (Meet in a browser, Slack, Webex, FaceTime) is searched for a
+ * control whose name reads as a mic mute (MuteLabels): its windows, then its
+ * menu bar, off the main thread, within a budget, the control found then
+ * re-read each second. Dictation tools are never read: CallDetector doesn't
+ * count them.
  *
  * Nothing found, no permission, or anything unrecognised reads as a live
  * mic: the bar never tells the room it can talk unless the app says so.
@@ -28,11 +30,13 @@ final class MuteDetector: ObservableObject {
         didSet { UserDefaults.standard.set(enabled, forKey: "showMute"); if !enabled { reset() } }
     }
 
+    let meeting: MeetingKeys
     private let queue = DispatchQueue(label: "com.woodall.BusyBarSign.mute", qos: .utility)
     private let probe = MuteProbe()                 // used only on `queue`
     private var busy = false
 
-    init() {
+    init(meeting: MeetingKeys) {
+        self.meeting = meeting
         enabled = UserDefaults.standard.object(forKey: "showMute") as? Bool ?? true
     }
 
@@ -45,8 +49,23 @@ final class MuteDetector: ObservableObject {
         let t = AXIsProcessTrusted()
         if trusted != t { trusted = t }
         guard enabled, trusted, onCall, !apps.isEmpty else { reset(); return }
+
+        // Teams and Zoom: what the meeting keys read
+        let meetingApps = apps.compactMap(MeetingApp.init(bundleID:))
+        let snap = meeting.snapshot
+        if let app = meetingApps.first(where: { snap.apps[$0]?.inMeeting == true }), let s = snap.apps[app] {
+            set(s.muted.map { MuteReading(muted: $0, app: app.label, label: s.muteLabel) }, looking: app.label)
+            return
+        }
+        let others = apps.filter { MeetingApp(bundleID: $0) == nil }
+        if others.isEmpty {
+            set(nil, looking: meetingApps.first?.label)       // its meeting isn't found (yet)
+            return
+        }
+
+        // anything else: searched for
         guard !busy else { return }
-        let targets = apps.compactMap { id -> MuteProbe.Target? in
+        let targets = others.compactMap { id -> MuteProbe.Target? in
             guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first else { return nil }
             return MuteProbe.Target(pid: app.processIdentifier, name: app.localizedName ?? id)
         }
@@ -64,14 +83,17 @@ final class MuteDetector: ObservableObject {
     private func finish(_ found: MuteReading?, looking: String?) {
         busy = false
         guard enabled, trusted else { return }
+        set(found, looking: looking)
+    }
+
+    private func set(_ found: MuteReading?, looking: String?) {
         if reading != found { reading = found }
         let next = found == nil ? looking : nil
         if lookingIn != next { lookingIn = next }
     }
 
     private func reset() {
-        if reading != nil { reading = nil }
-        if lookingIn != nil { lookingIn = nil }
+        set(nil, looking: nil)
         let probe = self.probe
         queue.async { probe.forget() }
     }
@@ -109,12 +131,14 @@ struct MuteReading: Equatable {
     var label: String
 }
 
-/// The Accessibility work, on MuteDetector's queue only.
+/// The search of apps other than Teams and Zoom, on MuteDetector's queue only.
 final class MuteProbe {
     struct Target { let pid: pid_t; let name: String }
 
-    private var cached: (pid: pid_t, element: AXUIElement)?
+    private let ax = AXMeetingBackend()
+    private var cached: (pid: pid_t, element: AnyObject)?
     private var searched: [pid_t: Date] = [:]
+    private var asked = Set<pid_t>()
     private let roles: Set<String> = ["AXButton", "AXCheckBox", "AXMenuItem", "AXMenuButton", "AXRadioButton", "AXToggle"]
 
     func forget() {
@@ -125,71 +149,54 @@ final class MuteProbe {
     func read(_ targets: [Target]) -> MuteReading? {
         for target in targets {
             if let c = cached, c.pid == target.pid {
-                if let r = reading(of: c.element) { return MuteReading(muted: r.muted, app: target.name, label: r.label) }
+                if let a = try? ax.read(c.element), let r = reading(a) { return MuteReading(muted: r.muted, app: target.name, label: r.label) }
                 cached = nil                         // gone or relabelled: look again now
                 searched[target.pid] = nil
             }
             // search an app at most every 3 seconds
             if let last = searched[target.pid], Date().timeIntervalSince(last) < 3 { continue }
             searched[target.pid] = Date()
-            let app = AXUIElementCreateApplication(target.pid)
-            AXUIElementSetMessagingTimeout(app, 0.5)
-            // Chromium and Electron apps (Chrome for Meet, Slack) only expose their
-            // web content to Accessibility when asked
-            AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+            let app = ax.application(target.pid)
+            // Chromium and Electron apps (a browser for Meet, Slack) build their tree only when asked:
+            // quietly first, then as a screen reader would
+            ax.enable(app, full: asked.contains(target.pid))
+            asked.insert(target.pid)
             if let found = search(app) {
-                cached = (target.pid, found.0)
-                return MuteReading(muted: found.1.muted, app: target.name, label: found.1.label)
+                cached = (target.pid, found.element)
+                return MuteReading(muted: found.muted, app: target.name, label: found.label)
             }
         }
         return nil
     }
 
-    /// A breadth-first look through the app's windows — the focused one first —
-    /// then its menu bar, for the first control that reads as a mic mute.
-    private func search(_ app: AXUIElement) -> (AXUIElement, (muted: Bool, label: String))? {
-        var roots: [AXUIElement] = []
-        if let w = element(app, "AXFocusedWindow") { roots.append(w) }
-        roots += (value(app, "AXWindows") as? [AXUIElement]) ?? []
-        if let bar = element(app, "AXMenuBar") { roots.append(bar) }
-
-        let deadline = Date().addingTimeInterval(1.5)
-        var queue = roots.map { ($0, 0) }
-        var head = 0, seen = 0
-        while head < queue.count, seen < 8000, Date() < deadline {
-            let (e, depth) = queue[head]
-            head += 1
-            seen += 1
-            if let role = value(e, "AXRole") as? String, roles.contains(role), let r = reading(of: e, role: role) {
-                return (e, r)
-            }
-            if depth < 60, let children = value(e, "AXChildren") as? [AXUIElement] {
-                queue += children.map { ($0, depth + 1) }
-            }
+    /// The app's windows, front first, then its menu bar, in document order,
+    /// for the first control that reads as a mic mute.
+    private func search(_ app: AnyObject) -> (element: AnyObject, muted: Bool, label: String)? {
+        var roots = (try? ax.windows(app)) ?? []
+        if let bar = ax.menuBar(app) { roots.append(bar) }
+        let deadline = Date().addingTimeInterval(2)
+        var budget = 6000
+        for root in roots {
+            var found: (element: AnyObject, muted: Bool, label: String)?
+            let read = MeetingNode.walk(ax, root, maxNodes: budget) { n in
+                if self.roles.contains(n.attrs.role), let r = self.reading(n.attrs) {
+                    found = (n.element, r.muted, r.label)
+                    return true
+                }
+                return Date() > deadline
+            }.read
+            if let found { return found }
+            budget -= read
+            if budget <= 0 || Date() > deadline { break }
         }
         return nil
     }
 
-    /// What one control says, by its label (aria-label in web content, title in native apps, then tooltip).
-    private func reading(of e: AXUIElement, role known: String? = nil) -> (muted: Bool, label: String)? {
-        guard let role = known ?? (value(e, "AXRole") as? String) else { return nil }
-        let mark = value(e, "AXMenuItemMarkChar") as? String
-        let checked = !(mark ?? "").isEmpty
-        for attribute in ["AXDescription", "AXTitle", "AXHelp"] {
-            guard let label = value(e, attribute) as? String, !label.isEmpty else { continue }
-            if let muted = MuteLabels.reading(label: label, role: role, checked: checked) { return (muted, label) }
+    /// What one control says, by its name (aria-label in web content, title in native apps, then tooltip).
+    private func reading(_ a: MeetingAttrs) -> (muted: Bool, label: String)? {
+        for label in [a.desc, a.title, a.help] where !label.isEmpty {
+            if let muted = MuteLabels.reading(label: label, role: a.role, checked: !a.mark.isEmpty) { return (muted, label) }
         }
         return nil
-    }
-
-    private func value(_ e: AXUIElement, _ attribute: String) -> AnyObject? {
-        var v: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(e, attribute as CFString, &v) == .success else { return nil }
-        return v
-    }
-
-    private func element(_ e: AXUIElement, _ attribute: String) -> AXUIElement? {
-        guard let v = value(e, attribute), CFGetTypeID(v) == AXUIElementGetTypeID() else { return nil }
-        return (v as! AXUIElement)
     }
 }

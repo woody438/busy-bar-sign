@@ -43,6 +43,11 @@ expect(route("GET", "/status", here) == .status, "GET /status")
 expect(route("GET", "/status", ["host": "LocalHost:47811"]) == .status, "localhost, any case")
 expect(route("POST", "/dnd/toggle", here) == .toggleDND, "POST /dnd/toggle")
 expect(route("GET", "/dnd/toggle", here) == .reject(405), "GET can't toggle")
+expect(route("POST", "/meeting/mute", here) == .meetingMute, "POST /meeting/mute")
+expect(route("POST", "/meeting/leave", here) == .meetingLeave, "POST /meeting/leave")
+expect(route("GET", "/meeting/leave", here) == .reject(405), "GET can't leave")
+expect(route("POST", "/meeting/leave", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
+       "a web page can't make you leave a meeting")
 expect(route("POST", "/status", here) == .reject(405), "POST /status")
 expect(route("GET", "/", here) == .reject(404), "unknown path")
 expect(route("GET", "/status", [:]) == .reject(403), "no Host")
@@ -59,6 +64,17 @@ expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "dnd", moment: ni
        == #"{"dnd":true,"state":"dnd"}"#, "status JSON without one")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)), as: UTF8.self)
        == #"{"dnd":false,"muted":true,"state":"call"}"#, "status JSON while muted on a call")
+var inMeeting = LocalAPI.Status(state: "callMuted", moment: nil, dnd: false)
+inMeeting.state = "call"
+inMeeting.muted = true
+inMeeting.meeting = LocalAPI.Status.Meeting(app: "teams", muted: true, canLeave: true)
+inMeeting.pressed = LocalAPI.Status.Pressed(ok: true, message: "Pressed Teams's own mute button.")
+expect(String(decoding: LocalAPI.encode(inMeeting), as: UTF8.self)
+       == #"{"dnd":false,"meeting":{"app":"teams","canLeave":true,"muted":true},"muted":true,"pressed":{"message":"Pressed Teams's own mute button.","ok":true},"state":"call"}"#,
+       "status JSON in a meeting, after a press")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false,
+                                                        meeting: LocalAPI.Status.Meeting(app: "zoom", muted: nil, canLeave: true))), as: UTF8.self)
+       == #"{"dnd":false,"meeting":{"app":"zoom","canLeave":true},"state":"call"}"#, "a meeting whose mute can't be read")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")

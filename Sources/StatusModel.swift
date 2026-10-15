@@ -6,8 +6,9 @@ import SwiftUI
  * microphone (CallDetector), Do Not Disturb, and the calendar
  * (CalendarSource), decided by StatusRules once a second and whenever
  * one of them changes. On a call, the call app's own mute button
- * (MuteDetector) turns ON A CALL into its muted look. Every view of the
- * bar, the menus and the controls read it from here.
+ * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
+ * its muted look. Every view of the bar, the menus and the controls read
+ * it from here.
  */
 @MainActor
 final class StatusModel: ObservableObject {
@@ -18,16 +19,19 @@ final class StatusModel: ObservableObject {
 
     let detector: CallDetector
     let calendar: CalendarSource
-    let mute = MuteDetector()
+    /// Teams and Zoom: their mute and leave controls, for the sign and the Stream Deck keys.
+    let meeting = MeetingKeys()
+    let mute: MuteDetector
     private var timer: Timer?
     private var watching = Set<AnyCancellable>()
 
     init(detector: CallDetector, calendar: CalendarSource) {
         self.detector = detector
         self.calendar = calendar
+        mute = MuteDetector(meeting: meeting)
         // objectWillChange fires before the change lands: decide on the next turn
         for publisher in [detector.objectWillChange.eraseToAnyPublisher(), calendar.objectWillChange.eraseToAnyPublisher(),
-                          mute.objectWillChange.eraseToAnyPublisher()] {
+                          mute.objectWillChange.eraseToAnyPublisher(), meeting.objectWillChange.eraseToAnyPublisher()] {
             publisher
                 .receive(on: RunLoop.main)
                 .sink { [weak self] _ in MainActor.assumeIsolated { self?.evaluate() } }
@@ -42,6 +46,7 @@ final class StatusModel: ObservableObject {
         t.tolerance = 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t
+        meeting.start()
         evaluate()
     }
 

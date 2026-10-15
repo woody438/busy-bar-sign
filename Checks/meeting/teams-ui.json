@@ -1,0 +1,33 @@
+{
+	"$comment": "Text patterns the live-status helper uses to read Teams and Zoom (Go RE2 regex syntax). Edit, then quit and reopen Stream Deck. A pattern that doesn't compile falls back to the built-in default and is noted in the plugin log.",
+	"muteRules": [
+		{
+			"pattern": "(?i)^\\s*mute\\b",
+			"muted": false
+		},
+		{
+			"pattern": "(?i)\\bturn off (your )?(mic|microphone)\\b|\\bturn (your )?(mic|microphone) off\\b",
+			"muted": false
+		},
+		{
+			"pattern": "(?i)\\bunmute\\b",
+			"muted": true
+		},
+		{
+			"pattern": "(?i)\\bturn on (your )?(mic|microphone)\\b|\\bturn (your )?(mic|microphone) on\\b",
+			"muted": true
+		},
+		{
+			"pattern": "(?i)\\b(mic|microphone) (is )?(off|muted)\\b",
+			"muted": true
+		},
+		{
+			"pattern": "(?i)\\b(mic|microphone) (is )?(on|live|unmuted)\\b",
+			"muted": false
+		}
+	],
+	"surveyText": "(?i)call quality|rate my call|rate (your|this|the) (call|meeting)|how was (the|your|this) (call|meeting)|how did (the|your|this) (call|meeting) go|thumbs (up|down)|how likely are you to recommend|would you recommend (microsoft )?teams|tell us (about|how) (the|your) (call|meeting)|how was (the )?(audio|video)( and (audio|video))?( quality)?",
+	"dismissButton": "(?i)^\\s*(dismiss|close|skip|not now|no,? thanks|maybe later|cancel|close (this )?(dialog|survey|feedback|window|panel|pop-?up))\\s*(\\(.*\\))?\\s*$",
+	"neverPress": "(?i)submit|send|thumbs|rejoin|leave|end (the )?(meeting|call)|end for everyone|stop|delete|remove|sign out|report|good|issue|audio|video|screen ?share",
+	"meetingEnded": "(?i)^\\s*rejoin\\b|you left the (meeting|call)|the (meeting|call) (has )?ended|\\bcall ended\\b|\\bmeeting ended\\b"
+}

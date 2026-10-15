@@ -58,8 +58,8 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
     }
 }
 
-/// The controls in four tabs: what the sign says and why, where it shows,
-/// what in your calendar drives it, and what counts as a call.
+/// The controls in five tabs: what the sign says and why, where it shows,
+/// what in your calendar drives it, what counts as a call, and Teams and Zoom.
 struct ControlsView: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var status: StatusModel
@@ -70,7 +70,7 @@ struct ControlsView: View {
     @AppStorage("controlsTab") private var tab: Tab = .status
 
     enum Tab: String, CaseIterable {
-        case status, displays, calendar, microphone
+        case status, displays, calendar, microphone, meetings
         var label: String { rawValue.capitalized }
         var symbol: String {
             switch self {
@@ -78,6 +78,7 @@ struct ControlsView: View {
             case .displays: return "display"
             case .calendar: return "calendar"
             case .microphone: return "mic"
+            case .meetings: return "video"
             }
         }
     }
@@ -110,7 +111,8 @@ struct ControlsView: View {
                 case .status: StatusTab(detector: detector, status: status, calendar: calendar, wall: wall, server: server)
                 case .displays: DisplaysTab(wall: wall, floating: floating)
                 case .calendar: CalendarTab(calendar: calendar)
-                case .microphone: MicrophoneTab(detector: detector, mute: status.mute)
+                case .microphone: MicrophoneTab(detector: detector)
+                case .meetings: MeetingsTab(meeting: status.meeting, mute: status.mute)
                 }
                 Text("Also in the menu-bar icon and the Dock icon's menu. Reopen this window by clicking the Dock icon.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -507,7 +509,6 @@ private enum Guide {
 
 private struct MicrophoneTab: View {
     @ObservedObject var detector: CallDetector
-    @ObservedObject var mute: MuteDetector
 
     var body: some View {
         Card {
@@ -521,26 +522,6 @@ private struct MicrophoneTab: View {
                 Text(detector.detection.sourceLine).foregroundStyle(.secondary).lineLimit(1)
             }
         }
-
-        Heading("Muted on a call")
-        Card {
-            Row(label: "Show when I'm muted", divider: false) {
-                Toggle("Show when I'm muted", isOn: $mute.enabled).labelsHidden().toggleStyle(.switch)
-            }
-            if mute.enabled {
-                Row(label: "Accessibility") {
-                    if mute.trusted {
-                        Text("Allowed").foregroundStyle(.secondary)
-                    } else {
-                        Button("Allow…") { mute.requestTrust() }
-                    }
-                }
-                Row(label: "Now") {
-                    Text(mute.statusLine).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                }
-            }
-        }
-        Note("While you're muted the bar still says ON A CALL, with a slashed mic and the pill dimmed: bright means quiet, dim means the room can talk. It reads the mute button in Teams, Zoom, Meet, Webex, Slack or FaceTime through macOS Accessibility (System Settings ▸ Privacy & Security ▸ Accessibility), never the dictation apps. If it can't tell, it shows the mic as live. After installing a new build you may need to turn Busy Bar Sign off and on again in that list.")
 
         Heading("Using the microphone now")
         Card {
@@ -581,6 +562,131 @@ private struct MicrophoneTab: View {
         return holders.filter { holder in
             guard let id = holder.bundleID else { return false }
             return seen.insert(id).inserted
+        }
+    }
+}
+
+// MARK: - Meetings
+
+/// Teams and Zoom: whether you're muted (for the sign), the Stream Deck's
+/// Mute and Leave keys, the post-call survey, and what to send if a meeting
+/// app isn't read right.
+private struct MeetingsTab: View {
+    @ObservedObject var meeting: MeetingKeys
+    @ObservedObject var mute: MuteDetector
+    @State private var output: String?
+    @State private var working = false
+
+    var body: some View {
+        Group {
+            Card {
+                Row(label: "Accessibility", divider: false) {
+                    if mute.trusted {
+                        Text("Allowed").foregroundStyle(.secondary)
+                    } else {
+                        Button("Allow…") { mute.requestTrust() }
+                    }
+                }
+                ForEach(MeetingApp.allCases, id: \.self) { app in
+                    Row(label: app == .teams ? "Microsoft Teams" : "Zoom") {
+                        Text(line(app)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+            }
+            if !mute.trusted {
+                Warning(text: "Without Accessibility the sign can't tell you're muted, and the Stream Deck's Mute and Leave keys can't press anything. After installing a new build you may need to turn Busy Bar Sign off and on again in System Settings ▸ Privacy & Security ▸ Accessibility.")
+            }
+        }
+        Group {
+            Heading("On the sign")
+            Card {
+                Row(label: "Show when I'm muted", divider: false) {
+                    Toggle("Show when I'm muted", isOn: $mute.enabled).labelsHidden().toggleStyle(.switch)
+                }
+                if mute.enabled {
+                    Row(label: "Now") {
+                        Text(mute.statusLine).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+            }
+            Note("While you're muted the bar still says ON A CALL, with a slashed mic and the pill dimmed: bright means quiet, dim means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
+        }
+        Group {
+            Heading("Stream Deck keys")
+            Card {
+                Row(label: "Close the call-quality survey after a call", divider: false) {
+                    Toggle("Close the call-quality survey", isOn: $meeting.closeSurveys).labelsHidden().toggleStyle(.switch)
+                }
+                Row(label: "Last key press") {
+                    Text(meeting.lastPress.map { "\($0.at.formatted(date: .omitted, time: .shortened)) · \($0.message)" } ?? "None yet")
+                        .foregroundStyle(meeting.lastPress?.ok == false ? Color.orange : Color.secondary)
+                        .lineLimit(2).multilineTextAlignment(.trailing)
+                }
+                Row(label: "Last popup after a call") {
+                    if let p = meeting.lastPopup {
+                        Button("\(p.at.formatted(date: .omitted, time: .shortened)) · \(p.popup.app.label): \(p.popup.action)") {
+                            output = "\(p.popup.app.label) “\(p.popup.window)” — \(p.popup.matched ? "looked like a survey" : "not recognised, left alone")\n\n\(p.popup.text)"
+                        }
+                        .buttonStyle(.link)
+                    } else {
+                        Text("None yet").foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. With both apps in meetings they act on the one joined last. The survey is only ever closed with a Dismiss, Close or Skip-type button, never Submit or a thumbs. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
+        }
+        Group {
+            Heading("If a meeting app isn't read right")
+            HStack {
+                Button("Inspect meeting controls") { run { meeting.inspect(then: $0) } }
+                Button("Capture popups") { run { meeting.capture(then: $0) } }
+                Spacer()
+                Button("Edit patterns…") { meeting.revealPatterns() }
+                Button("Reload") { meeting.reloadPatterns() }
+            }
+            .disabled(working)
+            .sheet(isPresented: Binding(get: { output != nil }, set: { if !$0 { output = nil } })) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ScrollView {
+                        Text(output ?? "")
+                            .font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                    }
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color(nsColor: .textBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color(nsColor: .separatorColor)))
+                    HStack {
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(output ?? "", forType: .string)
+                        }
+                        Spacer()
+                        Button("Done") { output = nil }.keyboardShortcut(.defaultAction)
+                    }
+                }
+                .padding(16)
+                .frame(width: 620, height: 460)
+            }
+            ForEach(meeting.problems, id: \.self) { Warning(text: $0) }
+            Note("Inspect lists the buttons Busy Bar Sign can see in a Teams meeting window and Zoom's Meeting menu; Capture lists what's open after a call, touching nothing. Copy either and send it over if the sign or a key gets it wrong. The words it reads are in a patterns file (Edit patterns…), the same format as Teams Meeting Keys' teams-ui.json.")
+        }
+    }
+
+    /// One line for an app: its meeting, mute button and state.
+    private func line(_ app: MeetingApp) -> String {
+        guard let s = meeting.snapshot.apps[app], s.running else { return "Not running" }
+        guard s.inMeeting else { return "Not in a meeting" }
+        let muted = s.muted.map { $0 ? "muted" : "mic live" } ?? "mute unknown"
+        let label = s.muteLabel.isEmpty ? "" : " · “\(s.muteLabel)”"
+        return "“\(s.window)”\(label) · \(muted)\(meeting.snapshot.active == app ? " · the keys act here" : "")"
+    }
+
+    private func run(_ work: (@escaping (String) -> Void) -> Void) {
+        working = true
+        work { text in
+            output = text
+            working = false
         }
     }
 }

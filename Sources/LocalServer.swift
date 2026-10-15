@@ -4,7 +4,8 @@ import Network
 /*
  * A small web server for the Stream Deck plugin, on 127.0.0.1 only:
  * nothing else on the network can reach it. LocalAPI says what each
- * request means; this listens, and answers from the sign's own status.
+ * request means; this listens, and answers from the sign's own status —
+ * or, for the Mute and Leave keys, once MeetingKeys has pressed.
  * One request per connection, then it closes.
  */
 @MainActor
@@ -15,6 +16,8 @@ final class LocalServer: ObservableObject {
     private let detector: CallDetector
     private let status: StatusModel
     private var listener: NWListener?
+    /// Connections still sending their request.
+    private var asking = Set<ObjectIdentifier>()
 
     init(detector: CallDetector, status: StatusModel) {
         self.detector = detector
@@ -64,11 +67,13 @@ final class LocalServer: ObservableObject {
 
     private func serve(_ connection: NWConnection) {
         connection.start(queue: .main)
+        let id = ObjectIdentifier(connection)
+        asking.insert(id)
         read(connection, Data())
-        // a client that never finishes asking is let go
+        // a client that never finishes asking is let go (a meeting key's answer can take a few seconds)
         Task {
             try? await Task.sleep(for: .seconds(5))
-            connection.cancel()
+            if asking.remove(id) != nil { connection.cancel() }
         }
     }
 
@@ -87,16 +92,32 @@ final class LocalServer: ObservableObject {
     }
 
     private func answer(_ request: LocalAPI.Request, on connection: NWConnection) {
+        asking.remove(ObjectIdentifier(connection))
         switch LocalAPI.route(request) {
         case .status:
             break
         case .toggleDND:
             detector.toggleDND()
             status.evaluate()                   // decide now, so the answer has the new state
+        case .meetingMute:
+            return press(.mute, on: connection)
+        case .meetingLeave:
+            return press(.leave, on: connection)
         case .reject(let code):
             return send(LocalAPI.response(code), on: connection)
         }
         send(LocalAPI.response(200, body: LocalAPI.encode(current)), on: connection)
+    }
+
+    /// A Mute or Leave key: answers once the meeting app has been pressed, with how it went.
+    private func press(_ what: MeetingControl, on connection: NWConnection) {
+        status.meeting.press(what) { [weak self] report in
+            guard let self else { return connection.cancel() }
+            self.status.evaluate()
+            var answer = self.current
+            answer.pressed = LocalAPI.Status.Pressed(ok: report.ok, message: report.message)
+            self.send(LocalAPI.response(200, body: LocalAPI.encode(answer)), on: connection)
+        }
     }
 
     private var current: LocalAPI.Status {
@@ -105,8 +126,13 @@ final class LocalServer: ObservableObject {
         }
         // a muted call is still "call" to the Stream Deck, with muted alongside
         let muted = status.state == .callMuted
+        // the Teams or Zoom meeting the keys act on
+        let snap = status.meeting.snapshot
+        let meeting = snap.active.flatMap { app in
+            snap.apps[app].map { LocalAPI.Status.Meeting(app: app.rawValue, muted: $0.muted, canLeave: $0.canLeave) }
+        }
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
-                               dnd: detector.dndUntil != nil, muted: muted ? true : nil)
+                               dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {
