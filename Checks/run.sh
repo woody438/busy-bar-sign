@@ -46,6 +46,10 @@ node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
 "$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
 "$OUT/rules" "$OUT/rules.json"
 
+echo; echo "== mute controls (what MuteDetector reads in the call apps)"
+"$SWIFTC" Sources/MuteLabels.swift Checks/mute/main.swift -o "$OUT/mute"
+"$OUT/mute" | tail -1
+
 echo; echo "== local API (what the Stream Deck plugin talks to)"
 "$SWIFTC" Sources/LocalAPI.swift Checks/http/main.swift -o "$OUT/http"
 "$OUT/http"

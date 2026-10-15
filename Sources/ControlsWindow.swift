@@ -110,7 +110,7 @@ struct ControlsView: View {
                 case .status: StatusTab(detector: detector, status: status, calendar: calendar, wall: wall, server: server)
                 case .displays: DisplaysTab(wall: wall, floating: floating)
                 case .calendar: CalendarTab(calendar: calendar)
-                case .microphone: MicrophoneTab(detector: detector)
+                case .microphone: MicrophoneTab(detector: detector, mute: status.mute)
                 }
                 Text("Also in the menu-bar icon and the Dock icon's menu. Reopen this window by clicking the Dock icon.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -507,6 +507,7 @@ private enum Guide {
 
 private struct MicrophoneTab: View {
     @ObservedObject var detector: CallDetector
+    @ObservedObject var mute: MuteDetector
 
     var body: some View {
         Card {
@@ -520,6 +521,26 @@ private struct MicrophoneTab: View {
                 Text(detector.detection.sourceLine).foregroundStyle(.secondary).lineLimit(1)
             }
         }
+
+        Heading("Muted on a call")
+        Card {
+            Row(label: "Show when I'm muted", divider: false) {
+                Toggle("Show when I'm muted", isOn: $mute.enabled).labelsHidden().toggleStyle(.switch)
+            }
+            if mute.enabled {
+                Row(label: "Accessibility") {
+                    if mute.trusted {
+                        Text("Allowed").foregroundStyle(.secondary)
+                    } else {
+                        Button("Allow…") { mute.requestTrust() }
+                    }
+                }
+                Row(label: "Now") {
+                    Text(mute.statusLine).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+            }
+        }
+        Note("While you're muted the bar still says ON A CALL, with a slashed mic and the pill dimmed: bright means quiet, dim means the room can talk. It reads the mute button in Teams, Zoom, Meet, Webex, Slack or FaceTime through macOS Accessibility (System Settings ▸ Privacy & Security ▸ Accessibility), never the dictation apps. If it can't tell, it shows the mic as live. After installing a new build you may need to turn Busy Bar Sign off and on again in that list.")
 
         Heading("Using the microphone now")
         Card {

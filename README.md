@@ -311,7 +311,8 @@ running (`kAudioProcessPropertyIsRunningInput`, macOS 14.2+). For each one:
 The sign follows only once a change has held: **2 seconds** before it lights,
 **10 seconds** before it goes dark, so a moment's silence never flickers it.
 Zoom, Teams and Meet keep the mic open while you're muted, so the sign stays
-lit through mute.
+lit through mute — and shows that you're muted, if it can
+([below](#muted-on-a-call)).
 
 Worth knowing:
 
@@ -322,6 +323,38 @@ Worth knowing:
 - If Core Audio's per-process API ever fails to answer, it falls back to "is
   the default input device in use by anyone" — which can't tell dictation
   from a call. The status line then says "unattributed".
+
+## Muted on a call
+
+With people in the room on a call, they need to know whether they can talk.
+While you're muted the bar still says **ON A CALL** — a passer-by sees the
+same red — but the mic gets a slash and the pill dims to a glow: bright
+means quiet, dim means the room can talk. Muting and unmuting change it
+straight away, without the change animation.
+
+The Mac's audio system can't see a mute in Teams or Zoom (they keep the mic
+open), so the app reads the call app's own mute button through **macOS
+Accessibility** — as MuteMe and MuteDeck have done for Teams since Microsoft
+retired its device API on 30 June 2026. It reads only the app that has the
+mic and counts as your call, so Wispr Flow and the other dictation tools are
+never read. Labels it knows: Teams ("Mute mic" / "Unmute mic", and in
+French), Zoom ("Mute" / "Unmute", "Mute Audio" in its menu), Meet in Chrome,
+Edge, Arc or Safari ("Turn off microphone"), Webex, Slack huddles, and
+FaceTime's ticked "Mute" menu item. `Checks/mute` tries each.
+
+- macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
+  Accessibility). The app is signed to run locally rather than by a
+  developer, so after installing a new build you may need to turn Busy Bar
+  Sign off and on again in that list.
+- If it can't tell — no permission, no mute button found, a label it doesn't
+  know — it shows the mic as **live**. It never tells the room it can talk
+  unless the app says you're muted.
+- A redesign of Teams' or Zoom's meeting window can hide the button until the
+  labels are updated. Settings ▸ Microphone shows what it's reading, e.g.
+  "Microsoft Teams · “Unmute mic” · muted".
+- Switch it off in Settings ▸ Microphone ▸ **Show when I'm muted**.
+- The Stream Deck key still reads a muted call as ON A CALL; the local API
+  adds `"muted": true` for it.
 
 ## How the display works
 
@@ -363,6 +396,7 @@ In the code:
 | `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
 | `Sources/StatusRules.swift` | Decides what the sign says from the controls, the mic and the calendar. A line-for-line port of `simulator/rules.js`. |
 | `Sources/CalendarSource.swift` | Reads the calendar from macOS Calendar (EventKit). |
+| `Sources/MuteDetector.swift`, `MuteLabels.swift` | Whether you're muted, from the call app's own mute button (Accessibility). |
 | `Sources/StatusModel.swift` | Runs the rules once a second and on every change; everything that shows the sign reads it. |
 | `Sources/DisplayWindow.swift` | The full-screen window. |
 | `Sources/FloatingWindow.swift` | The floating window. |
@@ -381,9 +415,9 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 82 moments —
+- **The Swift engine matches the simulator LED for LED** across 89 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
-  collapse, slide-in and LATE's pulse, each with the countdown the app gives
+  collapse, slide-in, LATE's pulse and the muted call's glow, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 2,918
@@ -416,6 +450,10 @@ errors or warnings in its code.
   key drawing has 69 checks of its own: every state the engine has, every
   word and countdown inside the key, and the countdown text against the
   bar's (`streamdeck/test/keys.js`).
+- **Mute buttons are read right** (`Checks/mute`): 37 labels from Teams (in
+  English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
+  live, and the look-alikes — "Mute all", "Mute notifications", "Mute
+  speaker", "Ask all to unmute" — ignored.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
@@ -435,7 +473,8 @@ Calendar.app and an Elgato Stream Deck:
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
 `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`, `AudioProbe`,
 `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — has no
-automated checks. If something misbehaves on another Mac, these are the
+automated checks. `MuteDetector`, which reads the call apps through
+Accessibility, hasn't been run on a Mac yet at all. If something misbehaves on another Mac, these are the
 likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
@@ -454,6 +493,11 @@ likeliest places:
    is running, `curl http://127.0.0.1:47811/status` should answer with the
    sign's state; if it doesn't, the listener didn't start (the controls'
    Status tab says why).
+7. `MuteDetector.swift` — on a call, Settings ▸ Microphone ▸ Now should name
+   the call app and its mute button (“Unmute mic” · muted). "No mute button
+   found" means the app labels it some way `MuteLabels.swift` doesn't know
+   yet; macOS's Accessibility Inspector (in Xcode's developer tools) shows
+   what the button is called.
 
 ## Running the checks
 

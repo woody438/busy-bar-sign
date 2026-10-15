@@ -74,7 +74,7 @@
   };
   /* Which palette each state is lit in. */
   const STATE_PALETTE = {
-    call: 'call', meeting: 'call',
+    call: 'call', callMuted: 'call', meeting: 'call',
     free: 'free',
     dnd: 'dnd',
     callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
@@ -313,7 +313,7 @@
   };
 
   const WORDS = {
-    call: 'ON A CALL', free: 'FREE', dnd: 'DND',
+    call: 'ON A CALL', callMuted: 'ON A CALL', free: 'FREE', dnd: 'DND',
     meeting: 'MEETING',
     callIn: 'CALL IN', busyIn: 'BUSY IN',                        // + the countdown on the right
     late: 'LATE FOR',                                            // + CALL on the right
@@ -327,6 +327,7 @@
     call: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     free: { word: 'FREE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    callMuted: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     meeting:   { word: 'MEETING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
@@ -389,6 +390,21 @@
       '######....',
       '.####.....',
       '..##......'
+    ],
+    // the mic, slashed, with the gap on one side as the Mac's mic.slash: muted
+    callMuted: [
+      '#..###...',
+      '.#.####..',
+      '.#.####..',
+      '..#.###..',
+      '..##.##..',
+      '#.###.#.#',
+      '#.###.#.#',
+      '#..###..#',
+      '.#....#..',
+      '..######.',
+      '....#..#.',
+      '..#####.#'
     ],
     // two people
     meeting: [
@@ -486,7 +502,7 @@
   ICONS.callTbc = ICONS.busyTbc = ICONS.tbc;
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
-    call: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
+    call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
     freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1
   };   // rows above the baseline for the icon's bottom row
 
@@ -604,9 +620,12 @@
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
   }
 
-  /* LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
-     so it reads as urgent rather than as an opening. */
+  /* How far the pill is dimmed. LATE FOR breathes: by up to a third and
+     back every 1.6 s, so it reads as urgent rather than as an opening. ON A
+     CALL with the mic muted glows at 45%: bright means quiet, dim means the
+     room can talk. */
   function pulseAt(now, state) {
+    if (state === 'callMuted') return 0.55;
     if (state !== 'late') return 0;
     return 0.34 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (now % 1.6) / 1.6));
   }
@@ -641,7 +660,7 @@
       switch (state) {
         case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         // on a call or in a meeting: how long till you're free, and when
-        case 'call': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
+        case 'call': case 'callMuted': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         case 'callIn': case 'busyIn':
           return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };
         // tentative: a countdown to the start, then the end time once it's on
@@ -746,6 +765,7 @@
      a line won't fit the 82-LED pill in it. */
   const STACKED_HERO = {
     call: ['ON A', 'CALL'],
+    callMuted: ['ON A', 'CALL'],
     free: ['FREE'],
     dnd: ['DO NOT', 'DISTURB'],
     meeting: [{ t: 'MEETING', tracking: -1 }],

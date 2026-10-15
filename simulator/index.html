@@ -216,6 +216,7 @@
     <button class="chip" id="b-free" aria-pressed="false">Free</button>
     <button class="chip" id="b-dnd" aria-pressed="false">Do not disturb</button>
     <button class="chip" id="b-day" aria-pressed="false">Calendar day</button>
+    <button class="chip" id="b-mute" aria-pressed="false">Mic muted</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-float" aria-pressed="false">Floating window</button>
     <button class="chip" id="b-stack" aria-pressed="false">Stacked layout</button>
@@ -314,6 +315,13 @@
         <div class="m-row"><span class="k">Count as a call</span><span class="m-seg" data-seg><button aria-pressed="true">Any app except ignored</button><button aria-pressed="false">Known call apps</button></span></div>
         <div class="m-row"><span class="k">Status</span><span style="color:var(--m-dim)">Source — Microsoft Teams · mic active</span></div>
       </div>
+      <p class="m-h">Muted on a call</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Show when I'm muted</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Show when I'm muted"></button></div>
+        <div class="m-row"><span class="k">Accessibility</span><span style="color:var(--m-dim)">Allowed</span></div>
+        <div class="m-row"><span class="k">Now</span><span style="color:var(--m-dim)">Microsoft Teams · “Unmute mic” · muted</span></div>
+      </div>
+      <p class="m-sub">While you're muted the bar still says ON A CALL, with a slashed mic and the pill dimmed: bright means quiet, dim means the room can talk. It reads the call app's own mute button through macOS Accessibility, never the dictation apps; if it can't tell, it shows the mic as live.</p>
       <p class="m-h">Using the microphone now</p>
       <div class="m-card">
         <div class="m-row"><span class="m-app"><i style="background:#5059C9"></i>Microsoft Teams</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignore <button class="m-switch" role="switch" aria-checked="false" aria-label="Ignore Microsoft Teams"></button></span></div>
@@ -453,18 +461,24 @@
   let state = 'call', prev = null, since = now();
   let mode = 'auto', lastFlip = now();
   const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd', day: 'b-day' };
-  const SPILL = { call: '#ff1d35', meeting: '#ff1d35', free: '#17eb79', dnd: '#5b45ff',
+  const SPILL = { call: '#ff1d35', callMuted: '#8a1020', meeting: '#ff1d35', free: '#17eb79', dnd: '#5b45ff',
     callIn: '#ffa21a', busyIn: '#ffa21a', late: '#ffa21a', freeTil: '#ffa21a', callTbc: '#ffa21a', busyTbc: '#ffa21a',
     away: '#7e8492', lunch: '#7e8492', ooo: '#7e8492' };
-  const NAMES = { call: 'On a call', meeting: 'In a meeting', free: 'Free', dnd: 'Do Not Disturb',
+  const NAMES = { call: 'On a call', callMuted: 'On a call, muted', meeting: 'In a meeting', free: 'Free', dnd: 'Do Not Disturb',
     callIn: 'Call soon', busyIn: 'Meeting soon', late: 'Late for a call', freeTil: 'Free till the slot ends',
     callTbc: 'Call to be confirmed', busyTbc: 'Meeting to be confirmed', away: 'Away', lunch: 'Lunch', ooo: 'Out of office' };
   const DND_MS = 30 * 60 * 1000;
   let dndUntil = Date.now() + DND_MS;              // wall-clock end of Do Not Disturb
   let why = '';
 
+  /* Muted in the call app: ON A CALL in its quiet look. */
+  let micMuted = false;
+  const shown = (s) => (s === 'call' && micMuted ? 'callMuted' : s);
+  const onCall = (s) => s === 'call' || s === 'callMuted';
   function setState(next) {
     if (next === state) return;
+    // muting and unmuting mid-call change the bar quietly, with no announcement
+    if (onCall(state) && onCall(next)) { state = next; spill.style.background = SPILL[next]; return; }
     if (next === 'dnd' && state !== 'dnd' && mode !== 'day') dndUntil = Date.now() + DND_MS;
     prev = state; state = next; since = now();
     spill.style.background = SPILL[next];
@@ -474,7 +488,7 @@
     for (const k in btn) document.getElementById(btn[k]).setAttribute('aria-pressed', String(k === m));
     for (const b of document.querySelectorAll('#m-sign button')) b.setAttribute('aria-pressed', String(b.dataset.mode === (m === 'call' || m === 'free' ? m : 'auto')));
     document.getElementById('day').classList.toggle('on', m === 'day');
-    if (m === 'call' || m === 'free' || m === 'dnd') setState(m);
+    if (m === 'call' || m === 'free' || m === 'dnd') setState(shown(m));
     if (m === 'auto') { demoIndex = 0; setState(DEMO[0]); }
   }
   document.getElementById('b-auto').onclick = () => setMode('auto');
@@ -482,6 +496,11 @@
   document.getElementById('b-free').onclick = () => setMode('free');
   document.getElementById('b-dnd').onclick = () => setMode('dnd');
   document.getElementById('b-day').onclick = () => setMode('day');
+  document.getElementById('b-mute').onclick = (ev) => {
+    micMuted = !micMuted;
+    ev.currentTarget.setAttribute('aria-pressed', String(micMuted));
+    if (onCall(state)) setState(shown('call'));
+  };
   // as in the app: double-click the bar for Do Not Disturb, again to end it
   monitor.addEventListener('dblclick', () => {
     if (mode === 'day') { simDnd = simDnd && simDnd > simMs ? null : simMs + DND_MS; return; }
@@ -505,8 +524,9 @@
   spill.style.background = '#ff1d35';
 
   // --- auto demo: every state in turn, each with a plausible countdown ---
-  const DEMO = ['callIn', 'late', 'call', 'freeTil', 'busyIn', 'meeting', 'callTbc', 'lunch', 'away', 'ooo', 'dnd', 'free'];
+  const DEMO = ['callIn', 'late', 'call', 'callMuted', 'freeTil', 'busyIn', 'meeting', 'callTbc', 'lunch', 'away', 'ooo', 'dnd', 'free'];
   const DEMO_WHY = { callIn: 'Call soon: “Network discussion”', late: 'Late for “Network discussion”', call: 'Microphone in use',
+    callMuted: 'Muted in Microsoft Teams',
     freeTil: 'Left “Network discussion” early', busyIn: 'Meeting soon: “Values session”', meeting: 'In a meeting: “Values session”',
     callTbc: 'Tentative, soon: “Vendor demo”', lunch: 'Lunch: “Lunch”', away: 'Away: “Gym”',
     ooo: 'Out of office: “✈ BNA→LHR”', dnd: 'Do Not Disturb', free: 'Free' };
@@ -515,7 +535,7 @@
     const later = (secs) => { const t = new Date(d.getTime() + secs * 1000); return { h: t.getHours(), m: t.getMinutes() }; };
     switch (st) {
       case 'callIn': case 'busyIn': case 'callTbc': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
-      case 'call': case 'meeting': { const left = Math.max(0, 47 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
+      case 'call': case 'callMuted': case 'meeting': { const left = Math.max(0, 47 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
       case 'late': { const t = new Date(d.getTime() - (80 + e) * 1000); return { left: 80 + e, h: t.getHours(), m: t.getMinutes() }; }
       case 'freeTil': return Object.assign({ left: 0 }, later(18 * 60));
       case 'dnd': { const end = new Date(dndUntil); return { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() }; }
@@ -652,8 +672,8 @@
     if (mode === 'day') {
       if (playing) { simMs += dt * 1000 * speed; if (simMs > END) simMs = START; }
       const r = R.decide({ now: simMs, override: 'auto', dndUntil: simDnd, events: DAYDATA.events, micSessions: DAYDATA.micSessions });
-      setState(r.state);
-      why = r.why;
+      setState(shown(r.state));
+      why = r.why + (state === 'callMuted' ? ' · muted' : '');
       const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
       d = new Date(midnight.getTime() + simMs);
       if (r.left !== undefined) {
@@ -680,7 +700,8 @@
         timer = state === 'dnd' || prev === 'dnd' ? { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() } : undefined;
         if (state === 'dnd' && timer.left <= 0) setMode('free');
       }
-      why = mode === 'auto' ? DEMO_WHY[state] : (state === 'call' ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
+      if (mode === 'call') setState(shown('call'));
+      why = mode === 'auto' ? DEMO_WHY[state] : (onCall(state) ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
     }
     const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds(), dow: d.getDay(), date: d.getDate() };
     // with reduced motion, skip straight to the settled screen

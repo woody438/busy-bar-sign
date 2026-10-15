@@ -24,6 +24,7 @@ extension SIMD3 where Scalar == Double {
 /// What the sign says. The raw values are simulator/rules.js's state names.
 enum BarState: String, CaseIterable {
     case call, meeting, free, dnd
+    case callMuted               // on a call with the mic muted: the same words, a slashed mic, the pill dimmed
     case callIn, busyIn          // 10 minutes before: a countdown on the right
     case late                    // a call has started without you: CALL and how late
     case freeTil                 // you left a call early: free till its slot ends
@@ -32,7 +33,7 @@ enum BarState: String, CaseIterable {
 
     var word: String {
         switch self {
-        case .call: return "ON A CALL"
+        case .call, .callMuted: return "ON A CALL"
         case .meeting: return "MEETING"
         case .free: return "FREE"
         case .dnd: return "DND"
@@ -91,7 +92,7 @@ struct BarPalette {
 
     static func of(_ state: BarState) -> BarPalette {
         switch state {
-        case .call, .meeting: return call
+        case .call, .callMuted, .meeting: return call
         case .free: return free
         case .dnd: return dnd
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return amber
@@ -314,6 +315,21 @@ enum BarEngine {
             ".####.....",
             "..##......"
         ],
+        // the mic, slashed, with the gap on one side as the Mac's mic.slash: muted
+        .callMuted: [
+            "#..###...",
+            ".#.####..",
+            ".#.####..",
+            "..#.###..",
+            "..##.##..",
+            "#.###.#.#",
+            "#.###.#.#",
+            "#..###..#",
+            ".#....#..",
+            "..######.",
+            "....#..#.",
+            "..#####.#"
+        ],
         // two people
         .meeting: [
             ".###...###.",
@@ -410,7 +426,7 @@ enum BarEngine {
     ]
     /// Rows above the baseline for the icon's bottom row.
     static let iconLift: [BarState: Int] = [
-        .call: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
+        .call: -1, .callMuted: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
         .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1
     ]
 
@@ -423,7 +439,7 @@ enum BarEngine {
     }
     static func hero(_ state: BarState) -> Hero {
         switch state {
-        case .call: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .call, .callMuted: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .free: return Hero(word: "FREE", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .dnd: return Hero(word: "DO NOT DISTURB", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .meeting: return Hero(word: "MEETING", font: "busy_regular_14", base: 14, depth: 2, space: 6)
@@ -547,9 +563,12 @@ enum BarEngine {
         return textWidth(h.font, heroWord(state, timer), space: h.space)
     }
 
-    /// LATE FOR breathes: the pill dims by up to a third and back every 1.6 s,
-    /// so it reads as urgent rather than as an opening.
+    /// How far the pill is dimmed. LATE FOR breathes: by up to a third and
+    /// back every 1.6 s, so it reads as urgent rather than as an opening. ON A
+    /// CALL with the mic muted glows at 45%: bright means quiet, dim means the
+    /// room can talk.
     static func pulseAt(_ now: Double, _ state: BarState) -> Double {
+        if state == .callMuted { return 0.55 }
         guard state == .late else { return 0 }
         return 0.34 * (0.5 - 0.5 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: 1.6) / 1.6))
     }
@@ -580,7 +599,7 @@ enum BarEngine {
         if let timer {
             let at = String(format: "%02d:%02d", timer.h, timer.m)
             switch state {
-            case .dnd, .call, .meeting:
+            case .dnd, .call, .callMuted, .meeting:
                 // Do Not Disturb, or on a call / in a meeting: how long till you're free, and when
                 let c = countdownText(timer)
                 return RightText(top: c.mmss, bottom: c.until, blink: true)
@@ -884,7 +903,7 @@ enum BarEngine {
         /// The announcement fills the panel, a word or two per line.
         static func hero(_ state: BarState) -> [Line] {
             switch state {
-            case .call: return [Line("ON A"), Line("CALL")]
+            case .call, .callMuted: return [Line("ON A"), Line("CALL")]
             case .free: return [Line("FREE")]
             case .dnd: return [Line("DO NOT"), Line("DISTURB")]
             case .meeting: return [Line("MEETING", tracking: -1)]

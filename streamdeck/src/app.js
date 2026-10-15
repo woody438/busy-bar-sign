@@ -23,7 +23,9 @@ function ask(method, path) {
         try {
           const status = JSON.parse(body);
           if (typeof status.state !== 'string') throw new Error('no state');
-          resolve({ state: status.state, moment: status.moment || null, dnd: !!status.dnd });
+          // muted on a call: the app says "call" with muted alongside; the key draws it as the bar does
+          const state = status.state === 'call' && status.muted === true ? 'callMuted' : status.state;
+          resolve({ state: state, moment: status.moment || null, dnd: !!status.dnd });
         } catch (e) {
           reject(new Error(`${method} ${path}: unreadable answer (${e.message})`));
         }

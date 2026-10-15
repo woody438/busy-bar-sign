@@ -13,7 +13,8 @@ import Foundation
  * in ms since 1970 — counted down to ("countdown"), up from ("countUp",
  * LATE) or just shown ("fixed", FREE TILL) — and absent while the bar
  * shows the clock. `dnd` is whether a Do Not Disturb is running, shown or
- * not: a call outranks it.
+ * not: a call outranks it. `muted` appears, true, only while you're muted
+ * on a call; `state` stays "call" then, so older plugins read it as before.
  *
  * For programs on this Mac only. LocalServer listens on 127.0.0.1, and
  * this turns away what a web page could send: a request with an Origin
@@ -79,6 +80,8 @@ enum LocalAPI {
         var state: String
         var moment: Moment?
         var dnd: Bool
+        /// Only there, and true, while you're muted on a call: `state` stays "call".
+        var muted: Bool? = nil
     }
 
     static func encode(_ status: Status) -> Data {

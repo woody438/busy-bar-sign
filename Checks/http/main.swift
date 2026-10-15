@@ -57,6 +57,8 @@ expect(String(decoding: LocalAPI.encode(call), as: UTF8.self)
        == #"{"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}"#, "status JSON with a moment")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "dnd", moment: nil, dnd: true)), as: UTF8.self)
        == #"{"dnd":true,"state":"dnd"}"#, "status JSON without one")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)), as: UTF8.self)
+       == #"{"dnd":false,"muted":true,"state":"call"}"#, "status JSON while muted on a call")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")

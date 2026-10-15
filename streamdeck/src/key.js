@@ -23,7 +23,7 @@ const WHITE = E.PALETTE.white;
 
 /* The bar's words, cut to fit the pill in the 7-row face. */
 const WORDS = {
-  call: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
+  call: ['ON A', 'CALL'], callMuted: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
   callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], freeTil: ['FREE', 'TILL'],
   callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO']
 };
@@ -83,8 +83,9 @@ export function drawKey(view, date) {
   const clock = clockOf(date);
   const text = keyText(view.state, clock, timerOf(view.moment, date.getTime()));
   const pal = E.palOf(view.state);
-  // LATE breathes on the bar; at one picture a second, it blinks
-  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: view.state === 'late' && clock.s % 2 === 1 ? 0.34 : 0 });
+  // LATE breathes on the bar; at one picture a second, it blinks. Muted on a call, it glows, as the bar does.
+  const dim = view.state === 'callMuted' ? 0.55 : view.state === 'late' && clock.s % 2 === 1 ? 0.34 : 0;
+  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: dim });
   drawLines(f, text.lines, pal, 1);
   const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => E.clockTextWidth(fn, text.detail) <= N - 2) || 'busy_regular_5';
   E.drawClockText(f, font, text.detail, Math.round((N - E.clockTextWidth(font, text.detail)) / 2), DETAIL_BASE, WHITE, {},

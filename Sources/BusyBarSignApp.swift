@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         detector.start()
         calendar.start()
         status.start()
+        status.mute.askOnce()
         server.start()
         if DisplayWindow.wasShown { window.show() }
         if FloatingWindow.wasShown { floating.show() }

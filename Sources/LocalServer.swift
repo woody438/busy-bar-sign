@@ -103,7 +103,10 @@ final class LocalServer: ObservableObject {
         let moment = status.moment.map { m in
             LocalAPI.Status.Moment(at: Int64((m.at.timeIntervalSince1970 * 1000).rounded()), kind: m.kind.apiName)
         }
-        return LocalAPI.Status(state: status.state.rawValue, moment: moment, dnd: detector.dndUntil != nil)
+        // a muted call is still "call" to the Stream Deck, with muted alongside
+        let muted = status.state == .callMuted
+        return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
+                               dnd: detector.dndUntil != nil, muted: muted ? true : nil)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {
