@@ -29,6 +29,15 @@ expect(!Updates.isNewer("1.1.0.0", than: "1.1.0.0"), "the same")
 expect(Updates.isNewer("1.10", than: "1.9.9"), "numbers, not text")
 expect(!Updates.isNewer("1.1", than: "1.1.0.0"), "missing parts are noughts")
 
+// the plugin: the newest across the releases followed, if newer than Stream Deck's
+let previewPlugin = Updates.Release(build: 38, version: "2.1", commit: "c", channel: "preview", plugin: "1.2.1.0")
+let mainPlugin = Updates.Release(build: 37, version: "2.1", commit: "d", channel: "latest", plugin: "1.2.0.0")
+expect(Updates.newerPlugin([previewPlugin, mainPlugin], than: "1.2.0.0") == "1.2.1.0", "a newer plugin in the preview")
+expect(Updates.newerPlugin([mainPlugin, previewPlugin], than: "1.2.0.0") == "1.2.1.0", "whichever order the releases come in")
+expect(Updates.newerPlugin([mainPlugin], than: "1.2.0.0") == nil, "main's plugin is the one installed")
+expect(Updates.newerPlugin([previewPlugin, mainPlugin], than: "1.2.1.0") == nil, "the newest is installed")
+expect(Updates.newerPlugin([main, preview], than: "1.0.0.0") == nil, "releases that don't say")
+
 for f in failures { print("FAIL", f) }
 print(failures.isEmpty ? "updates: releases read and compared as designed" : "\(failures.count) update checks failed")
 exit(failures.isEmpty ? 0 : 1)

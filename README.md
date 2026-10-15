@@ -14,8 +14,12 @@ Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
 it warns people ten minutes before a call (**CALL IN 09:41**), says when
 you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY** and **OUT OF
 OFFICE**, and on a call counts down to when you're free.
-[More below](#your-calendar). A **Stream Deck** key can show it too, and
-start Do Not Disturb when you press it ([below](#stream-deck)).
+[More below](#your-calendar). When you're **muted** on a call, the mic on the
+sign gets a slash and flashes, so the room knows it can talk
+([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
+sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
+Teams or Zoom meeting from anywhere ([below](#stream-deck)). It **updates
+itself** when you're off calls ([below](#updates)).
 
 **See it without installing anything:** download the repo and open
 `simulator/index.html` in a browser. It runs the same drawing engine and
@@ -55,8 +59,17 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 3. The full-screen display opens on your second monitor, and a **controls
    window** opens on your main one. Click the app's Dock icon to bring the
    controls back at any time.
-4. For a Stream Deck, also download `BusyBarSign.streamDeckPlugin` from the
+4. Allow **Accessibility** when it asks (or Settings ▸ Meetings ▸ **Allow…**):
+   it's how the sign sees you're muted, and how the Stream Deck's Mute and
+   Leave keys press Teams and Zoom. If Settings says it isn't allowed though
+   Busy Bar Sign is switched on in System Settings, press **Reset and ask
+   again**.
+5. For a Stream Deck, also download `BusyBarSign.streamDeckPlugin` from the
    same release ([more below](#stream-deck)).
+
+That's the only time you install it by hand: from 2.1 on it **updates
+itself** from the latest release, keeping its permissions, with no Open
+Anyway ([Updates](#updates)).
 
 It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
@@ -65,8 +78,9 @@ build is published as the **preview** pre-release instead, for trying before
 it's merged.
 
 > **In use on one Mac.** It runs day to day on its author's Mac — the sign,
-> the microphone, an Outlook calendar and the Stream Deck key — and its
-> checks pass on every build, but it hasn't been tried on other setups. See
+> the microphone, an Outlook calendar, real Teams and Zoom meetings and the
+> Stream Deck's Status, Mute and Leave keys — and its checks pass on every
+> build, but it hasn't been tried on many other setups. See
 > [What's been verified](#whats-been-verified--and-what-hasnt).
 
 ## Build it yourself
@@ -172,20 +186,36 @@ the Dock menu and the floating window's right-click menu (**Do Not Disturb
 
 ## Stream Deck
 
-![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
+Three keys for an Elgato Stream Deck, in one plugin, drawn by the bar's own
+engine and fonts:
 
-A **Status** key for an Elgato Stream Deck: the bar on a key, live — its
-colour, its words, and beneath them the countdown or the time, drawn by
-the bar's own engine and fonts. **Press it** for Do Not Disturb, as you'd
-double-click the bar; press again to end it. On a call the sign stays ON A
-CALL, so the key flashes a tick to say the press counted.
+- **Status** — the bar on a key, live: its colour, its words, and beneath
+  them the countdown or the time. **Press it** for Do Not Disturb, as you'd
+  double-click the bar; press again to end it. On a call the sign stays ON A
+  CALL, so the key flashes a tick to say the press counted.
+- **Mute** and **Leave** — for the Teams or Zoom meeting you're in, wherever
+  its window is ([below](#mute-and-leave-keys-for-teams-and-zoom)).
 
 1. Download **`BusyBarSign.streamDeckPlugin`** from the
    [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
    and double-click it. Stream Deck asks to install it. (Stream Deck 7.1 or
-   later.)
-2. In Stream Deck, drag **Busy Bar Sign ▸ Status** onto a key — on as many
-   keys, pages and Stream Decks as you like.
+   later.) When there's a newer one, Busy Bar Sign offers it (Settings ▸
+   Status ▸ Updates).
+2. In Stream Deck, drag **Busy Bar Sign ▸ Status**, **▸ Mute** and **▸ Leave**
+   onto keys — on as many keys, pages and Stream Decks as you like.
+
+- If double-clicking doesn't install it, quit Stream Deck, unzip the file
+  (it's a zip) and copy `com.woodall.busybarsign.sdPlugin` into
+  `~/Library/Application Support/com.elgato.StreamDeck/Plugins`, then open
+  Stream Deck again.
+- To work on it: `cd streamdeck && npm ci && npm run build`, then
+  `npx streamdeck link com.woodall.busybarsign.sdPlugin` runs it from the
+  source folder; `npm run pack` makes the `.streamDeckPlugin`, and
+  `npm run sheet` draws every state to `keys.png` to check by eye.
+
+### The Status key
+
+![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
 
 - The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
   meeting, CALL / IN 09:41, FREE / TILL 15:00, TBC / TILL once a tentative
@@ -197,16 +227,14 @@ CALL, so the key flashes a tick to say the press counted.
   `127.0.0.1:47811`, which nothing on the network can reach and a web page
   can't use (`Sources/LocalAPI.swift`). If the controls say the Stream Deck
   can't reach the app, something else has that port.
-- If double-clicking doesn't install it, quit Stream Deck, unzip the file
-  (it's a zip) and copy `com.woodall.busybarsign.sdPlugin` into
-  `~/Library/Application Support/com.elgato.StreamDeck/Plugins`, then open
-  Stream Deck again.
+
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, HOLD after a tap on a held key, dark outside a meeting](docs/stream-deck-meeting-keys.png)
+![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, dark outside a meeting](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in —
-what Woody's Teams Meeting Keys plugin did, now done by the app:
+what the separate Teams Meeting Keys plugin did, now done by the app, so
+the keys, the sign and the settings always agree:
 
 - **Mute** shows green **LIVE** or red **MUTED**, read from the meeting's
   own mute control; **MIC ?** if the meeting's there but its mute can't be
@@ -223,10 +251,9 @@ what Woody's Teams Meeting Keys plugin did, now done by the app:
   app's shortcut (Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W, then Zoom's "Leave
   meeting?" prompt is answered: "Leave meeting" for a press, "End meeting
   for all" for a hold when you're the host) and hands you back the app you
-  were in. A press
-  that reached the app is never followed by the shortcut until it's had 2.5
-  seconds to show, so mute can't toggle twice; an app that ignores its own
-  button twice gets the shortcut from then on.
+  were in. A press that reached the app is never followed by the shortcut
+  until it's had 2.5 seconds to show, so mute can't toggle twice; an app
+  that ignores its own button twice gets the shortcut from then on.
 - With Teams and Zoom both in meetings, the keys act on the one joined last.
 - After a call, Teams' "rate your call" survey (and Zoom's "How was the
   audio and video?") is closed — only ever with a Dismiss, Close, Skip or
@@ -236,11 +263,11 @@ what Woody's Teams Meeting Keys plugin did, now done by the app:
 - The app does the pressing, with its own Accessibility permission, so the
   keys need it running. **Remove the old Teams Meeting Keys plugin**: the two
   would both press, and both close the survey.
+- Settings ▸ Meetings shows what the keys see — each app's meeting window and
+  mute button — and lists every button it can find (**Inspect meeting
+  controls**) if Teams or Zoom ever changes them:
 
-- To work on it: `cd streamdeck && npm ci && npm run build`, then
-  `npx streamdeck link com.woodall.busybarsign.sdPlugin` runs it from the
-  source folder; `npm run pack` makes the `.streamDeckPlugin`, and
-  `npm run sheet` draws every state to `keys.png` to check by eye.
+![Settings ▸ Meetings: Accessibility allowed; Teams in “Weekly review” with “Unmute mic”, muted, the keys acting there; Zoom not in a meeting; the sign's mute switch; the survey switch, the last key press and popup; Inspect, Capture, Edit patterns and Reload](docs/settings-meetings.png)
 
 ## Your calendar
 
@@ -296,12 +323,15 @@ Worth knowing:
 The same controls are in three places:
 
 - **The controls window** — click the app's Dock icon, or press ⌘, while the
-  app is in front. It opens by itself on first launch. Four tabs:
+  app is in front. It opens by itself on first launch. Five tabs:
   **Status** (the bar live, why it says what it says, Sign and Do Not
-  Disturb), **Displays** (the full-screen display and the floating window
-  side by side), **Calendar** (which calendar, the warning and late times, a
-  guide to what to put in Outlook, and the title words) and **Microphone**
-  (what counts as a call, and what's using the mic now, to ignore).
+  Disturb, and Updates), **Displays** (the full-screen display and the
+  floating window side by side), **Calendar** (which calendar, the warning
+  and late times, a guide to what to put in Outlook, and the title words),
+  **Microphone** (what counts as a call, and what's using the mic now, to
+  ignore) and **Meetings** (Accessibility, showing you're muted, the Stream
+  Deck's Mute and Leave keys, the post-call survey, and what to send if Teams
+  or Zoom isn't read right).
 - **The Dock icon's right-click menu** — full-screen on/off, which monitor,
   floating on/off.
 - **The menu-bar icon** — the state's own mark: a tick when free, a
@@ -324,6 +354,9 @@ The full menu:
   for small screens).
 - **Floating window** (on/off) and **Floating size**.
 - **Follow My Calendar** (on/off).
+- **Install Update and Reopen** when a new build is waiting, **Update the
+  Stream Deck Plugin…** when there's a newer plugin, and **Check for
+  Updates**.
 - **Settings…** (⌘,) opens the controls window; **Quit** (⌘Q). Opening the app again with nothing showing brings the
   full-screen display back.
 
@@ -361,6 +394,8 @@ Worth knowing:
   from a call. The status line then says "unattributed".
 
 ## Muted on a call
+
+![ON A CALL with the pill dimmed and the slashed mic flashing slowly](docs/busy-bar-muted.gif)
 
 With people in the room on a call, they need to know whether they can talk.
 While you're muted the bar still says **ON A CALL** — a passer-by sees the
@@ -463,6 +498,8 @@ In the code:
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
 | `Sources/LocalAPI.swift`, `LocalServer.swift` | The web server on 127.0.0.1 that the Stream Deck plugin asks. |
+| `Sources/Updater.swift`, `UpdateCheck.swift` | Updates: which release is newer, and the download, signature check and swap. |
+| `tools/make-signing-cert.sh`, `tools/sign.sh` | The project's signing certificate, made once, and how CI signs each build with it. |
 | `streamdeck/` | The Stream Deck plugin: `src/key.js` draws the keys with the simulator's engine; `src/live.js` asks the app once a second for every key; `src/status-action.js` and `src/meeting-actions.js` handle presses. |
 | `tools/icon/make_icon.py` | Draws the app icon (`Resources/Assets.xcassets`). |
 | `simulator/` | The browser version, where the look and the rules are designed. `day.js` is the sample day the day player and the checks use. |
@@ -549,16 +586,24 @@ Calendar.app and an Elgato Stream Deck:
   nothing after it; it now shows FREE (see [Your calendar](#your-calendar)).
 - The Stream Deck plugin, installed from its release file, shows the sign
   live on a key through the app's web server.
+- On real Teams and Zoom meetings: the mute state read on the sign and the
+  Mute key, the Mute and Leave keys pressing the meeting (found here: Teams
+  only shows its meeting controls to Accessibility once asked as VoiceOver
+  asks, and Zoom's host gets a "Leave meeting?" prompt — now answered), and
+  no crash pressing a key with the settings window in front (that was
+  found here too).
+- An update installing itself — build 35 to build 36 — with no Open Anyway
+  and Accessibility still allowed, both builds signed with the project's
+  certificate.
 
 **Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
 `BusyBarSignApp`, `LEDPanelView`, `BarDisplayView`, `AudioProbe`,
-`CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer` — has no
-automated checks. `MuteDetector` and `Sources/Meeting/`, which read and
-press the call apps through Accessibility, have only been checked against a
-scripted Teams and Zoom — not yet against the real ones (nor had Teams
-Meeting Keys' helper, which they're ported from). If something misbehaves
-on another Mac, these are the likeliest places:
+`CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer`, `Updater`,
+and the Accessibility side of `MuteDetector` and `Sources/Meeting/`
+(`AXMeetingBackend`, `MeetingKeys`) — has no automated checks of its own;
+the meeting logic beneath it does (`Checks/meeting`). If something
+misbehaves on another Mac, these are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's
    Microphone list show the app you're calling from?
@@ -606,9 +651,13 @@ menu-bar menu has **Check for Updates** too.
 - It needs to be able to replace itself: in Applications, opened from there,
   by someone allowed to change Applications. Otherwise Settings says so, and
   the release page is the way.
-- The Stream Deck plugin isn't installed for you — Stream Deck always asks
-  first — but a newer one is offered: **Update…** in Settings, or the menu's
-  **Update the Stream Deck Plugin…**, opens it in Stream Deck.
+- The Stream Deck plugin can't be installed for you — Stream Deck always
+  asks first — so once the app is up to date, a newer plugin is opened in
+  Stream Deck for you, once per version and only when you're off calls (and
+  installing updates automatically): click **Install** when Stream Deck
+  asks. Missed it? **Update…** in Settings ▸ Status, or the menu's **Update
+  the Stream Deck Plugin…**, opens it again. Settings ▸ Status shows the
+  plugin's version.
 
 ## Signing
 

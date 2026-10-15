@@ -42,6 +42,13 @@ enum Updates {
         releases.filter { $0.build > build }.max { $0.build < $1.build }
     }
 
+    /// The newest plugin among `releases`, if it's newer than the one installed.
+    static func newerPlugin(_ releases: [Release], than installed: String) -> String? {
+        let newest = releases.compactMap(\.plugin).max { isNewer($1, than: $0) }
+        guard let newest, isNewer(newest, than: installed) else { return nil }
+        return newest
+    }
+
     /// Whether dotted version `a` is newer than `b`: "1.2.0.0" over "1.1.0.0".
     static func isNewer(_ a: String, than b: String) -> Bool {
         let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }

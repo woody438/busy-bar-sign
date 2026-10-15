@@ -16,7 +16,9 @@ import Security
  * Anyway. Permissions carry over, as it's the same app to macOS.
  *
  * The Stream Deck plugin can't be installed quietly (Stream Deck always
- * asks), so a newer one is offered: one click opens it in Stream Deck.
+ * asks), so a newer one is opened in Stream Deck, once per version, when
+ * you're off calls and the app itself is up to date: Stream Deck asks to
+ * install it. Or by hand, from the menu or Settings.
  */
 @MainActor
 final class Updater: ObservableObject {
@@ -34,6 +36,7 @@ final class Updater: ObservableObject {
     @Published private(set) var available: Updates.Release?
     @Published private(set) var lastChecked: Date?
     @Published private(set) var plugin: PluginUpdate?
+    @Published private(set) var pluginInstalled: String?     // the plugin's version in Stream Deck, if it has it
     @Published var automatic: Bool {
         didSet { UserDefaults.standard.set(automatic, forKey: "installUpdatesAutomatically") }
     }
@@ -47,6 +50,13 @@ final class Updater: ObservableObject {
 
     private var timer: Timer?
     private var failedBuild: Int?           // not tried again automatically until a newer one comes
+    private var found: [Updates.Release] = []
+
+    /// The last plugin version opened in Stream Deck, so each is only offered once.
+    private var pluginOffered: String? {
+        get { UserDefaults.standard.string(forKey: "streamDeckPluginOffered") }
+        set { UserDefaults.standard.set(newValue, forKey: "streamDeckPluginOffered") }
+    }
 
     static let checkEvery: TimeInterval = 4 * 3600
 
@@ -68,9 +78,14 @@ final class Updater: ObservableObject {
 
     private func tick() {
         if Date().timeIntervalSince(lastChecked ?? .distantPast) >= Self.checkEvery { check() }
-        guard automatic, let next = available, next.build != failedBuild, phase == .available,
-              !isBusy(), installProblem == nil else { return }
-        install()
+        guard automatic, !isBusy() else { return }
+        if let next = available, next.build != failedBuild, phase == .available, installProblem == nil {
+            install()       // the app first: the new one then offers its plugin
+        } else if let offer = plugin, offer.available != pluginOffered,
+                  phase != .checking, phase != .downloading, phase != .installing {
+            pluginOffered = offer.available
+            updatePlugin()
+        }
     }
 
     /// Why the app can't replace itself where it is, or nil when it can.
@@ -108,7 +123,8 @@ final class Updater: ObservableObject {
             } else {
                 phase = available == nil ? .upToDate : .available
             }
-            plugin = pluginUpdate(found)
+            self.found = found
+            refreshPlugin()
         }
     }
 
@@ -240,14 +256,20 @@ final class Updater: ObservableObject {
             .appendingPathComponent("com.elgato.StreamDeck/Plugins/com.woodall.busybarsign.sdPlugin/manifest.json")
     }
 
-    /// A newer plugin than the one Stream Deck has, if it has one at all.
-    private func pluginUpdate(_ releases: [Updates.Release]) -> PluginUpdate? {
-        guard let data = try? Data(contentsOf: Self.pluginManifest),
-              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let installed = manifest["Version"] as? String else { return nil }
-        let newest = releases.compactMap(\.plugin).max { Updates.isNewer($1, than: $0) }
-        guard let newest, Updates.isNewer(newest, than: installed) else { return nil }
-        return PluginUpdate(installed: installed, available: newest)
+    /// The plugin's version in Stream Deck, if it has it.
+    private static func installedPlugin() -> String? {
+        guard let data = try? Data(contentsOf: pluginManifest),
+              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return manifest["Version"] as? String
+    }
+
+    /// Reads which plugin Stream Deck has now, against the releases last checked.
+    func refreshPlugin() {
+        let installed = Self.installedPlugin()
+        pluginInstalled = installed
+        plugin = installed.flatMap { have in
+            Updates.newerPlugin(found, than: have).map { PluginUpdate(installed: have, available: $0) }
+        }
     }
 
     /// Downloads the plugin and hands it to Stream Deck, which asks to install it.
