@@ -5,8 +5,8 @@
  *
  * The lit pill holds the status in a word or two, cut to fit; beneath it,
  * white on black, what the right of the bar shows — the countdown, or the
- * time with its colon blinking. The Mute and Leave keys are drawn the same
- * way: an icon in the pill, LIVE, MUTED or LEAVE beneath.
+ * time with its colon blinking. The Mute, Leave, Nearby and Lunch keys are
+ * drawn the same way: an icon in the pill, its word beneath.
  */
 import '../../simulator/fonts.js';
 import '../../simulator/engine.js';
@@ -143,6 +143,43 @@ export const KEY_ICONS = {
     '###.........###',
     '###.........###',
     '.##.........##.'
+  ],
+  // the bar's walker and its fork and knife, drawn bigger for a key: Nearby and Lunch
+  walker: [
+    '......###....',
+    '......###....',
+    '......###....',
+    '.............',
+    '.....####....',
+    '....######...',
+    '...##.###.#..',
+    '..##..###..#.',
+    '..#...###..##',
+    '......###....',
+    '.....##.##...',
+    '.....#...##..',
+    '....##....#..',
+    '...##.....##.',
+    '..##.......#.',
+    '.##........##'
+  ],
+  forkKnife: [
+    '#..#..#....###',
+    '#..#..#...####',
+    '#..#..#...####',
+    '#..#..#...####',
+    '#..#..#...####',
+    '#######...####',
+    '.#####....####',
+    '..###.....####',
+    '...#.......###',
+    '...#........##',
+    '...#........##',
+    '...#........##',
+    '...#........##',
+    '...#........##',
+    '...#........##',
+    '...#........##'
   ]
 };
 
@@ -154,19 +191,22 @@ export function muteFace(view) {
   return view.meeting.muted === true ? 'muted' : view.meeting.muted === false ? 'live' : 'unknown';
 }
 
-/* What the Leave key shows: 'active' while there's a meeting to leave. */
+/* What the Leave key shows: 'active' in a meeting. A press leaves it either
+   way — through the meeting's own button if it's been found, else its
+   keyboard shortcut — so the key doesn't wait on the button being found. */
 export function leaveFace(view) {
   if (!view) return 'off';
-  return view.meeting && view.meeting.canLeave ? 'active' : 'idle';
+  return view.meeting ? 'active' : 'idle';
 }
 
+/* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE. */
 const FACES = {
   'mute:live': { state: 'free', icon: 'mic', word: 'LIVE' },
   'mute:muted': { state: 'call', icon: 'micMuted', word: 'MUTED' },
   'mute:unknown': { state: 'away', icon: 'mic', word: 'MIC ?' },
-  'mute:idle': { state: 'away', icon: 'mic', word: '', dim: 0.62 },
+  'mute:idle': { state: 'away', icon: 'mic', word: 'MUTE', dim: 0.62 },
   'leave:active': { state: 'call', icon: 'handset', word: 'LEAVE' },
-  'leave:idle': { state: 'away', icon: 'handset', word: '', dim: 0.62 }
+  'leave:idle': { state: 'away', icon: 'handset', word: 'LEAVE', dim: 0.62 }
 };
 export const MEETING_FACES = Object.keys(FACES);
 
@@ -181,6 +221,18 @@ function drawIcon(f, rows, top, shadow, alpha) {
   }
 }
 
+/* A key with a picture: the icon in the lit pill and its word beneath, in
+   the 7-row face — or the 5-row one, for a word too wide for it (NEARBY).
+   Dimmed — pill, icon and word — while it's not in use. */
+function drawIconKey(f, rows, state, word, dimmed, wordDimmed = dimmed) {
+  const pal = E.palOf(state);
+  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: dimmed ? 0.62 : 0 });
+  drawIcon(f, rows, Math.round((PILL_H - rows.length) / 2), pal.shadow, dimmed ? 0.45 : 1);
+  if (!word) return;
+  const font = E.textWidth('busy_regular_7', word) <= N - 2 ? 'busy_regular_7' : 'busy_regular_5';
+  E.drawText(f, font, word, Math.round((N - E.textWidth(font, word)) / 2), DETAIL_BASE, WHITE, { alpha: wordDimmed ? 0.5 : 1 });
+}
+
 /* A Mute or Leave key as LEDs; `hold` says HOLD under the pill. */
 export function drawMeetingKey(kind, face, hold) {
   const f = new E.Frame(N, N);
@@ -189,23 +241,17 @@ export function drawMeetingKey(kind, face, hold) {
     drawLines(f, ['APP', 'OFF'], E.palOf('away'), 0.5);
     return f;
   }
-  const pal = E.palOf(spec.state);
-  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: spec.dim || 0 });
-  const rows = KEY_ICONS[spec.icon];
-  drawIcon(f, rows, Math.round((PILL_H - rows.length) / 2), pal.shadow, spec.dim ? 0.45 : 1);
-  const word = hold ? 'HOLD' : spec.word;
-  if (word) {
-    // one face for every word, so LIVE and MUTED match: MUTED is too wide for the bold one
-    E.drawText(f, 'busy_regular_7', word, Math.round((N - E.textWidth('busy_regular_7', word)) / 2), DETAIL_BASE, WHITE, {});
-  }
+  // one face for every word, so LIVE and MUTED match: MUTED is too wide for the bold one
+  drawIconKey(f, KEY_ICONS[spec.icon], spec.state, hold ? 'HOLD' : spec.word, !!spec.dim, !!spec.dim && !hold);
   return f;
 }
 
-/* The away keys: their words in the grey pill, lit while that key's on and
-   dimmed while it isn't. Beneath, Back In counts down to when you're back,
-   or says +10 (a press is ten minutes more); Nearby and Lunch say ON. */
+/* The away keys, lit while that key's on and dimmed while it isn't. Nearby
+   and Lunch are pictures with their word beneath, as Mute and Leave are;
+   Back In keeps its words in the pill, and beneath them counts down to when
+   you're back, or says +10 (a press is ten minutes more). */
 export const AWAY_KINDS = ['nearby', 'lunch', 'backIn'];
-const AWAY_WORDS = { nearby: WORDS.nearby, lunch: WORDS.lunch, backIn: WORDS.backIn };
+const AWAY_PICTURES = { nearby: { icon: 'walker', word: 'NEARBY' }, lunch: { icon: 'forkKnife', word: 'LUNCH' } };
 
 /* What an away key shows: 'off' when the app isn't answering, else 'on' or 'idle'. */
 export function awayFace(kind, view) {
@@ -222,19 +268,19 @@ export function drawAwayKey(kind, view, date) {
     return f;
   }
   const on = face === 'on';
+  const picture = AWAY_PICTURES[kind];
+  if (picture) {
+    drawIconKey(f, KEY_ICONS[picture.icon], kind, picture.word, !on);
+    return f;
+  }
   const pal = E.palOf(kind);
   E.drawPill(f, 0, N, pal, { h: PILL_H, dim: on ? 0 : 0.62 });
-  drawLines(f, AWAY_WORDS[kind], pal, on ? 1 : 0.6);
-  let detail = on ? 'ON' : '';
-  if (kind === 'backIn') {
-    const until = on ? view.away.until : null;
-    detail = until ? E.rightText('backIn', clockOf(date), timerOf({ at: until, kind: 'countdown' }, date.getTime())).top : '+10';
-  }
-  if (detail) {
-    const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => E.clockTextWidth(fn, detail) <= N - 2) || 'busy_regular_5';
-    E.drawClockText(f, font, detail, Math.round((N - E.clockTextWidth(font, detail)) / 2), DETAIL_BASE, WHITE,
-      { alpha: on ? 1 : 0.6 }, 1);
-  }
+  drawLines(f, WORDS[kind], pal, on ? 1 : 0.6);
+  const until = on ? view.away.until : null;
+  const detail = until ? E.rightText('backIn', clockOf(date), timerOf({ at: until, kind: 'countdown' }, date.getTime())).top : '+10';
+  const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => E.clockTextWidth(fn, detail) <= N - 2) || 'busy_regular_5';
+  E.drawClockText(f, font, detail, Math.round((N - E.clockTextWidth(font, detail)) / 2), DETAIL_BASE, WHITE,
+    { alpha: on ? 1 : 0.6 }, 1);
   return f;
 }
 

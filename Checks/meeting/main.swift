@@ -202,6 +202,23 @@ do { // live mute state, a press, and a disabled hang-up
     expect(!h.teams.canLeave, "a disabled hang-up can't leave")
 }
 
+do { // Teams redraws its hang-up button mid-call, the mic button reading on: found again
+    let h = Harness()
+    let (_, _, hang) = h.meeting("Mute mic")
+    h.run(2)
+    expect(h.teams.canLeave, "can leave")
+    hang.gone = true
+    h.run(1)
+    expect(!h.teams.canLeave && h.teams.inMeeting, "the old hang-up gone: \(h.teams)")
+    let again = h.f.button("hangup-button", "Leave (⌘+Shift+H)")
+    hang.parent?.add([again])
+    h.run(3)
+    expect(h.teams.canLeave && h.teams.inMeeting && h.teams.muted == false, "the new one found: \(h.teams)")
+    again.attrs.enabled = false
+    h.run(1)
+    expect(!h.teams.canLeave, "and read from then on")
+}
+
 do { // what mic-button names say
     let p = MeetingPatterns.shipped
     let cases: [(String, Bool?)] = [

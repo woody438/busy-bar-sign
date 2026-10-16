@@ -182,6 +182,9 @@ final class MeetingEngine {
         if t.mute == nil && now >= t.nextDiscovery {
             discover(t, now)
             t.nextDiscovery = now.addingTimeInterval(Self.discoverEvery)
+        } else if t.app == .teams && t.mute != nil && t.leave == nil && now >= t.nextDiscovery {
+            // Teams can redraw its hang-up button mid-call while the mute button reads on
+            t.nextDiscovery = now.addingTimeInterval(findLeave(t) ? Self.discoverEvery : Self.slowWalkEvery)
         }
         if now < t.confirmUntil { confirmZoomLeave(t) }
 
@@ -368,6 +371,23 @@ final class MeetingEngine {
             }
             meetingEnded(t, now, why: "toolbar gone")
         }
+    }
+
+    /// Looks for Teams' hang-up button again in the meeting window, the mute
+    /// button still found: the one there was redrawn, or wasn't drawn yet.
+    /// True if it walked a small window (or found it), so it can look again soon.
+    private func findLeave(_ t: Tracker) -> Bool {
+        guard let w = windows(t).first(where: { $0.title == t.window }) else { return true }
+        var hang: MeetingNode?
+        let (_, read, _) = MeetingNode.walk(backend, w.element, maxNodes: Self.meetingWalkCap) { n in
+            if n.attrs.id == Self.hangupID { hang = n }
+            return hang != nil
+        }
+        guard let hang else { return read < Self.bigWindow }
+        t.leave = hang.element
+        t.canLeave = hang.attrs.isEnabled
+        log("found Teams' leave button again")
+        return true
     }
 
     /// Reads Zoom's Meeting menu: "Mute audio" / "Unmute audio" is there only in a meeting.
