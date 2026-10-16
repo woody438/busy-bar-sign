@@ -299,12 +299,17 @@ engine and fonts:
   source folder; `npm run pack` makes the `.streamDeckPlugin`, and
   `npm run sheet` draws every state to `keys.png` to check by eye.
 
-### While the Mac is locked
+### A Busy Bar screensaver for the Stream Deck
 
-When the Mac locks, Stream Deck stops showing the keys and shows its
-screensaver across them — Elgato's logo, unless you give it another. No
-plugin can draw live keys there, but the screensaver can be the bar: BUSY /
-BAR in its LEDs, the sheen crossing the pill as it does on the wall.
+When the Stream Deck sleeps it shows a screensaver across its keys —
+Elgato's logo, unless you give it another. No plugin can draw there, but
+the screensaver can be the bar: BUSY / BAR in its LEDs, the sheen crossing
+the pill as it does on the wall.
+
+Elgato says the screensaver shows while the Mac is locked too. On the
+author's Mac (Stream Deck XL, macOS 27) it shows when the deck sleeps
+(Settings ▸ General ▸ **Sleep After**), but locking the Mac switches it to
+Elgato's logo, even from the screensaver.
 
 ![The Stream Deck screensaver: BUSY BAR in white LEDs on the bar's red pill](streamdeck/screensaver/busy-bar-mk2.gif)
 
