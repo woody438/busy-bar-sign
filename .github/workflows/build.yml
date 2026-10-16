@@ -54,9 +54,15 @@ jobs:
             -destination 'generic/platform=macOS' \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" UPDATE_CHANNEL="$UPDATE_CHANNEL" \
-            build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/)|BUILD (SUCCEEDED|FAILED)" || true
+            build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/|Saver/)|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log                  # a failed build can still leave a partial app
           test -d "build/Build/Products/Release/Busy Bar Sign.app"
+
+      # the screen saver loaded as macOS's host loads it, with a stand-in for the app
+      - name: Check the screen saver loads and shows the sign
+        run: |
+          swiftc Checks/saver-load/main.swift -o "$RUNNER_TEMP/saver-load"
+          "$RUNNER_TEMP/saver-load" "build/Build/Products/Release/Busy Bar Sign.app/Contents/PlugIns/Busy Bar Sign.saver"
 
       # Signed with the project's certificate, macOS knows each build as the same app,
       # so Accessibility carries over between updates; ad hoc, each build looks new.
@@ -84,6 +90,11 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign -d -r- "$APP" 2>&1 | grep designated                    # what macOS knows this build by
           lipo -info "$APP/Contents/MacOS/Busy Bar Sign"
+          SAVER="$APP/Contents/PlugIns/Busy Bar Sign.saver"                # the screen saver it installs
+          codesign --verify --strict --verbose=2 "$SAVER"
+          lipo -info "$SAVER/Contents/MacOS/Busy Bar Sign" | grep -Eq "x86_64 arm64|arm64 x86_64"     # Intel Macs too
+          test "$(plutil -extract NSPrincipalClass raw "$SAVER/Contents/Info.plist")" = "BusyBarSignSaverView"
+          test "$(plutil -extract CFBundleVersion raw "$SAVER/Contents/Info.plist")" = "$BUILD_NUMBER"
           test -f "$APP/Contents/Resources/AppIcon.icns"                 # the icon made it in
           plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
           test "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" = "$BUILD_NUMBER"
@@ -112,7 +123,7 @@ jobs:
             BusyBarSign.json
 
       # before publishing: a published build reaches every copy through the updater
-      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, local API, Stream Deck plugin)
+      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, away keys, local API, screen saver, Stream Deck plugin)
         run: |
           set -o pipefail
           Checks/run.sh 2>&1 | tee checks.log

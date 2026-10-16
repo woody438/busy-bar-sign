@@ -39,6 +39,11 @@ if [ -z "$ID" ]; then
   exit 1
 fi
 
+# nested code first: the screen saver the app carries, which it installs as it is
+for NESTED in "$APP"/Contents/PlugIns/*.saver; do
+  [ -e "$NESTED" ] || continue
+  codesign --force --sign "$ID" --keychain "$KC" --timestamp=none "$NESTED"
+done
 codesign --force --sign "$ID" --keychain "$KC" --timestamp=none \
   --preserve-metadata=entitlements,flags "$APP"
 codesign --verify --strict --verbose=2 "$APP"

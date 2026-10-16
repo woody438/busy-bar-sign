@@ -79,6 +79,11 @@ struct LEDPanelView: NSViewRepresentable {
 
 final class LEDPanelNSView: NSView {
     var model: BarModel?
+    /// Whether to stop drawing while the window's hidden. Off in the screen
+    /// saver, whose host may not say its windows are visible.
+    var followsOcclusion = true {
+        didSet { occlusionChanged() }
+    }
     var pitchPixels = 0 {
         didSet { if pitchPixels != oldValue { raster = nil; needsLayout = true } }
     }
@@ -167,7 +172,7 @@ final class LEDPanelNSView: NSView {
 
     /// Stop rendering while the window is hidden or its screen is away.
     @objc private func occlusionChanged() {
-        link?.isPaused = !(window?.occlusionState.contains(.visible) ?? false)
+        link?.isPaused = followsOcclusion && !(window?.occlusionState.contains(.visible) ?? false)
     }
 
     override func viewDidChangeBackingProperties() {
