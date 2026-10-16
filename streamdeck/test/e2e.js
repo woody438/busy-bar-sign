@@ -3,8 +3,9 @@
  * it registers, draws the key in the sign's colour on the second, toggles
  * Do Not Disturb on a press (with a tick when the sign can't show it),
  * mutes and leaves a meeting from the Mute and Leave keys (a held Leave
- * key only on a hold), says APP OFF and warns on a press when the app's
- * gone, comes back with it, and stops asking once its keys are gone.
+ * key only on a hold), lights the away keys (Back In ten minutes a press,
+ * held to end), says APP OFF and warns on a press when the app's gone,
+ * comes back with it, and stops asking once its keys are gone.
  *
  *   npm run build && node test/e2e.js
  */
@@ -20,7 +21,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out: ${what}`)), ms));
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
-const app = { state: 'free', moment: null, dnd: false, meeting: null, pressWorks: true, requests: [] };
+const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, pressWorks: true, requests: [] };
+const AWAY_KEYS = { '/away/wandering': 'wandering', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
   let pressed = null;
@@ -33,12 +35,21 @@ function appHandler(req, res) {
   } else if (req.method === 'POST' && (req.url === '/meeting/leave' || req.url === '/meeting/end')) {
     pressed = { ok: !!app.meeting, message: req.url === '/meeting/end' ? 'Ended it for everyone.' : 'Pressed Teams’s own leave button.' };
     app.meeting = null;
+  } else if (req.method === 'POST' && req.url === '/away/end') {
+    app.away = null;
+  } else if (req.method === 'POST' && AWAY_KEYS[req.url]) {
+    const key = AWAY_KEYS[req.url];
+    if (key === 'backIn') {
+      app.away = { kind: 'backIn', until: (app.away && app.away.kind === 'backIn' ? app.away.until : Date.now()) + 600000 };
+    } else {
+      app.away = app.away && app.away.kind === key ? null : { kind: key };
+    }
   } else if (!(req.method === 'GET' && req.url === '/status')) {
     res.writeHead(404).end();
     return;
   }
   const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {},
-    app.meeting ? { meeting: app.meeting } : {}, pressed ? { pressed } : {}));
+    app.meeting ? { meeting: app.meeting } : {}, app.away ? { away: app.away } : {}, pressed ? { pressed } : {}));
   res.writeHead(200, { 'Content-Type': 'application/json', Connection: 'close' }).end(body);
 }
 let appServer = http.createServer(appHandler);
@@ -72,7 +83,7 @@ let failed = false;
 child.on('exit', (code) => { if (!done) { failed = true; console.error('plugin exited early with', code); } });
 let done = false;
 
-/* The colour of the pill's middle, from a setImage picture: 'red', 'green', 'blue', 'amber' or 'dark'. */
+/* The colour of the pill's middle, from a setImage picture: 'red', 'green', 'blue', 'amber', 'grey' or 'dark'. */
 function pillColour(dataURL) {
   const buf = Buffer.from(dataURL.replace(/^data:image\/png;base64,/, ''), 'base64');
   const idat = [];
@@ -85,6 +96,7 @@ function pillColour(dataURL) {
   const [r, g, b] = [0, 1, 2].map((c) => raw[y * (144 * 3 + 1) + 1 + x * 3 + c]);
   if (Math.max(r, g, b) < 60) return 'dark';
   if (r > 150 && g > 100 && b < 80) return 'amber';
+  if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30) return 'grey';
   return r >= g && r >= b ? 'red' : g >= b ? 'green' : 'blue';
 }
 /* A picture on a key, sent since message `since` or yet to come. */
@@ -216,6 +228,48 @@ try {
   toPlugin(Object.assign({ event: 'willDisappear' }, leave));
   toPlugin(Object.assign({ event: 'willDisappear' }, quick));
   app.state = 'free';
+  app.meeting = null;
+
+  // the away keys: dimmed until pressed; Back In ten minutes a press, held to end
+  const awayKey = (kind, context) => ({ action: `com.woodall.busybarsign.${kind}`, context, device: 'deck',
+    payload: { controller: 'Keypad', coordinates: { column: 2, row: 1 }, isInMultiAction: false, settings: {}, state: 0 } });
+  const backIn = awayKey('backin', 'b1'), lunch = awayKey('lunch', 'u1'), wandering = awayKey('wandering', 'w1');
+  const appeared = sent.length;
+  for (const key of [backIn, lunch, wandering]) toPlugin(Object.assign({ event: 'willAppear' }, key));
+  await imageOn('b1', 'dark', 3000, 'Back In dimmed', appeared);
+  await imageOn('u1', 'dark', 3000, 'Lunch dimmed', appeared);
+  await imageOn('w1', 'dark', 3000, 'Wandering dimmed', appeared);
+  const tap = async (key) => {
+    toPlugin(Object.assign({ event: 'keyDown' }, key));
+    await wait(80);
+    toPlugin(Object.assign({ event: 'keyUp' }, key));
+    await wait(150);
+  };
+  const pressedAt = Date.now(), lit = sent.length;
+  for (let i = 0; i < 3; i++) await tap(backIn);
+  await imageOn('b1', 'grey', 1500, 'Back In lit', lit);
+  assert.equal(app.requests.filter((r) => r.method === 'POST' && r.url === '/away/back-in').length, 3);
+  assert.ok(Math.abs(app.away.until - pressedAt - 30 * 60000) < 2000, 'three presses: half an hour');
+  const heldAt = sent.length;
+  toPlugin(Object.assign({ event: 'keyDown' }, backIn));
+  await next((m) => m.event === 'showOk' && m.context === 'b1', 2000, 'a tick when Back In is held');
+  toPlugin(Object.assign({ event: 'keyUp' }, backIn));
+  await imageOn('b1', 'dark', 1500, 'Back In dimmed after a hold', heldAt);
+  assert.equal(app.away, null);
+  assert.equal(app.requests.filter((r) => r.method === 'POST' && r.url === '/away/back-in').length, 3, 'a hold adds no time');
+  console.log('ok  Back In: ten minutes a press, held to end');
+
+  const lunchAt = sent.length;
+  await tap(lunch);
+  await imageOn('u1', 'grey', 1500, 'Lunch lit', lunchAt);
+  const swap = sent.length;
+  await tap(wandering);
+  await imageOn('w1', 'grey', 1500, 'Wandering lit', swap);
+  await imageOn('u1', 'dark', 1500, 'Lunch dimmed once Wandering is on', swap);
+  await tap(wandering);
+  assert.equal(app.away, null, 'a second press ends it');
+  for (const key of [backIn, lunch, wandering]) toPlugin(Object.assign({ event: 'willDisappear' }, key));
+  console.log('ok  Lunch and Wandering go on and off, one at a time');
 
   // the app quits: APP OFF; a press warns; it comes back
   await new Promise((r) => { appServer.close(r); appServer.closeAllConnections(); });
