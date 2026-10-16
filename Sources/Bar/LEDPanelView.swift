@@ -187,8 +187,18 @@ final class LEDPanelNSView: NSView {
         renderFrame()
     }
 
+    /// Frames drawn so far, and when the last was: the screen saver reports
+    /// them, and draws for itself where the display link doesn't run.
+    private(set) var framesDrawn = 0
+    private(set) var lastDrawn: CFTimeInterval = 0
+
+    /// A frame now, without waiting for the display link.
+    func drawNow() { renderFrame() }
+
     private func renderFrame() {
         guard let model, pitchPixels > 1 else { return }
+        framesDrawn &+= 1
+        lastDrawn = CACurrentMediaTime()
         if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: barLayout.cols, rows: barLayout.rows) }
         guard let raster else { return }
 

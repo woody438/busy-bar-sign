@@ -13,7 +13,7 @@ import Foundation
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
  *                         (else leaves); each answers with the status and how
  *                         the press went: "pressed":{"ok":true,"message":"…"}
- *   POST /away/wandering  the away keys: Wandering or Lunch on, or off if on;
+ *   POST /away/nearby  the away keys: Nearby or Lunch on, or off if on;
  *   POST /away/lunch      Back In ten minutes more; End back at your desk.
  *   POST /away/back-in    Each answers with the new status
  *   POST /away/end
@@ -27,10 +27,15 @@ import Foundation
  * `meeting` appears while you're in a Teams or Zoom meeting:
  * {"app":"teams","canLeave":true,"muted":false}, `muted` left out when the
  * meeting's mute can't be read. `away` appears while an away key is on:
- * {"kind":"backIn","until":1760000000000} — wandering, lunch or backIn,
+ * {"kind":"backIn","until":1760000000000} — nearby, lunch or backIn,
  * `until` (ms) for backIn only. `wall` appears while the full-screen display
  * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
  * layout, for the screen saver to draw the wall as the wall is drawn.
+ *
+ * The screen saver adds a header to its GET /status saying where it is:
+ *   X-Busy-Bar-Saver: display=4; drawing=1; name=LG HDR 4K
+ * its monitor's CGDirectDisplayID, whether it drew since it last asked, and
+ * the monitor's name (last, as it can hold anything but a line break).
  *
  * For programs on this Mac only. LocalServer listens on 127.0.0.1, and
  * this turns away what a web page could send: a request with an Origin
@@ -75,7 +80,7 @@ enum LocalAPI {
 
     enum Route: Equatable {
         case status, toggleDND, meetingMute, meetingLeave, meetingEnd
-        case away(String)                       // an away key: wandering, lunch, backIn
+        case away(String)                       // an away key: nearby, lunch, backIn
         case awayEnd
         case reject(Int)
     }
@@ -91,15 +96,47 @@ enum LocalAPI {
         case ("POST", "/meeting/mute"): return .meetingMute
         case ("POST", "/meeting/leave"): return .meetingLeave
         case ("POST", "/meeting/end"): return .meetingEnd
-        case ("POST", "/away/wandering"): return .away("wandering")
+        case ("POST", "/away/nearby"): return .away("nearby")
         case ("POST", "/away/lunch"): return .away("lunch")
         case ("POST", "/away/back-in"): return .away("backIn")
         case ("POST", "/away/end"): return .awayEnd
         case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"),
-             (_, "/away/wandering"), (_, "/away/lunch"), (_, "/away/back-in"), (_, "/away/end"):
+             (_, "/away/nearby"), (_, "/away/lunch"), (_, "/away/back-in"), (_, "/away/end"):
             return .reject(405)
         default: return .reject(404)
         }
+    }
+
+    /// What a screen saver said about itself.
+    struct SaverReport: Equatable {
+        var display: UInt32
+        var drawing: Bool
+        var name: String
+    }
+
+    static let saverHeader = "x-busy-bar-saver"
+
+    /// The screen saver's report in a request, if it's one of the screen saver's.
+    static func saverReport(_ request: Request) -> SaverReport? {
+        guard let value = request.headers[saverHeader] else { return nil }
+        var head = value, name = ""
+        if let at = value.range(of: "name=") {             // the name last: whatever it holds
+            head = String(value[..<at.lowerBound])
+            name = value[at.upperBound...].trimmingCharacters(in: .whitespaces)
+        }
+        var fields: [String: String] = [:]
+        for part in head.split(separator: ";") {
+            let kv = part.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if kv.count == 2 { fields[kv[0]] = kv[1] }
+        }
+        guard let display = fields["display"].flatMap({ UInt32($0) }) else { return nil }
+        return SaverReport(display: display, drawing: fields["drawing"] == "1", name: name)
+    }
+
+    /// The header the screen saver sends, as `saverReport` reads it.
+    static func saverHeaderValue(_ report: SaverReport) -> String {
+        let name = report.name.replacingOccurrences(of: "\r", with: " ").replacingOccurrences(of: "\n", with: " ")
+        return "display=\(report.display); drawing=\(report.drawing ? 1 : 0); name=\(name)"
     }
 
     struct Status: Encodable, Equatable {
@@ -120,7 +157,7 @@ enum LocalAPI {
         }
         /// The away key that's on.
         struct Away: Encodable, Equatable {
-            var kind: String                    // wandering, lunch, backIn
+            var kind: String                    // nearby, lunch, backIn
             var until: Int64?                   // ms since 1970, for backIn
         }
         /// The full-screen display, while it's up.

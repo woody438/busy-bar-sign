@@ -39,8 +39,8 @@ const awayView = (away) => ({ state: 'free', moment: null, dnd: false, meeting: 
 
 const readme = ['--readme', '--meeting', '--away'].some((a) => process.argv.includes(a));
 if (process.argv.includes('--away')) {
-  // Back In counting down, Lunch and Wandering waiting; the Status key saying it
-  keys.splice(0, keys.length, { away: ['wandering', null] }, { away: ['lunch', null] },
+  // Back In counting down, Lunch and Nearby waiting; the Status key saying it
+  keys.splice(0, keys.length, { away: ['nearby', null] }, { away: ['lunch', null] },
     { away: ['backIn', { kind: 'backIn', until: at + 29 * min + 41000 }] },
     { state: 'backIn', moment: { at: at + 29 * min + 41000, kind: 'countdown' } });
 } else if (process.argv.includes('--meeting')) {

@@ -67,6 +67,7 @@ targets:
     platform: macOS
     sources:
       - path: Saver
+      - path: Sources/LocalAPI.swift
       - path: Sources/Bar/BarEngine.swift
       - path: Sources/Bar/PixelFonts.swift
       - path: Sources/Bar/FontData.swift

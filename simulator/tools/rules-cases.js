@@ -61,7 +61,7 @@ scenario([ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })], [], [600]);
 // the away keys and the Mac locked, through the sample day and on their own
 for (const t of ['08:40', '09:40', '10:15', '11:10', '12:40', '14:05', '14:47', '17:40']) {
   const at = D.at(0, t);
-  for (const extra of [{ locked: true }, { locked: true, dndUntil: at + 20 * M }, { away: 'wandering' }, { away: 'lunch', locked: true },
+  for (const extra of [{ locked: true }, { locked: true, dndUntil: at + 20 * M }, { away: 'nearby' }, { away: 'lunch', locked: true },
     { away: 'backIn', awayUntil: at + 30 * M }, { away: 'backIn', awayUntil: at - M, locked: true }]) {
     add(Object.assign({ now: at, override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions }, extra));
   }
@@ -72,7 +72,7 @@ scenario([call('c', 600, 630)], [], [595, 603, 605], { locked: true });
 scenario([call('a', 600, 660), call('b', 665, 700)], [[600, 630]], [640], { locked: true });
 scenario([ev({ title: 'NO MEETINGS', start: 540 * M, end: 720 * M })], [], [600], { locked: true });
 scenario([call('t', 600, 630, { availability: 'tentative' })], [], [595, 605], { locked: true });
-for (const away of ['wandering', 'lunch']) {
+for (const away of ['nearby', 'lunch']) {
   scenario([call('c', 600, 630), ev({ title: 'Lunch', start: 640 * M, end: 700 * M })], [[612, 625]], [595, 605, 615, 650], { away: away });
 }
 for (const locked of [false, true]) {
@@ -80,7 +80,7 @@ for (const locked of [false, true]) {
 }
 scenario([], [], [600], { away: 'backIn', awayUntil: null });
 scenario([], [], [600], { away: 'lunch', override: 'free' });
-scenario([], [], [600], { away: 'wandering', dndUntil: 620 * M });
+scenario([], [], [600], { away: 'nearby', dndUntil: 620 * M });
 
 // classification: one event at a time, half way through it
 const ONE = [

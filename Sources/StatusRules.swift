@@ -55,7 +55,7 @@ struct StatusInput {
     var now: Double                     // ms
     var override = "auto"               // Override's raw value: auto, onCall, free
     var dndUntil: Double? = nil         // ms
-    var away: String? = nil             // the away keys: wandering, lunch, backIn
+    var away: String? = nil             // the away keys: nearby, lunch, backIn
     var awayUntil: Double? = nil        // ms: when you'll be back, for backIn
     var locked = false                  // the Mac is locked, or its screen saver is on
     var micSessions: [MicSession] = []
@@ -261,7 +261,7 @@ enum StatusRules {
         if input.away == "backIn", let back = input.awayUntil, back > now {
             return sign("backIn", "Away key: back in a few minutes", left: (back - now) / 1000, at: back)
         }
-        if input.away == "wandering" { return sign("wandering", "Away key: wandering") }
+        if input.away == "nearby" { return sign("nearby", "Away key: nearby") }
         if input.away == "lunch" { return sign("lunch", "Away key: lunch") }
         // 4. a double-click — waiting while the Mac's locked, as under a call: you're not at your desk
         if let dnd = input.dndUntil, dnd > now, !input.locked {
@@ -296,7 +296,7 @@ enum StatusRules {
         }
 
         // the Mac locked, with nothing above to say where you are: around somewhere
-        if input.locked { return sign("wandering", "Mac locked") }
+        if input.locked { return sign("nearby", "Mac locked") }
 
         // a no-meetings block, then a call you've left early with something straight after it
         if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }

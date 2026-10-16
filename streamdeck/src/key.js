@@ -27,7 +27,7 @@ const WORDS = {
   call: ['ON A', 'CALL'], callMuted: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
   callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], freeTil: ['FREE', 'TILL'],
   callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO'],
-  wandering: ['WAN-', 'DERING'], backIn: ['BACK', 'IN']
+  nearby: ['NEAR-', 'BY'], backIn: ['BACK', 'IN']
 };
 export const STATES = Object.keys(WORDS);
 
@@ -143,20 +143,6 @@ export const KEY_ICONS = {
     '###.........###',
     '###.........###',
     '.##.........##.'
-  ],
-  // someone walking: the Wandering key's icon in Stream Deck's list
-  walker: [
-    '....##....',
-    '....##....',
-    '..........',
-    '...####...',
-    '..#.##.#..',
-    '.#..##..#.',
-    '....##....',
-    '....###...',
-    '...#...#..',
-    '..#....#..',
-    '.#......#.'
   ]
 };
 
@@ -217,9 +203,9 @@ export function drawMeetingKey(kind, face, hold) {
 
 /* The away keys: their words in the grey pill, lit while that key's on and
    dimmed while it isn't. Beneath, Back In counts down to when you're back,
-   or says +10 (a press is ten minutes more); Wandering and Lunch say ON. */
-export const AWAY_KINDS = ['wandering', 'lunch', 'backIn'];
-const AWAY_WORDS = { wandering: WORDS.wandering, lunch: WORDS.lunch, backIn: WORDS.backIn };
+   or says +10 (a press is ten minutes more); Nearby and Lunch say ON. */
+export const AWAY_KINDS = ['nearby', 'lunch', 'backIn'];
+const AWAY_WORDS = { nearby: WORDS.nearby, lunch: WORDS.lunch, backIn: WORDS.backIn };
 
 /* What an away key shows: 'off' when the app isn't answering, else 'on' or 'idle'. */
 export function awayFace(kind, view) {

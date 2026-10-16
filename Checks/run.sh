@@ -59,7 +59,7 @@ echo; echo "== updates (which GitHub release is newer)"
 "$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"
 "$OUT/update"
 
-echo; echo "== away keys (Wandering, Lunch, Back In)"
+echo; echo "== away keys (Nearby, Lunch, Back In)"
 "$SWIFTC" Sources/AwayState.swift Checks/away/main.swift -o "$OUT/away"
 "$OUT/away"
 

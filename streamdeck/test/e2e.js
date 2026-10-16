@@ -22,7 +22,7 @@ const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
 const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, pressWorks: true, requests: [] };
-const AWAY_KEYS = { '/away/wandering': 'wandering', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
+const AWAY_KEYS = { '/away/nearby': 'nearby', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
   let pressed = null;
@@ -92,7 +92,7 @@ function pillColour(dataURL) {
     if (buf.toString('ascii', at + 4, at + 8) === 'IDAT') idat.push(buf.subarray(at + 8, at + 8 + len));
     at += 12 + len;
   }
-  const raw = zlib.inflateSync(Buffer.concat(idat)), x = 2 * 4 + 2, y = 3 * 4 + 2;     // LED (2, 3): pill, clear of the type
+  const raw = zlib.inflateSync(Buffer.concat(idat)), x = 17 * 4 + 2, y = 1 * 4 + 2;    // LED (17, 1): pill, above the type
   const [r, g, b] = [0, 1, 2].map((c) => raw[y * (144 * 3 + 1) + 1 + x * 3 + c]);
   if (Math.max(r, g, b) < 60) return 'dark';
   if (r > 150 && g > 100 && b < 80) return 'amber';
@@ -233,12 +233,13 @@ try {
   // the away keys: dimmed until pressed; Back In ten minutes a press, held to end
   const awayKey = (kind, context) => ({ action: `com.woodall.busybarsign.${kind}`, context, device: 'deck',
     payload: { controller: 'Keypad', coordinates: { column: 2, row: 1 }, isInMultiAction: false, settings: {}, state: 0 } });
-  const backIn = awayKey('backin', 'b1'), lunch = awayKey('lunch', 'u1'), wandering = awayKey('wandering', 'w1');
+  // (the Nearby key's id is still its first name, wandering)
+  const backIn = awayKey('backin', 'b1'), lunch = awayKey('lunch', 'u1'), nearby = awayKey('wandering', 'n1');
   const appeared = sent.length;
-  for (const key of [backIn, lunch, wandering]) toPlugin(Object.assign({ event: 'willAppear' }, key));
+  for (const key of [backIn, lunch, nearby]) toPlugin(Object.assign({ event: 'willAppear' }, key));
   await imageOn('b1', 'dark', 3000, 'Back In dimmed', appeared);
   await imageOn('u1', 'dark', 3000, 'Lunch dimmed', appeared);
-  await imageOn('w1', 'dark', 3000, 'Wandering dimmed', appeared);
+  await imageOn('n1', 'dark', 3000, 'Nearby dimmed', appeared);
   const tap = async (key) => {
     toPlugin(Object.assign({ event: 'keyDown' }, key));
     await wait(80);
@@ -263,13 +264,13 @@ try {
   await tap(lunch);
   await imageOn('u1', 'grey', 1500, 'Lunch lit', lunchAt);
   const swap = sent.length;
-  await tap(wandering);
-  await imageOn('w1', 'grey', 1500, 'Wandering lit', swap);
-  await imageOn('u1', 'dark', 1500, 'Lunch dimmed once Wandering is on', swap);
-  await tap(wandering);
+  await tap(nearby);
+  await imageOn('n1', 'grey', 1500, 'Nearby lit', swap);
+  await imageOn('u1', 'dark', 1500, 'Lunch dimmed once Nearby is on', swap);
+  await tap(nearby);
   assert.equal(app.away, null, 'a second press ends it');
-  for (const key of [backIn, lunch, wandering]) toPlugin(Object.assign({ event: 'willDisappear' }, key));
-  console.log('ok  Lunch and Wandering go on and off, one at a time');
+  for (const key of [backIn, lunch, nearby]) toPlugin(Object.assign({ event: 'willDisappear' }, key));
+  console.log('ok  Lunch and Nearby go on and off, one at a time');
 
   // the app quits: APP OFF; a press warns; it comes back
   await new Promise((r) => { appServer.close(r); appServer.closeAllConnections(); });

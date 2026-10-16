@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     lazy var status = StatusModel(detector: detector, calendar: calendar)
     lazy var window = DisplayWindow(detector: detector, status: status)
     lazy var floating = FloatingWindow(detector: detector, status: status)
-    lazy var server = LocalServer(detector: detector, status: status, wall: window)
+    lazy var server = LocalServer(detector: detector, status: status, wall: window, saver: saver)
     let saver = SaverInstaller()
     lazy var controls = ControlsWindow(detector: detector, status: status, calendar: calendar, wall: window, floating: floating,
                                        server: server, saver: saver)
@@ -163,7 +163,7 @@ private struct MenuContent: View {
         Divider()
 
         // the away keys, as on the Stream Deck
-        Toggle("Wandering", isOn: Binding(get: { away.kind == .wandering }, set: { _ in away.press(.wandering) }))
+        Toggle("Nearby", isOn: Binding(get: { away.kind == .nearby }, set: { _ in away.press(.nearby) }))
         Toggle("Lunch", isOn: Binding(get: { away.kind == .lunch }, set: { _ in away.press(.lunch) }))
         Button(away.kind == .backIn ? "Back In: 10 More Minutes" : "Back In 10 Minutes") { away.press(.backIn) }
         if away.kind != nil {

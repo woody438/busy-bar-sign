@@ -19,7 +19,7 @@ sign gets a slash and flashes, so the room knows it can talk
 ([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
 sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
 Teams or Zoom meeting from anywhere ([below](#stream-deck)). Leaving your
-desk, a **Wandering**, **Lunch** or **Back In** key (Back In counts down:
+desk, a **Nearby**, **Lunch** or **Back In** key (Back In counts down:
 ten minutes a press) locks the Mac and the sign stays up on every screen,
 through its own **screen saver** ([below](#while-youre-away)). It **updates
 itself** when you're off calls ([below](#updates)).
@@ -195,9 +195,9 @@ Bar Sign carries one, and three **away keys** say where you've gone:
 
 | The bar | What puts it there |
 |---|---|
-| **WANDERING** | The **Wandering** key: in the building, not at your desk. Or the Mac locked with nothing in the calendar to say where you are. |
+| **NEARBY** | The **Nearby** key: in the building, not at your desk. Or the Mac locked with nothing in the calendar to say where you are. |
 | **LUNCH** | The **Lunch** key — or lunch in your calendar, as before. |
-| **BACK IN** · *29:41 AT 14:30* | The **Back In** key: ten minutes a press, so three presses for a half-hour meeting down the corridor. When the time's up, the sign moves on to what's next — WANDERING, if the Mac's still locked. |
+| **BACK IN** · *29:41 AT 14:30* | The **Back In** key: ten minutes a press, so three presses for a half-hour meeting down the corridor. When the time's up, the sign moves on to what's next — NEARBY, if the Mac's still locked. |
 
 The keys are on the Stream Deck ([below](#stream-deck)), in the menu-bar
 menu and in Settings ▸ Status.
@@ -205,13 +205,15 @@ menu and in Settings ▸ Status.
 **Setting it up**, once:
 
 1. **Settings ▸ Displays ▸ Screen saver ▸ Choose It…** opens System Settings
-   at Wallpaper: click **Screen Saver** and pick **Busy Bar Sign**. The app
-   puts the screen saver in `~/Library/Screen Savers` itself, and replaces it
-   with each update's.
+   at Wallpaper: click **Screen Saver** and pick **Busy Bar Sign**. **Then
+   drag the System Settings window to each of your other monitors and do it
+   again there**: macOS gives every monitor its own screen saver, and sets
+   the one System Settings is on. The app puts the screen saver in
+   `~/Library/Screen Savers` itself, and replaces it with each update's.
 2. **Lock Screen Settings…** (next to it): set "Require password after
    screen saver begins or display is turned off" to **Immediately**, so the
    screen saver locks the Mac.
-3. On the Stream Deck, drag **Busy Bar Sign ▸ Wandering**, **▸ Lunch** and
+3. On the Stream Deck, drag **Busy Bar Sign ▸ Nearby**, **▸ Lunch** and
    **▸ Back In** onto keys.
 
 **Using it:**
@@ -221,17 +223,17 @@ menu and in Settings ▸ Status.
   the wall's monitor as the wall is set (wide bar or stacked), the others as
   the wide bar. The three seconds are so Back In can be pressed a few times
   first.
-- Wandering and Lunch: press again to end. Back In: hold it a second.
+- Nearby and Lunch: press again to end. Back In: hold it a second.
 - **Unlock and the key's done**: the sign goes back to the microphone and
   the calendar.
-- **Lock without a key** (⌃⌘Q, a hot corner) and the sign says WANDERING —
+- **Lock without a key** (⌃⌘Q, a hot corner) and the sign says NEARBY —
   unless the calendar has something to say: LUNCH, MEETING, CALL IN, LATE
   and the tentative ones still show. A double-click Do Not Disturb waits
   underneath while you're away, and comes back with whatever time is left.
 - The microphone still outranks it all: leave a call running and the sign
   says ON A CALL.
 - The screen saver asks the app once a second, as the Stream Deck does. If
-  the app isn't answering, it says WANDERING.
+  the app isn't answering, it says NEARBY.
 - **Settings ▸ Status ▸ Start the screen saver** off: the keys just change
   the sign, and don't lock anything.
 
@@ -242,6 +244,11 @@ Worth knowing:
   The app keeps the displays awake while the wall's up, and that may stop
   the screen saver starting by itself too — not yet checked. Lock with a
   key, or a hot corner set to **Start Screen Saver**.
+- **Settings ▸ Displays ▸ Screen saver ▸ Last showed on** lists the
+  monitors the screen saver has run on since the app opened, and whether
+  it drew there. A monitor that isn't listed never ran it — choose it on
+  that monitor (step 1). One listed as *not drawing* ran it but drew
+  nothing: that's for fixing here.
 - **Screen savers from outside Apple are on shaky ground.** Since Sonoma
   they run in an Apple host (`legacyScreenSaver`) that keeps them running
   after they're dismissed, and on Tahoe can leave a second monitor blank.
@@ -266,12 +273,12 @@ engine and fonts:
   CALL, so the key flashes a tick to say the press counted.
 - **Mute** and **Leave** — for the Teams or Zoom meeting you're in, wherever
   its window is ([below](#mute-and-leave-keys-for-teams-and-zoom)).
-- **Wandering**, **Lunch** and **Back In** — where you've gone when you
+- **Nearby**, **Lunch** and **Back In** — where you've gone when you
   leave your desk, and the Mac locked behind you ([above](#while-youre-away)).
   Each is lit while it's the one that's on, dimmed while it isn't; Back In
   says **+10** beneath, and counts down once pressed.
 
-![The away keys: Wandering and Lunch dimmed, Back In lit and counting down 29:40, and the Status key saying BACK IN 29:40](docs/stream-deck-away-keys.png)
+![The away keys: Nearby and Lunch dimmed, Back In lit and counting down 29:40, and the Status key saying BACK IN 29:40](docs/stream-deck-away-keys.png)
 
 1. Download **`BusyBarSign.streamDeckPlugin`** from the
    [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
@@ -279,7 +286,7 @@ engine and fonts:
    later.) When there's a newer one, Busy Bar Sign offers it (Settings ▸
    Status ▸ Updates).
 2. In Stream Deck, drag **Busy Bar Sign ▸ Status**, **▸ Mute**, **▸ Leave**,
-   **▸ Wandering**, **▸ Lunch** and **▸ Back In** onto keys — on as many keys,
+   **▸ Nearby**, **▸ Lunch** and **▸ Back In** onto keys — on as many keys,
    pages and Stream Decks as you like.
 
 - If double-clicking doesn't install it, quit Stream Deck, unzip the file
@@ -297,7 +304,7 @@ engine and fonts:
 
 - The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
   meeting, CALL / IN 09:41, FREE / TILL 15:00, TBC / TILL once a tentative
-  meeting is on, OOO, WAN- / DERING, BACK / IN 29:41.
+  meeting is on, OOO, NEAR- / BY, BACK / IN 29:41.
 - It asks the app once a second, on the second, so its countdown turns with
   the bar's. While the app isn't running the key says **APP OFF**, and a
   press flashes a warning.
@@ -375,7 +382,7 @@ events that aren't busy. Declined meetings leave Outlook, so they never count.
 [away keys](#while-youre-away); a double-click Do Not Disturb (which waits
 while the Mac's locked); then the calendar — out of office, lunch, away, a
 phone-call block, an in-person meeting, a call you're late for, a warning, a
-tentative meeting; then, with the Mac locked, WANDERING; then a no-meetings
+tentative meeting; then, with the Mac locked, NEARBY; then a no-meetings
 block, and a call you left early with something straight after it.
 
 The title words for your own events are in the Calendar tab: whole words,
@@ -426,7 +433,7 @@ The full menu:
 - **Sign** — Automatic, or force ON A CALL / FREE (for in-person meetings, recording).
 - **Detect** — *Any app except ignored* (default) or *Known call apps only*.
 - **Do Not Disturb (30 min)** / **End Do Not Disturb**.
-- **Wandering** and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
+- **Nearby** and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
   In: 10 More Minutes**) and **I'm Back**: the away keys.
 - **Microphone** — every app holding the mic right now, each with an
   **Ignore** toggle. If something that isn't a call lights the sign, ignore it
@@ -601,7 +608,7 @@ errors or warnings in its code.
 - **The Swift engine matches the simulator LED for LED** across 106 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE's pulse and the muted call's glow and flashing mic,
-  WANDERING alone in its pill and BACK IN counting down, each with the countdown the app gives
+  NEARBY and BACK IN counting down, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 2,995
@@ -614,7 +621,7 @@ errors or warnings in its code.
   titles, Show As), and the away keys and a locked Mac across the day. The
   rules themselves have 134 hand-checked cases
   (`simulator/tools/rules-check.js`).
-- **The away keys** (`Checks/away`): Wandering and Lunch on and off, Back
+- **The away keys** (`Checks/away`): Nearby and Lunch on and off, Back
   In ten minutes a press from the first (and from then, once it's run out),
   no further than a working day, and running out on time.
 - **The screen saver loads and shows the sign** (on every build, after it):
@@ -644,7 +651,7 @@ errors or warnings in its code.
   warns when a press didn't take, leaves only when a held Leave key is held,
   and with the Leave key left on a press, leaves on release and ends the
   meeting for everyone when held a second, lights Back In with ten minutes
-  a press and ends it on a hold, turns Lunch and Wandering on and off one at
+  a press and ends it on a hold, turns Lunch and Nearby on and off one at
   a time,
   says APP OFF and warns on a press while the app is away, recovers when
   it's back, and stops asking when no key shows it. Its key drawing has 127

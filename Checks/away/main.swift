@@ -1,6 +1,6 @@
 import Foundation
 
-// Checks AwayState: what a press of the Wandering, Lunch and Back In keys
+// Checks AwayState: what a press of the Nearby, Lunch and Back In keys
 // does, and when Back In's time is up.
 var failures: [String] = []
 func expect(_ ok: Bool, _ what: String) { if !ok { failures.append(what) } }
@@ -8,16 +8,16 @@ func expect(_ ok: Bool, _ what: String) { if !ok { failures.append(what) } }
 let t0 = Date(timeIntervalSince1970: 1_760_000_000)
 let minute = 60.0
 
-// Wandering and Lunch: on, then off
+// Nearby and Lunch: on, then off
 var s = AwayState()
-s.press(.wandering, at: t0)
-expect(s == AwayState(kind: .wandering, until: nil), "Wandering goes on")
-s.press(.wandering, at: t0)
+s.press(.nearby, at: t0)
+expect(s == AwayState(kind: .nearby, until: nil), "Nearby goes on")
+s.press(.nearby, at: t0)
 expect(s == AwayState(), "…and off again")
 s.press(.lunch, at: t0)
 expect(s.kind == .lunch, "Lunch goes on")
-s.press(.wandering, at: t0)
-expect(s == AwayState(kind: .wandering, until: nil), "Wandering takes over from Lunch")
+s.press(.nearby, at: t0)
+expect(s == AwayState(kind: .nearby, until: nil), "Nearby takes over from Lunch")
 
 // Back In: ten minutes, and ten more a press
 s = AwayState()

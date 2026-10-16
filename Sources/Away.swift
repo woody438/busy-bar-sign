@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 
 /*
- * The away keys — Wandering, Lunch and Back In, on the Stream Deck or in the
+ * The away keys — Nearby, Lunch and Back In, on the Stream Deck or in the
  * menus — and whether you're at the Mac at all: it's locked, or its screen
  * saver is on. StatusRules decides what the sign says from both.
  *
@@ -60,7 +60,7 @@ final class Away: ObservableObject {
         check()
     }
 
-    /// A key, or its menu item: Wandering and Lunch on or off, Back In ten minutes more.
+    /// A key, or its menu item: Nearby and Lunch on or off, Back In ten minutes more.
     func press(_ key: AwayState.Kind) {
         var next = state
         next.press(key, at: Date())
@@ -77,7 +77,7 @@ final class Away: ObservableObject {
     /// "Lunch", "Back at 14:30 · 23 min", for the menus and the controls; nil when no key's on.
     func statusLine(at now: Date = Date()) -> String? {
         switch state.kind {
-        case .wandering: return "Wandering"
+        case .nearby: return "Nearby"
         case .lunch: return "Lunch"
         case .backIn:
             guard let until = state.until else { return nil }

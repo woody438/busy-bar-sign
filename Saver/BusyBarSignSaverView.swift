@@ -10,7 +10,7 @@ import ScreenSaver
  * it with the wall's own engine and LEDs: on the wall's monitor as the
  * full-screen display is laid out (wide or stacked), on every other screen
  * as the wide bar. Just the LEDs, as large as whole pixels allow — no case.
- * While the app doesn't answer it says WANDERING: the screen saver's on, so
+ * While the app doesn't answer it says NEARBY: the screen saver's on, so
  * you're not at the Mac.
  *
  * It runs inside macOS's legacyScreenSaver, which since Sonoma keeps savers
@@ -30,6 +30,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
     private var wall: SaverStatus.Wall?
     private var drift = CGSize.zero
     private var ticks = 0
+    private var framesReported = 0
     private var ending = false
     private var observers: [NSObjectProtocol] = []
 
@@ -42,6 +43,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
         super.init(frame: frame, isPreview: isPreview)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        animationTimeInterval = 1.0 / 30
         panel.model = bar
         panel.followsOcclusion = false
         panel.isHidden = true                   // until it knows what to say: no flash of FREE
@@ -84,7 +86,14 @@ final class BusyBarSignSaverView: ScreenSaverView {
 
     // drawn by the panel's layers; the black is the view's own layer
     override func draw(_ rect: NSRect) {}
-    override func animateOneFrame() {}
+
+    /// The panel draws on its display link. Where that doesn't run — the host
+    /// can leave a second monitor's link idle — the screen saver's own
+    /// animation timer draws it instead.
+    override func animateOneFrame() {
+        guard poll != nil, !panel.isHidden, CACurrentMediaTime() - panel.lastDrawn > 0.1 else { return }
+        panel.drawNow()
+    }
 
     // MARK: - Asking the app
 
@@ -109,7 +118,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
     }
 
     private func ask() {
-        client.ask { [weak self] status in
+        client.ask(makeReport()) { [weak self] status in
             MainActor.assumeIsolated { self?.heard(status) }
         }
         // burn-in: every three minutes the bar moves a few pixels
@@ -119,6 +128,16 @@ final class BusyBarSignSaverView: ScreenSaverView {
             drift = CGSize(width: CGFloat(Int.random(in: -3...3)) / scale, height: CGFloat(Int.random(in: -3...3)) / scale)
             place()
         }
+    }
+
+    /// Where this screen saver is, and whether it drew since it last asked:
+    /// the app lists the monitors it's showing on (Settings ▸ Displays).
+    private func makeReport() -> LocalAPI.SaverReport? {
+        guard !isPreview, let screen = window?.screen,
+              let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return nil }
+        let drawing = panel.framesDrawn != framesReported
+        framesReported = panel.framesDrawn
+        return LocalAPI.SaverReport(display: number.uint32Value, drawing: drawing, name: screen.localizedName)
     }
 
     private func heard(_ status: SaverStatus?) {
@@ -138,7 +157,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
         } else if now.timeIntervalSince(heardAt ?? startedAt) > (heardAt == nil ? 2 : 30) {
             // the app isn't answering (or is reopening after an update, which takes a second or two)
             bar.moment = nil
-            show(.wandering)
+            show(.nearby)
         }
     }
 

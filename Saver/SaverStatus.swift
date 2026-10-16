@@ -8,7 +8,8 @@ import Network
  * its countdown is about, and which monitor is the wall and how it's laid
  * out — read from the app's answer to GET /status (Sources/LocalAPI.swift).
  * The reading is Foundation only, so Checks/saver tests it anywhere Swift
- * runs, against LocalAPI's own answers.
+ * runs, against LocalAPI's own answers. (LocalAPI.swift is compiled into
+ * the screen saver too, for the port and the report it sends.)
  */
 struct SaverStatus: Equatable {
     struct Moment: Equatable {
@@ -25,8 +26,13 @@ struct SaverStatus: Equatable {
     var moment: Moment?
     var wall: Wall?
 
-    /// What the screen saver sends: the Host LocalAPI expects, and no Origin.
-    static let request = Data("GET /status HTTP/1.1\r\nHost: 127.0.0.1:47811\r\nConnection: close\r\n\r\n".utf8)
+    /// What the screen saver sends: the Host LocalAPI expects, no Origin, and
+    /// where it is, so the app can say which monitors it's showing on.
+    static func request(_ report: LocalAPI.SaverReport?) -> Data {
+        var r = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:\(LocalAPI.port)\r\nConnection: close\r\n"
+        if let report { r += "X-Busy-Bar-Saver: " + LocalAPI.saverHeaderValue(report) + "\r\n" }
+        return Data((r + "\r\n").utf8)
+    }
 
     /// A whole HTTP response from the app; nil unless it's a 200 with the sign's status in it.
     static func read(_ response: Data) -> SaverStatus? {
@@ -55,7 +61,8 @@ final class SaverStatusClient {
     private let queue = DispatchQueue(label: "com.woodall.BusyBarSign.Saver.status")
 
     /// Calls `done` on the main queue with the status, or nil if the app didn't answer within a second.
-    func ask(_ done: @escaping (SaverStatus?) -> Void) {
+    func ask(_ report: LocalAPI.SaverReport?, _ done: @escaping (SaverStatus?) -> Void) {
+        let request = SaverStatus.request(report)
         let connection = NWConnection(host: "127.0.0.1", port: 47811, using: .tcp)
         var received = Data()
         var finished = false
@@ -78,7 +85,7 @@ final class SaverStatusClient {
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                connection.send(content: SaverStatus.request, completion: .contentProcessed { _ in })
+                connection.send(content: request, completion: .contentProcessed { _ in })
                 receive()
             case .waiting, .failed:
                 finish(nil)                     // not running: the connection's refused

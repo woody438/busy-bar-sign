@@ -16,14 +16,16 @@ final class LocalServer: ObservableObject {
     private let detector: CallDetector
     private let status: StatusModel
     private let wall: DisplayWindow
+    private let saver: SaverInstaller
     private var listener: NWListener?
     /// Connections still sending their request.
     private var asking = Set<ObjectIdentifier>()
 
-    init(detector: CallDetector, status: StatusModel, wall: DisplayWindow) {
+    init(detector: CallDetector, status: StatusModel, wall: DisplayWindow, saver: SaverInstaller) {
         self.detector = detector
         self.status = status
         self.wall = wall
+        self.saver = saver
     }
 
     func start() {
@@ -97,7 +99,8 @@ final class LocalServer: ObservableObject {
         asking.remove(ObjectIdentifier(connection))
         switch LocalAPI.route(request) {
         case .status:
-            break
+            // the screen saver says which monitor it's on
+            if let report = LocalAPI.saverReport(request) { saver.heard(report) }
         case .toggleDND:
             detector.toggleDND()
             status.evaluate()                   // decide now, so the answer has the new state

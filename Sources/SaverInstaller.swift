@@ -13,6 +13,21 @@ final class SaverInstaller: ObservableObject {
     @Published private(set) var installed = false
     @Published private(set) var problem: String?
 
+    /// A monitor the screen saver has run on, from what it tells the app.
+    struct Seen: Equatable {
+        var name: String
+        var drawing: Bool
+        var at: Date
+    }
+    /// The monitors it's run on since the app opened, by display number. A
+    /// monitor that isn't here never ran it: macOS gives each its own choice.
+    @Published private(set) var seen: [UInt32: Seen] = [:]
+
+    func heard(_ report: LocalAPI.SaverReport) {
+        seen[report.display] = Seen(name: report.name.isEmpty ? "Display \(report.display)" : report.name,
+                                    drawing: report.drawing, at: Date())
+    }
+
     static let name = "Busy Bar Sign.saver"
 
     private var bundled: URL? { Bundle.main.builtInPlugInsURL?.appendingPathComponent(Self.name) }

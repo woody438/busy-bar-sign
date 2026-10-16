@@ -4,7 +4,7 @@
  * the last press starts the screen saver, which locks the Mac with the sign
  * on every screen. Unlocking clears it.
  *
- *   Wandering  WANDERING: in the building, not at your desk. Press again: off
+ *   Nearby  NEARBY: in the building, not at your desk. Press again: off
  *   Lunch      LUNCH. Press again: off
  *   Back In    BACK IN with a countdown: ten minutes a press, so three
  *              presses for half an hour. Hold it a second: back at your desk
@@ -61,12 +61,12 @@ class AwayAction extends SingletonAction {
   }
 }
 
-export class WanderingAction extends AwayAction {
-  manifestId = 'com.woodall.busybarsign.wandering';
-  kind = 'wandering';
+export class NearbyAction extends AwayAction {
+  manifestId = 'com.woodall.busybarsign.wandering';     // its first name, kept so keys already placed carry on
+  kind = 'nearby';
 
   onKeyDown(ev) {
-    return this.press(ev.action, () => pressAway('wandering'));
+    return this.press(ev.action, () => pressAway('nearby'));
   }
 }
 

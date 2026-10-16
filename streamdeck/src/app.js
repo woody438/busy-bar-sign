@@ -9,7 +9,7 @@
  *   pressLeave()  leaves it;
  *   pressEnd()    ends it for everyone if it's a Zoom meeting you host (else
  *                 leaves); each resolves to { view, pressed: { ok, message } }
- *   pressAway(k)  an away key: 'wandering' or 'lunch' on or off, 'backIn'
+ *   pressAway(k)  an away key: 'nearby' or 'lunch' on or off, 'backIn'
  *                 ten minutes more; resolves to the new status
  *   endAway()     back at your desk
  */
@@ -62,6 +62,6 @@ export const toggleDND = () => ask('POST', '/dnd/toggle', 800).then((a) => a.vie
 export const pressMute = () => ask('POST', '/meeting/mute', 12000);
 export const pressLeave = () => ask('POST', '/meeting/leave', 12000);
 export const pressEnd = () => ask('POST', '/meeting/end', 12000);
-const AWAY_PATHS = { wandering: '/away/wandering', lunch: '/away/lunch', backIn: '/away/back-in' };
+const AWAY_PATHS = { nearby: '/away/nearby', lunch: '/away/lunch', backIn: '/away/back-in' };
 export const pressAway = (kind) => ask('POST', AWAY_PATHS[kind], 800).then((a) => a.view);
 export const endAway = () => ask('POST', '/away/end', 800).then((a) => a.view);

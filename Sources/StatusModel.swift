@@ -118,7 +118,7 @@ extension BarState {
         case .away: return "Away"
         case .lunch: return "Lunch"
         case .ooo: return "Out of office"
-        case .wandering: return "Wandering"
+        case .nearby: return "Nearby"
         case .backIn: return "Back in a few minutes"
         }
     }
@@ -138,7 +138,7 @@ extension BarState {
         case .away: return "figure.walk.circle"
         case .lunch: return "fork.knife.circle"
         case .ooo: return "airplane.circle"
-        case .wandering: return "figure.walk.motion"
+        case .nearby: return "figure.walk.motion"
         case .backIn: return "arrow.uturn.backward.circle"
         }
     }
@@ -150,7 +150,7 @@ extension BarState {
         case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
         case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
-        case .away, .lunch, .ooo, .wandering, .backIn: return Color(red: 0.494, green: 0.518, blue: 0.573)
+        case .away, .lunch, .ooo, .nearby, .backIn: return Color(red: 0.494, green: 0.518, blue: 0.573)
         }
     }
 }

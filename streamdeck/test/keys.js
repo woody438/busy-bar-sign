@@ -39,7 +39,7 @@ check(() => assert.deepEqual(say('busyTbc', { at: new Date(2026, 9, 6, 15, 30).g
   { lines: ['TBC', 'TILL'], detail: '15:30', blink: false }));
 check(() => assert.equal(say('freeTil', { at: new Date(2026, 9, 6, 15, 0).getTime(), kind: 'fixed' }).detail, '15:00'));
 check(() => assert.equal(say('ooo', null).detail, '14:32'));
-check(() => assert.deepEqual(say('wandering', null), { lines: ['WAN-', 'DERING'], detail: '14:32', blink: true }));
+check(() => assert.deepEqual(say('nearby', null), { lines: ['NEAR-', 'BY'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('backIn', { at: now + 29 * min + 41000 - 30, kind: 'countdown' }),
   { lines: ['BACK', 'IN'], detail: '29:41', blink: true }));
 
@@ -95,7 +95,7 @@ check(() => assert.equal(viewOf({ state: 'free', dnd: false }).away, null));
 const awayView = (kind, until) => ({ state: 'free', moment: null, dnd: false, meeting: null, away: kind ? { kind, until: until || null } : null });
 check(() => assert.equal(awayFace('lunch', null), 'off'));
 check(() => assert.equal(awayFace('lunch', awayView(null)), 'idle'));
-check(() => assert.equal(awayFace('lunch', awayView('wandering')), 'idle'));
+check(() => assert.equal(awayFace('lunch', awayView('nearby')), 'idle'));
 check(() => assert.equal(awayFace('lunch', awayView('lunch')), 'on'));
 const brightness = (frame) => { let sum = 0; for (let i = 0; i < frame.px.length; i++) sum += frame.px[i]; return sum; };
 for (const kind of AWAY_KINDS) {

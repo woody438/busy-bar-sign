@@ -241,7 +241,7 @@ private struct StatusTab: View {
                         Text(away.statusLine(at: context.date) ?? "").foregroundStyle(.secondary)
                     }
                 }
-                Button("Wandering") { away.press(.wandering) }
+                Button("Nearby") { away.press(.nearby) }
                 Button("Lunch") { away.press(.lunch) }
                 Button("Back In +10") { away.press(.backIn) }
                 if away.kind != nil { Button("I'm Back") { away.end() } }
@@ -251,7 +251,7 @@ private struct StatusTab: View {
             }
         }
         if let problem = away.problem { Warning(text: problem) }
-        Note("As the Stream Deck's Wandering, Lunch and Back In keys: Wandering and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says WANDERING — unless the calendar has something to say.")
+        Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
 
         Card {
             Row(label: "Microphone", divider: false) {
@@ -400,9 +400,22 @@ private struct DisplaysTab: View {
             Row(label: "Lock when it starts") {
                 Button("Lock Screen Settings…") { saver.openLockScreenSettings() }
             }
+            Row(label: "Last showed on") {
+                if saver.seen.isEmpty {
+                    Text("Not yet, since the app opened").foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        ForEach(saver.seen.sorted { $0.value.name < $1.value.name }, id: \.key) { entry in
+                            Text(entry.value.name + (entry.value.drawing ? " — drawing · " : " — not drawing · ")
+                                 + DateFormatter.localizedString(from: entry.value.at, dateStyle: .none, timeStyle: .short))
+                                .foregroundStyle(entry.value.drawing ? Color.secondary : Color.orange)
+                        }
+                    }
+                }
+            }
         }
         if let problem = saver.problem { Warning(text: problem) }
-        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can: choose Busy Bar Sign in System Settings ▸ Wallpaper ▸ Screen Saver, and set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key (Status) locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar.")
+        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can. macOS gives each monitor its own screen saver, and sets the one System Settings is on: so drag System Settings to each monitor in turn and choose Busy Bar Sign under Wallpaper ▸ Screen Saver. Set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key (Status) locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar. A monitor missing from Last showed on never ran it.")
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 screens = NSScreen.screens
             }

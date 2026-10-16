@@ -39,9 +39,9 @@ let calendarCases: [(BarState, BarState?, Double, String?)] = [
     (.callMuted, nil, 9.0, nil), (.call, .callMuted, 0.05, "free"),
     // the muted mic's slow flash: fading out, off, fading back
     (.callMuted, nil, 9.2, nil), (.callMuted, nil, 9.5, nil), (.callMuted, .call, 9.9, "free"),
-    // the away keys: WANDERING alone in its pill, BACK IN counting down (an hour and more: 1H15)
-    (.wandering, .free, 2.0, nil), (.wandering, .free, 3.75, nil), (.wandering, nil, 9.0, nil),
-    (.backIn, .wandering, 2.0, "soon"), (.backIn, .wandering, 3.75, "soon"), (.backIn, .free, 9.0, "soon"),
+    // the away keys: NEARBY alone in its pill, BACK IN counting down (an hour and more: 1H15)
+    (.nearby, .free, 2.0, nil), (.nearby, .free, 3.75, nil), (.nearby, nil, 9.0, nil),
+    (.backIn, .nearby, 2.0, "soon"), (.backIn, .nearby, 3.75, "soon"), (.backIn, .free, 9.0, "soon"),
     (.backIn, .lunch, 9.0, "free"), (.call, .backIn, 0.05, "free")
 ]
 let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
@@ -50,7 +50,7 @@ let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.callTbc, .free, 2.0, "till"), (.busyTbc, .free, 9.0, "soon"), (.lunch, .free, 2.0, nil), (.ooo, .free, 2.0, nil),
     (.ooo, .free, 9.0, nil), (.away, .free, 2.0, nil), (.callMuted, .free, 2.0, "free"), (.callMuted, .call, 9.0, "free"),
     (.callMuted, .call, 9.5, "free"),
-    (.wandering, .free, 2.0, nil), (.wandering, .free, 3.8, nil), (.wandering, .free, 9.0, nil),
+    (.nearby, .free, 2.0, nil), (.nearby, .free, 3.8, nil), (.nearby, .free, 9.0, nil),
     (.backIn, .free, 2.0, "soon"), (.backIn, .free, 9.0, "soon")
 ]
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)

@@ -68,6 +68,7 @@ expect(view.value(forKey: "shownLayout") as? String == "stacked", "on the wall's
 expect(!requests.isEmpty && requests.allSatisfy { $0.hasPrefix("GET /status HTTP/1.1\r\n") && $0.contains("\r\nHost: 127.0.0.1:47811\r\n") },
        "asks as LocalAPI expects")
 expect(!requests.contains { $0.lowercased().contains("\r\norigin:") }, "without an Origin")
+expect(requests.contains { $0.contains("\r\nX-Busy-Bar-Saver: display=\(number); ") }, "saying which monitor it's on")
 expect((3...6).contains(requests.count), "asks once a second (\(requests.count) in 4 s)")
 
 // the wall's on another monitor: here, the wide bar

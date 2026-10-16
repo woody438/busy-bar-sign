@@ -78,7 +78,7 @@
     free: 'free',
     dnd: 'dnd',
     callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
-    away: 'grey', lunch: 'grey', ooo: 'grey', wandering: 'grey', backIn: 'grey'
+    away: 'grey', lunch: 'grey', ooo: 'grey', nearby: 'grey', backIn: 'grey'
   };
   const palOf = (state) => PALETTE[STATE_PALETTE[state]];
 
@@ -320,7 +320,7 @@
     freeTil: 'FREE TILL',                                        // + the slot's end on the right
     callTbc: 'CALL TBC', busyTbc: 'BUSY TBC',                    // tentative: countdown, then TILL
     away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF',                 // + OFFICE on the right
-    wandering: 'WANDERING',                                      // too long for an icon beside it
+    nearby: 'NEARBY',                                            // in the building, not at your desk
     backIn: 'BACK IN'                                            // + the countdown on the right
   };
   /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
@@ -340,7 +340,7 @@
     away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     lunch:     { word: 'LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    wandering: { word: 'WANDERING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    nearby: { word: 'NEARBY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     backIn:    { word: 'BACK IN', font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
   };
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
@@ -474,6 +474,20 @@
       '..#....#',
       '..#....#'
     ],
+    // someone walking: around the building
+    nearby: [
+      '....##...',
+      '....##...',
+      '.........',
+      '...####..',
+      '..#.##.#.',
+      '.#..##..#',
+      '....##...',
+      '...#..#..',
+      '...#...#.',
+      '..#....#.',
+      '.#......#'
+    ],
     // into the door: back in a few minutes
     backIn: [
       '#####......',
@@ -520,7 +534,7 @@
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
     call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
-    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, backIn: 0
+    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, backIn: 0, nearby: 0
   };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
@@ -545,8 +559,8 @@
     }
   }
 
-  /* Icon + word, centred as one unit in a pill of width w starting at x0.
-     A word too long for an icon beside it (WANDERING) goes alone. */
+  /* Icon + word, centred as one unit in a pill of width w starting at x0;
+     a state without an icon, the word alone. */
   const iconWidth = (state) => (ICONS[state] ? ICONS[state][0].length + LAYOUT.iconGap : 0);
   function statusContentWidth(state) {
     return iconWidth(state) + textWidth(LAYOUT.statusFont, WORDS[state]);
@@ -813,7 +827,7 @@
     away: ['AWAY'],
     lunch: ['LUNCH'],
     ooo: ['OUT OF', 'OFFICE'],
-    wandering: [{ t: 'WANDERING', font: 'busy_bold_10' }],
+    nearby: ['NEARBY'],
     backIn: ['BACK', 'IN']
   };
   const LINE_FONT = {
