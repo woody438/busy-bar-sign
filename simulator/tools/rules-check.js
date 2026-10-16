@@ -131,6 +131,35 @@ expect('meeting chains too', decide(700, chain).at, 720 * M);
 expect('mic with nothing in the calendar: no countdown', decide(630, [], [[600, null]]).left, undefined);
 expect('mic after the call overran: no countdown', decide(665, [call('a', 600, 660)], [[600, null]]).left, undefined);
 expect('lunch does not chain', decide(630, [call('a', 600, 660), ev({ title: 'Lunch', start: 660 * M, end: 720 * M })], [[600, null]]).at, 660 * M);
+// --- the away keys, and the Mac locked ---------------------------------------
+const decideWith = (now, events, mic, extra) => R.decide(Object.assign({ now: now * M, override: 'auto', dndUntil: null, events: events,
+  micSessions: (mic || []).map(([s, e]) => ({ start: s * M, end: e == null ? null : e * M })) }, extra || {}));
+const meeting = ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3 });
+expect('wandering key', decideWith(600, [], [], { away: 'wandering' }).state, 'wandering');
+expect('lunch key', decideWith(600, [], [], { away: 'lunch' }).state, 'lunch');
+expect('…beats a meeting in the calendar', decideWith(610, [meeting], [], { away: 'lunch' }).state, 'lunch');
+expect('…and a warning', decideWith(595, [call('c', 600, 630)], [], { away: 'wandering' }).state, 'wandering');
+expect('…and Do Not Disturb', decideWith(600, [], [], { away: 'wandering', dndUntil: 620 * M }).state, 'wandering');
+expect('the mic beats the keys', decideWith(605, [], [[600, null]], { away: 'lunch' }).state, 'call');
+expect('the Sign setting beats them', decideWith(600, [], [], { away: 'lunch', override: 'free' }).state, 'free');
+expect('back in: counts down', decideWith(600, [], [], { away: 'backIn', awayUntil: 630 * M }).left, 1800);
+expect('…to its time', decideWith(600, [], [], { away: 'backIn', awayUntil: 630 * M }).at, 630 * M);
+expect('…till the last moment', decideWith(629.99, [], [], { away: 'backIn', awayUntil: 630 * M }).state, 'backIn');
+expect('…then gives way: free', decideWith(630, [], [], { away: 'backIn', awayUntil: 630 * M }).state, 'free');
+expect('…or wandering, locked', decideWith(630, [], [], { away: 'backIn', awayUntil: 630 * M, locked: true }).state, 'wandering');
+expect('back in with no time is nothing', decideWith(600, [], [], { away: 'backIn' }).state, 'free');
+expect('locked, nothing on: wandering', decideWith(600, [], [], { locked: true }).state, 'wandering');
+expect('locked: Do Not Disturb waits', decideWith(600, [], [], { locked: true, dndUntil: 620 * M }).state, 'wandering');
+expect('…and comes back unlocked', decideWith(600, [], [], { dndUntil: 620 * M }).state, 'dnd');
+expect('locked: the calendar still says lunch', decideWith(600, [own('Lunch', 590, 650)], [], { locked: true }).state, 'lunch');
+expect('…a meeting', decideWith(610, [meeting], [], { locked: true }).state, 'meeting');
+expect('…a warning', decideWith(595, [call('c', 600, 630)], [], { locked: true }).state, 'callIn');
+expect('…a call you\'re late for', decideWith(603, [call('c', 600, 630)], [], { locked: true }).state, 'late');
+expect('…a tentative call', decideWith(605, [call('t', 600, 630, { availability: 'tentative' })], [], { locked: true }).state, 'callTbc');
+expect('locked beats a no-meetings block', decideWith(600, [own('NO MEETINGS', 540, 720)], [], { locked: true }).state, 'wandering');
+expect('locked beats free till', decideWith(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]], { locked: true }).state, 'wandering');
+expect('locked on a call: on a call', decideWith(605, [], [[600, null]], { locked: true }).state, 'call');
+
 // custom keywords
 expect('custom lunch word', R.decide({ now: 600 * M, events: [ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })],
   config: { keywords: { lunch: ['déjeuner'] } } }).state, 'lunch');

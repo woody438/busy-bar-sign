@@ -30,6 +30,8 @@ enum BarState: String, CaseIterable {
     case freeTil                 // you left a call early: free till its slot ends
     case callTbc, busyTbc        // tentative: a countdown to the start, then TILL the end
     case away, lunch, ooo        // not here (ooo: OUT OF + OFFICE on the right)
+    case wandering               // you said so: in the building, not at your desk
+    case backIn                  // you said so: a countdown on the right to when you're back
 
     var word: String {
         switch self {
@@ -46,6 +48,8 @@ enum BarState: String, CaseIterable {
         case .away: return "AWAY"
         case .lunch: return "LUNCH"
         case .ooo: return "OUT OF"
+        case .wandering: return "WANDERING"     // too long for an icon beside it
+        case .backIn: return "BACK IN"
         }
     }
 }
@@ -96,7 +100,7 @@ struct BarPalette {
         case .free: return free
         case .dnd: return dnd
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return amber
-        case .away, .lunch, .ooo: return grey
+        case .away, .lunch, .ooo, .wandering, .backIn: return grey
         }
     }
 }
@@ -370,6 +374,19 @@ enum BarEngine {
             "..#....#",
             "..#....#"
         ],
+        // into the door: back in a few minutes
+        .backIn: [
+            "#####......",
+            "#..........",
+            "#...#......",
+            "#..##......",
+            "#.#########",
+            "#.#########",
+            "#..##......",
+            "#...#......",
+            "#..........",
+            "#####......"
+        ],
         // out of the door
         .away: [
             "#####......",
@@ -427,7 +444,7 @@ enum BarEngine {
     /// Rows above the baseline for the icon's bottom row.
     static let iconLift: [BarState: Int] = [
         .call: -1, .callMuted: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
-        .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1
+        .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1, .backIn: 0
     ]
 
     /// The announcement. busy_regular_14 is busy_regular_7 doubled, so
@@ -452,6 +469,8 @@ enum BarEngine {
         case .away: return Hero(word: "AWAY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .lunch: return Hero(word: "LUNCH", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .ooo: return Hero(word: "OUT OF OFFICE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .wandering: return Hero(word: "WANDERING", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .backIn: return Hero(word: "BACK IN", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         }
     }
 
@@ -615,7 +634,8 @@ enum BarEngine {
                 // Do Not Disturb, or on a call / in a meeting: how long till you're free, and when
                 let c = countdownText(timer)
                 return RightText(top: c.mmss, bottom: c.until, blink: true)
-            case .callIn, .busyIn:
+            case .callIn, .busyIn, .backIn:
+                // a warning, or back in a few minutes: a countdown to it, and when
                 return RightText(top: countdownText(timer).mmss, bottom: "AT " + at, blink: true)
             case .callTbc, .busyTbc:
                 // tentative: a countdown to the start, then the end time once it's on
@@ -671,19 +691,24 @@ enum BarEngine {
         }
     }
 
+    /// The icon and the gap after it; none for a word too long for an icon beside it (WANDERING).
+    static func iconWidth(_ state: BarState) -> Int {
+        icons[state].map { ($0.first?.count ?? 0) + Layout.iconGap } ?? 0
+    }
+
     /// Icon + word, centred as one unit.
     static func statusContentWidth(_ state: BarState) -> Int {
-        (icons[state]?.first?.count ?? 0) + Layout.iconGap + textWidth(Layout.statusFont, state.word)
+        iconWidth(state) + textWidth(Layout.statusFont, state.word)
     }
 
     static func drawStatusContent(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, x0: Double, w: Double,
                                   alpha: Double, clip: (lo: Int, hi: Int)?) {
-        guard let icon = icons[state] else { return }
-        let iconW = icon.first?.count ?? 0
         let x = jsRound(x0 + (w - Double(statusContentWidth(state))) / 2)
-        drawIcon(&f, rows: icon, x: x, bottomY: Layout.statusBase - (iconLift[state] ?? 0),
-                 colour: white, shadow: pal.shadow, alpha: alpha * iconAlphaAt(now, state), clip: clip)
-        drawText(&f, font: Layout.statusFont, state.word, x: Double(x + iconW + Layout.iconGap),
+        if let icon = icons[state] {
+            drawIcon(&f, rows: icon, x: x, bottomY: Layout.statusBase - (iconLift[state] ?? 0),
+                     colour: white, shadow: pal.shadow, alpha: alpha * iconAlphaAt(now, state), clip: clip)
+        }
+        drawText(&f, font: Layout.statusFont, state.word, x: Double(x + iconWidth(state)),
                  baseY: Layout.statusBase, colour: white,
                  style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * alpha, alpha: alpha, clip: clip))
     }
@@ -928,6 +953,8 @@ enum BarEngine {
             case .away: return [Line("AWAY")]
             case .lunch: return [Line("LUNCH")]
             case .ooo: return [Line("OUT OF"), Line("OFFICE")]
+            case .wandering: return [Line("WANDERING", font: "busy_bold_10")]
+            case .backIn: return [Line("BACK"), Line("IN")]
             }
         }
 

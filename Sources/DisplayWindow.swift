@@ -98,6 +98,16 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
 
     var isVisible: Bool { window?.isVisible ?? false }
 
+    /// The monitor the display is showing on, by display number, for the
+    /// screen saver; nil while it isn't up.
+    var displayNumber: UInt32? {
+        guard let window, window.isVisible, let screen = window.screen else { return nil }
+        return Self.displayID(screen)
+    }
+
+    /// The full-screen display's layout (the controls' Layout).
+    static var layout: BarLayout { BarLayout(rawValue: UserDefaults.standard.string(forKey: "wallLayout") ?? "") ?? .wide }
+
     // MARK: - Placement
 
     private func place(on target: NSScreen, bringForward: Bool) {

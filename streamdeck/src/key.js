@@ -26,7 +26,8 @@ const WHITE = E.PALETTE.white;
 const WORDS = {
   call: ['ON A', 'CALL'], callMuted: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
   callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], freeTil: ['FREE', 'TILL'],
-  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO']
+  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO'],
+  wandering: ['WAN-', 'DERING'], backIn: ['BACK', 'IN']
 };
 export const STATES = Object.keys(WORDS);
 

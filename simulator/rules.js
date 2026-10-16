@@ -127,6 +127,9 @@
   /*
    * The sign at `now`.
    *   input = { now, override: 'auto' | 'onCall' | 'free', dndUntil (ms or null),
+   *             away: 'wandering' | 'lunch' | 'backIn' | null  — the away keys,
+   *             awayUntil (ms or null)  — when you'll be back, for 'backIn',
+   *             locked  — the Mac is locked, or its screen saver is on,
    *             micSessions: [{ start, end }]  — debounced, end null while on,
    *             events: [...], config }
    * Returns { state, left, at, event, why }:
@@ -165,12 +168,19 @@
       const anchor = on.reduce((a, b) => (busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a));
       return sign('call', 'On ' + quote(anchor), until(anchor));
     }
-    // 3. a double-click
-    if (input.dndUntil != null && input.dndUntil > now) {
+    // 3. the away keys: where you said you'd be. Back in a few minutes counts down; once it's
+    //    up, it gives way to what's next
+    if (input.away === 'backIn' && input.awayUntil != null && input.awayUntil > now) {
+      return sign('backIn', 'Away key: back in a few minutes', { left: (input.awayUntil - now) / 1000, at: input.awayUntil });
+    }
+    if (input.away === 'wandering') return sign('wandering', 'Away key: wandering');
+    if (input.away === 'lunch') return sign('lunch', 'Away key: lunch');
+    // 4. a double-click — waiting while the Mac's locked, as under a call: you're not at your desk
+    if (input.dndUntil != null && input.dndUntil > now && !input.locked) {
       return sign('dnd', 'Do Not Disturb', { left: (input.dndUntil - now) / 1000, at: input.dndUntil });
     }
 
-    // 4. the calendar
+    // 5. the calendar
 
     // not here, by your own blocks — these outrank meetings, warnings included
     if ((e = first((x) => x.kind === 'ooo'))) return sign('ooo', 'Out of office: ' + quote(e), { event: e, at: e.end });
@@ -200,13 +210,16 @@
       return sign(tbc(e), 'Tentative, soon: ' + quote(e), { event: e, left: (e.start - now) / 1000, at: e.start });
     }
 
+    // the Mac locked, with nothing above to say where you are: around somewhere
+    if (input.locked) return sign('wandering', 'Mac locked');
+
     // a no-meetings block, then a call you've left early with something straight after it
     if ((e = first((x) => x.kind === 'dndBlock'))) return sign('dnd', 'Do Not Disturb block: ' + quote(e), { event: e, at: e.end });
     if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg) && followed(x, evs, now, cfg)))) {
       return sign('freeTil', 'Left ' + quote(e) + ' early', { event: e, at: e.end });
     }
 
-    // 5. nothing on
+    // 6. nothing on
     return sign('free', 'Free');
   }
 

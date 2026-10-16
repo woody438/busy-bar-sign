@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 /*
- * A small web server for the Stream Deck plugin, on 127.0.0.1 only:
+ * A small web server for the Stream Deck plugin and the screen saver, on 127.0.0.1 only:
  * nothing else on the network can reach it. LocalAPI says what each
  * request means; this listens, and answers from the sign's own status —
  * or, for the Mute and Leave keys, once MeetingKeys has pressed.
@@ -15,13 +15,15 @@ final class LocalServer: ObservableObject {
 
     private let detector: CallDetector
     private let status: StatusModel
+    private let wall: DisplayWindow
     private var listener: NWListener?
     /// Connections still sending their request.
     private var asking = Set<ObjectIdentifier>()
 
-    init(detector: CallDetector, status: StatusModel) {
+    init(detector: CallDetector, status: StatusModel, wall: DisplayWindow) {
         self.detector = detector
         self.status = status
+        self.wall = wall
     }
 
     func start() {
@@ -105,6 +107,12 @@ final class LocalServer: ObservableObject {
             return press(.leave, on: connection)
         case .meetingEnd:
             return press(.end, on: connection)
+        case .away(let key):
+            if let key = AwayState.Kind(rawValue: key) { status.away.press(key) }
+            status.evaluate()
+        case .awayEnd:
+            status.away.end()
+            status.evaluate()
         case .reject(let code):
             return send(LocalAPI.response(code), on: connection)
         }
@@ -133,8 +141,13 @@ final class LocalServer: ObservableObject {
         let meeting = snap.active.flatMap { app in
             snap.apps[app].map { LocalAPI.Status.Meeting(app: app.rawValue, muted: $0.muted, canLeave: $0.canLeave) }
         }
+        let away = status.away.kind.map { kind in
+            LocalAPI.Status.Away(kind: kind.rawValue, until: status.away.until.map { Int64(($0.timeIntervalSince1970 * 1000).rounded()) })
+        }
+        // where the full-screen display is, for the screen saver
+        let wall = self.wall.displayNumber.map { LocalAPI.Status.Wall(display: $0, layout: DisplayWindow.layout.rawValue) }
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
-                               dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting)
+                               dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {

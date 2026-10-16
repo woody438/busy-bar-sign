@@ -22,6 +22,9 @@ func input(_ o: [String: Any]) -> StatusInput {
     var i = StatusInput(now: num(o["now"])!)
     i.override = o["override"] as? String ?? "auto"
     i.dndUntil = num(o["dndUntil"])
+    i.away = o["away"] as? String
+    i.awayUntil = num(o["awayUntil"])
+    i.locked = o["locked"] as? Bool ?? false
     i.micSessions = (o["micSessions"] as? [[String: Any]] ?? []).map { MicSession(start: num($0["start"])!, end: num($0["end"])) }
     i.events = (o["events"] as? [[String: Any]] ?? []).map(event)
     if let config = o["config"] as? [String: Any], let kw = config["keywords"] as? [String: [String]] {

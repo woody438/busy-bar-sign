@@ -2,8 +2,8 @@
 # Builds the platform-independent parts of the app and checks them:
 # LED-for-LED parity with the simulator, pixel alignment on common displays,
 # frame time, the call detector's decisions on a scripted afternoon, the
-# status rules, the local web server's request handling, and the Stream
-# Deck plugin end to end.
+# status rules, the away keys, the local web server's request handling, and
+# the Stream Deck plugin end to end.
 #
 #   Checks/run.sh                 # uses swiftc, node and npm from PATH
 #   SWIFTC=/path/to/swiftc Checks/run.sh
@@ -59,7 +59,11 @@ echo; echo "== updates (which GitHub release is newer)"
 "$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"
 "$OUT/update"
 
-echo; echo "== local API (what the Stream Deck plugin talks to)"
+echo; echo "== away keys (Wandering, Lunch, Back In)"
+"$SWIFTC" Sources/AwayState.swift Checks/away/main.swift -o "$OUT/away"
+"$OUT/away"
+
+echo; echo "== local API (what the Stream Deck plugin and the screen saver talk to)"
 "$SWIFTC" Sources/LocalAPI.swift Checks/http/main.swift -o "$OUT/http"
 "$OUT/http"
 

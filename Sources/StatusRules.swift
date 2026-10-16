@@ -55,6 +55,9 @@ struct StatusInput {
     var now: Double                     // ms
     var override = "auto"               // Override's raw value: auto, onCall, free
     var dndUntil: Double? = nil         // ms
+    var away: String? = nil             // the away keys: wandering, lunch, backIn
+    var awayUntil: Double? = nil        // ms: when you'll be back, for backIn
+    var locked = false                  // the Mac is locked, or its screen saver is on
     var micSessions: [MicSession] = []
     var events: [CalEvent] = []
     var config = StatusConfig()
@@ -253,12 +256,19 @@ enum StatusRules {
             let anchor = on.dropFirst().reduce(firstOn) { a, b in busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a }
             return until("call", "On " + quote(anchor), anchor)
         }
-        // 3. a double-click
-        if let dnd = input.dndUntil, dnd > now {
+        // 3. the away keys: where you said you'd be. Back in a few minutes counts down; once it's
+        //    up, it gives way to what's next
+        if input.away == "backIn", let back = input.awayUntil, back > now {
+            return sign("backIn", "Away key: back in a few minutes", left: (back - now) / 1000, at: back)
+        }
+        if input.away == "wandering" { return sign("wandering", "Away key: wandering") }
+        if input.away == "lunch" { return sign("lunch", "Away key: lunch") }
+        // 4. a double-click — waiting while the Mac's locked, as under a call: you're not at your desk
+        if let dnd = input.dndUntil, dnd > now, !input.locked {
             return sign("dnd", "Do Not Disturb", left: (dnd - now) / 1000, at: dnd)
         }
 
-        // 4. the calendar
+        // 5. the calendar
         // not here, by your own blocks — these outrank meetings, warnings included
         if let e = first({ $0.kind == .ooo }) { return sign("ooo", "Out of office: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch: " + quote(e), event: e, at: e.end) }
@@ -285,13 +295,16 @@ enum StatusRules {
             return sign(tbc(e), "Tentative, soon: " + quote(e), event: e, left: (e.start - now) / 1000, at: e.start)
         }
 
+        // the Mac locked, with nothing above to say where you are: around somewhere
+        if input.locked { return sign("wandering", "Mac locked") }
+
         // a no-meetings block, then a call you've left early with something straight after it
         if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) && followed($0, evs, now, cfg) }) {
             return sign("freeTil", "Left " + quote(e) + " early", event: e, at: e.end)
         }
 
-        // 5. nothing on
+        // 6. nothing on
         return sign("free", "Free")
     }
 }

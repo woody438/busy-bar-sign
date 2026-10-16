@@ -47,14 +47,20 @@ const CALENDAR_CASES = [
   ['callMuted', 'call', 9.0, 'free'], ['callMuted', 'free', 2.0, 'free'], ['callMuted', 'free', 3.75, 'free'],
   ['callMuted', null, 9.0, null], ['call', 'callMuted', 0.05, 'free'],
   // the muted mic's slow flash: fading out, off, fading back
-  ['callMuted', null, 9.2, null], ['callMuted', null, 9.5, null], ['callMuted', 'call', 9.9, 'free']
+  ['callMuted', null, 9.2, null], ['callMuted', null, 9.5, null], ['callMuted', 'call', 9.9, 'free'],
+  // the away keys: WANDERING alone in its pill, BACK IN counting down (an hour and more: 1H15)
+  ['wandering', 'free', 2.0, null], ['wandering', 'free', 3.75, null], ['wandering', null, 9.0, null],
+  ['backIn', 'wandering', 2.0, 'soon'], ['backIn', 'wandering', 3.75, 'soon'], ['backIn', 'free', 9.0, 'soon'],
+  ['backIn', 'lunch', 9.0, 'free'], ['call', 'backIn', 0.05, 'free']
 ];
 const STACKED_CALENDAR_CASES = [
   ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 9.0, 'free'], ['callIn', 'free', 2.0, 'soon'], ['callIn', 'free', 3.8, 'soon'],
   ['late', 'callIn', 2.0, 'late'], ['late', 'callIn', 9.3, 'late'], ['freeTil', 'call', 2.0, 'till'], ['freeTil', 'call', 9.0, 'till'],
   ['callTbc', 'free', 2.0, 'till'], ['busyTbc', 'free', 9.0, 'soon'], ['lunch', 'free', 2.0, null], ['ooo', 'free', 2.0, null],
   ['ooo', 'free', 9.0, null], ['away', 'free', 2.0, null], ['callMuted', 'free', 2.0, 'free'], ['callMuted', 'call', 9.0, 'free'],
-  ['callMuted', 'call', 9.5, 'free']
+  ['callMuted', 'call', 9.5, 'free'],
+  ['wandering', 'free', 2.0, null], ['wandering', 'free', 3.8, null], ['wandering', 'free', 9.0, null],
+  ['backIn', 'free', 2.0, 'soon'], ['backIn', 'free', 9.0, 'soon']
 ];
 const clock = { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 };
 

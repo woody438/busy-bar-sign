@@ -13,6 +13,10 @@ import Foundation
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
  *                         (else leaves); each answers with the status and how
  *                         the press went: "pressed":{"ok":true,"message":"…"}
+ *   POST /away/wandering  the away keys: Wandering or Lunch on, or off if on;
+ *   POST /away/lunch      Back In ten minutes more; End back at your desk.
+ *   POST /away/back-in    Each answers with the new status
+ *   POST /away/end
  *
  * `state` is a BarState. `moment` is what the right of the pill is about,
  * in ms since 1970 — counted down to ("countdown"), up from ("countUp",
@@ -22,7 +26,11 @@ import Foundation
  * on a call; `state` stays "call" then, so older plugins read it as before.
  * `meeting` appears while you're in a Teams or Zoom meeting:
  * {"app":"teams","canLeave":true,"muted":false}, `muted` left out when the
- * meeting's mute can't be read.
+ * meeting's mute can't be read. `away` appears while an away key is on:
+ * {"kind":"backIn","until":1760000000000} — wandering, lunch or backIn,
+ * `until` (ms) for backIn only. `wall` appears while the full-screen display
+ * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
+ * layout, for the screen saver to draw the wall as the wall is drawn.
  *
  * For programs on this Mac only. LocalServer listens on 127.0.0.1, and
  * this turns away what a web page could send: a request with an Origin
@@ -65,7 +73,12 @@ enum LocalAPI {
         return .complete(Request(method: String(start[0]), path: String(start[1]), headers: headers))
     }
 
-    enum Route: Equatable { case status, toggleDND, meetingMute, meetingLeave, meetingEnd, reject(Int) }
+    enum Route: Equatable {
+        case status, toggleDND, meetingMute, meetingLeave, meetingEnd
+        case away(String)                       // an away key: wandering, lunch, backIn
+        case awayEnd
+        case reject(Int)
+    }
 
     /// What a request asks for, or the status code it's turned away with.
     static func route(_ request: Request) -> Route {
@@ -78,7 +91,12 @@ enum LocalAPI {
         case ("POST", "/meeting/mute"): return .meetingMute
         case ("POST", "/meeting/leave"): return .meetingLeave
         case ("POST", "/meeting/end"): return .meetingEnd
-        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"):
+        case ("POST", "/away/wandering"): return .away("wandering")
+        case ("POST", "/away/lunch"): return .away("lunch")
+        case ("POST", "/away/back-in"): return .away("backIn")
+        case ("POST", "/away/end"): return .awayEnd
+        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"),
+             (_, "/away/wandering"), (_, "/away/lunch"), (_, "/away/back-in"), (_, "/away/end"):
             return .reject(405)
         default: return .reject(404)
         }
@@ -100,6 +118,16 @@ enum LocalAPI {
             var ok: Bool
             var message: String
         }
+        /// The away key that's on.
+        struct Away: Encodable, Equatable {
+            var kind: String                    // wandering, lunch, backIn
+            var until: Int64?                   // ms since 1970, for backIn
+        }
+        /// The full-screen display, while it's up.
+        struct Wall: Encodable, Equatable {
+            var display: UInt32                 // its monitor's CGDirectDisplayID
+            var layout: String                  // wide, stacked
+        }
         var state: String
         var moment: Moment?
         var dnd: Bool
@@ -107,6 +135,8 @@ enum LocalAPI {
         var muted: Bool? = nil
         var meeting: Meeting? = nil
         var pressed: Pressed? = nil
+        var away: Away? = nil
+        var wall: Wall? = nil
     }
 
     static func encode(_ status: Status) -> Data {

@@ -15,15 +15,17 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
     private let wall: DisplayWindow
     private let floating: FloatingWindow
     private let server: LocalServer
+    private let saver: SaverInstaller
 
     init(detector: CallDetector, status: StatusModel, calendar: CalendarSource, wall: DisplayWindow, floating: FloatingWindow,
-         server: LocalServer) {
+         server: LocalServer, saver: SaverInstaller) {
         self.detector = detector
         self.status = status
         self.calendar = calendar
         self.wall = wall
         self.floating = floating
         self.server = server
+        self.saver = saver
         super.init()
     }
 
@@ -34,7 +36,7 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let view = ControlsView(detector: detector, status: status, calendar: calendar, wall: wall, floating: floating,
-                                    server: server)
+                                    server: server, saver: saver)
             let controller = NSHostingController(rootView: view)
             // the window follows the tab's height
             controller.sizingOptions = [.preferredContentSize]
@@ -67,6 +69,7 @@ struct ControlsView: View {
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
     @ObservedObject var server: LocalServer
+    @ObservedObject var saver: SaverInstaller
     @AppStorage("controlsTab") private var tab: Tab = .status
 
     enum Tab: String, CaseIterable {
@@ -108,8 +111,9 @@ struct ControlsView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 switch tab {
-                case .status: StatusTab(detector: detector, status: status, calendar: calendar, wall: wall, server: server)
-                case .displays: DisplaysTab(wall: wall, floating: floating)
+                case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
+                                        server: server)
+                case .displays: DisplaysTab(wall: wall, floating: floating, saver: saver, away: status.away)
                 case .calendar: CalendarTab(calendar: calendar)
                 case .microphone: MicrophoneTab(detector: detector)
                 case .meetings: MeetingsTab(meeting: status.meeting, mute: status.mute)
@@ -189,6 +193,7 @@ private struct Warning: View {
 private struct StatusTab: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var status: StatusModel
+    @ObservedObject var away: Away
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
@@ -228,6 +233,25 @@ private struct StatusTab: View {
             }
         }
         Note("Double-click the bar, full-screen or floating, to start or end Do Not Disturb. A call still shows ON A CALL.")
+
+        Card {
+            Row(label: "Away", divider: false) {
+                if away.kind != nil {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(away.statusLine(at: context.date) ?? "").foregroundStyle(.secondary)
+                    }
+                }
+                Button("Wandering") { away.press(.wandering) }
+                Button("Lunch") { away.press(.lunch) }
+                Button("Back In +10") { away.press(.backIn) }
+                if away.kind != nil { Button("I'm Back") { away.end() } }
+            }
+            Row(label: "Start the screen saver (and lock the Mac)") {
+                Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
+            }
+        }
+        if let problem = away.problem { Warning(text: problem) }
+        Note("As the Stream Deck's Wandering, Lunch and Back In keys: Wandering and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says WANDERING — unless the calendar has something to say.")
 
         Card {
             Row(label: "Microphone", divider: false) {
@@ -317,6 +341,8 @@ private struct BarPreview: View {
 private struct DisplaysTab: View {
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
+    @ObservedObject var saver: SaverInstaller
+    @ObservedObject var away: Away
     @State private var screens = NSScreen.screens
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
@@ -365,6 +391,22 @@ private struct DisplaysTab: View {
             }
         }
         Note("Stacked fills small screens such as 960 × 540: the status on top and a big clock beneath. The floating window always uses the wide bar and stays above other windows, on every Space.")
+
+        Heading("Screen saver")
+        Card {
+            Row(label: "Busy Bar Sign screen saver", divider: false) {
+                Text(saver.installed ? "Installed" : "Not installed").foregroundStyle(.secondary)
+                Button("Choose It…") { saver.openSettings() }
+            }
+            Row(label: "Lock when it starts") {
+                Button("Lock Screen Settings…") { saver.openLockScreenSettings() }
+            }
+            Row(label: "Away keys start it") {
+                Toggle("Away keys start it", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
+            }
+        }
+        if let problem = saver.problem { Warning(text: problem) }
+        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can: choose Busy Bar Sign in System Settings ▸ Wallpaper ▸ Screen Saver, and set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar.")
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 screens = NSScreen.screens
             }
