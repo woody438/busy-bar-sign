@@ -113,7 +113,7 @@ struct ControlsView: View {
                 switch tab {
                 case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
                                         server: server)
-                case .displays: DisplaysTab(wall: wall, floating: floating, saver: saver, away: status.away)
+                case .displays: DisplaysTab(wall: wall, floating: floating, saver: saver)
                 case .calendar: CalendarTab(calendar: calendar)
                 case .microphone: MicrophoneTab(detector: detector)
                 case .meetings: MeetingsTab(meeting: status.meeting, mute: status.mute)
@@ -342,7 +342,6 @@ private struct DisplaysTab: View {
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
     @ObservedObject var saver: SaverInstaller
-    @ObservedObject var away: Away
     @State private var screens = NSScreen.screens
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
@@ -401,12 +400,9 @@ private struct DisplaysTab: View {
             Row(label: "Lock when it starts") {
                 Button("Lock Screen Settings…") { saver.openLockScreenSettings() }
             }
-            Row(label: "Away keys start it") {
-                Toggle("Away keys start it", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
-            }
         }
         if let problem = saver.problem { Warning(text: problem) }
-        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can: choose Busy Bar Sign in System Settings ▸ Wallpaper ▸ Screen Saver, and set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar.")
+        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can: choose Busy Bar Sign in System Settings ▸ Wallpaper ▸ Screen Saver, and set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key (Status) locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar.")
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 screens = NSScreen.screens
             }
