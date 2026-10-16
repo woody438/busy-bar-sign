@@ -3,9 +3,9 @@ import SwiftUI
 
 /*
  * What the sign says, all things considered: the manual controls and the
- * microphone (CallDetector), Do Not Disturb, and the calendar
- * (CalendarSource), decided by StatusRules once a second and whenever
- * one of them changes. On a call, the call app's own mute button
+ * microphone (CallDetector), Do Not Disturb, the away keys and whether the
+ * Mac is locked (Away), and the calendar (CalendarSource), decided by
+ * StatusRules once a second and whenever one of them changes. On a call, the call app's own mute button
  * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
  * its muted look. Every view of the bar, the menus and the controls read
  * it from here.
@@ -24,6 +24,8 @@ final class StatusModel: ObservableObject {
     let mute: MuteDetector
     /// New builds from GitHub, installed when you're off calls.
     let updater = Updater()
+    /// The away keys, and whether you're at the Mac.
+    let away = Away()
     private var timer: Timer?
     private var watching = Set<AnyCancellable>()
 
@@ -33,7 +35,8 @@ final class StatusModel: ObservableObject {
         mute = MuteDetector(meeting: meeting)
         // objectWillChange fires before the change lands: decide on the next turn
         for publisher in [detector.objectWillChange.eraseToAnyPublisher(), calendar.objectWillChange.eraseToAnyPublisher(),
-                          mute.objectWillChange.eraseToAnyPublisher(), meeting.objectWillChange.eraseToAnyPublisher()] {
+                          mute.objectWillChange.eraseToAnyPublisher(), meeting.objectWillChange.eraseToAnyPublisher(),
+                          away.objectWillChange.eraseToAnyPublisher()] {
             publisher
                 .receive(on: RunLoop.main)
                 .sink { [weak self] _ in MainActor.assumeIsolated { self?.evaluate() } }
@@ -49,6 +52,7 @@ final class StatusModel: ObservableObject {
         RunLoop.main.add(t, forMode: .common)
         timer = t
         meeting.start()
+        away.start()
         // an update reopens the app: never on a call or in a meeting
         updater.isBusy = { [weak self] in
             guard let self else { return false }
@@ -63,6 +67,9 @@ final class StatusModel: ObservableObject {
         var input = StatusInput(now: now.timeIntervalSince1970 * 1000)
         input.override = detector.override.rawValue
         input.dndUntil = detector.dndUntil.map { $0.timeIntervalSince1970 * 1000 }
+        input.away = away.kind?.rawValue
+        input.awayUntil = away.until.map { $0.timeIntervalSince1970 * 1000 }
+        input.locked = away.locked
         input.micSessions = detector.micSessions
         input.events = calendar.isActive ? calendar.events : []
         input.config = calendar.config
@@ -111,6 +118,8 @@ extension BarState {
         case .away: return "Away"
         case .lunch: return "Lunch"
         case .ooo: return "Out of office"
+        case .nearby: return "Nearby"
+        case .backIn: return "Back in a few minutes"
         }
     }
 
@@ -129,6 +138,8 @@ extension BarState {
         case .away: return "figure.walk.circle"
         case .lunch: return "fork.knife.circle"
         case .ooo: return "airplane.circle"
+        case .nearby: return "figure.walk.motion"
+        case .backIn: return "arrow.uturn.backward.circle"
         }
     }
 
@@ -139,7 +150,7 @@ extension BarState {
         case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
         case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
         case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
-        case .away, .lunch, .ooo: return Color(red: 0.494, green: 0.518, blue: 0.573)
+        case .away, .lunch, .ooo, .nearby, .backIn: return Color(red: 0.494, green: 0.518, blue: 0.573)
         }
     }
 }

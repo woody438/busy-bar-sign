@@ -78,7 +78,7 @@
     free: 'free',
     dnd: 'dnd',
     callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
-    away: 'grey', lunch: 'grey', ooo: 'grey'
+    away: 'grey', lunch: 'grey', ooo: 'grey', nearby: 'grey', backIn: 'grey'
   };
   const palOf = (state) => PALETTE[STATE_PALETTE[state]];
 
@@ -319,7 +319,9 @@
     late: 'LATE FOR',                                            // + CALL on the right
     freeTil: 'FREE TILL',                                        // + the slot's end on the right
     callTbc: 'CALL TBC', busyTbc: 'BUSY TBC',                    // tentative: countdown, then TILL
-    away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF'                  // + OFFICE on the right
+    away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF',                 // + OFFICE on the right
+    nearby: 'NEARBY',                                            // in the building, not at your desk
+    backIn: 'BACK IN'                                            // + the countdown on the right
   };
   /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
      set in the status face across the whole bar. */
@@ -337,7 +339,9 @@
     busyTbc:   { word: 'BUSY TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     lunch:     { word: 'LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined }
+    ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    nearby: { word: 'NEARBY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
+    backIn:    { word: 'BACK IN', font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
   };
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
   /* An announcement's words; {t} is the time the state is about (FREE TILL 11:00). */
@@ -470,6 +474,33 @@
       '..#....#',
       '..#....#'
     ],
+    // someone walking: around the building
+    nearby: [
+      '....##...',
+      '....##...',
+      '.........',
+      '...####..',
+      '..#.##.#.',
+      '.#..##..#',
+      '....##...',
+      '...#..#..',
+      '...#...#.',
+      '..#....#.',
+      '.#......#'
+    ],
+    // into the door: back in a few minutes
+    backIn: [
+      '#####......',
+      '#..........',
+      '#...#......',
+      '#..##......',
+      '#.#########',
+      '#.#########',
+      '#..##......',
+      '#...#......',
+      '#..........',
+      '#####......'
+    ],
     // out of the door
     away: [
       '#####......',
@@ -503,7 +534,7 @@
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
     call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
-    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1
+    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, backIn: 0, nearby: 0
   };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
@@ -528,16 +559,20 @@
     }
   }
 
-  /* Icon + word, centred as one unit in a pill of width w starting at x0. */
+  /* Icon + word, centred as one unit in a pill of width w starting at x0;
+     a state without an icon, the word alone. */
+  const iconWidth = (state) => (ICONS[state] ? ICONS[state][0].length + LAYOUT.iconGap : 0);
   function statusContentWidth(state) {
-    return ICONS[state][0].length + LAYOUT.iconGap + textWidth(LAYOUT.statusFont, WORDS[state]);
+    return iconWidth(state) + textWidth(LAYOUT.statusFont, WORDS[state]);
   }
   function drawStatusContent(f, now, state, pal, x0, w, alpha, clip) {
     const cw = statusContentWidth(state);
     const x = Math.round(x0 + (w - cw) / 2);
-    drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow,
-      alpha * iconAlphaAt(now, state), clip);
-    drawText(f, LAYOUT.statusFont, WORDS[state], x + ICONS[state][0].length + LAYOUT.iconGap,
+    if (ICONS[state]) {
+      drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow,
+        alpha * iconAlphaAt(now, state), clip);
+    }
+    drawText(f, LAYOUT.statusFont, WORDS[state], x + iconWidth(state),
       LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
   }
 
@@ -674,7 +709,8 @@
         case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         // on a call or in a meeting: how long till you're free, and when
         case 'call': case 'callMuted': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
-        case 'callIn': case 'busyIn':
+        // a warning, or back in a few minutes: a countdown to it, and when
+        case 'callIn': case 'busyIn': case 'backIn':
           return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };
         // tentative: a countdown to the start, then the end time once it's on
         case 'callTbc': case 'busyTbc':
@@ -790,7 +826,9 @@
     busyTbc: ['BUSY', 'TBC'],
     away: ['AWAY'],
     lunch: ['LUNCH'],
-    ooo: ['OUT OF', 'OFFICE']
+    ooo: ['OUT OF', 'OFFICE'],
+    nearby: ['NEARBY'],
+    backIn: ['BACK', 'IN']
   };
   const LINE_FONT = {
     busy_regular_14: { h: 14, depth: 2, space: 6 },

@@ -6,8 +6,8 @@
  */
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
-import { N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText, leaveFace, MEETING_FACES, meetingKeyImage,
-  muteFace, timerOf } from '../src/key.js';
+import { AWAY_KINDS, awayFace, awayKeyImage, drawAwayKey, N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText,
+  leaveFace, MEETING_FACES, meetingKeyImage, muteFace, timerOf } from '../src/key.js';
 import { viewOf } from '../src/app.js';
 
 const E = globalThis.BusyEngine;
@@ -39,6 +39,9 @@ check(() => assert.deepEqual(say('busyTbc', { at: new Date(2026, 9, 6, 15, 30).g
   { lines: ['TBC', 'TILL'], detail: '15:30', blink: false }));
 check(() => assert.equal(say('freeTil', { at: new Date(2026, 9, 6, 15, 0).getTime(), kind: 'fixed' }).detail, '15:00'));
 check(() => assert.equal(say('ooo', null).detail, '14:32'));
+check(() => assert.deepEqual(say('nearby', null), { lines: ['NEAR-', 'BY'], detail: '14:32', blink: true }));
+check(() => assert.deepEqual(say('backIn', { at: now + 29 * min + 41000 - 30, kind: 'countdown' }),
+  { lines: ['BACK', 'IN'], detail: '29:41', blink: true }));
 
 // nothing is cut off: every LED lit lies inside the panel's margin...
 function litColumns(frame) {
@@ -78,11 +81,33 @@ check(() => assert.doesNotThrow(() => keyImage({ state: 'notAState', moment: nul
 
 // the app's answer, as the keys read it
 check(() => assert.deepEqual(viewOf({ state: 'call', muted: true, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }),
-  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }));
+  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null }));
 check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, meeting: { app: 'zoom', canLeave: true } }).meeting,
   { app: 'zoom', muted: null, canLeave: true }));
 check(() => assert.equal(viewOf({ state: 'free', dnd: false }).meeting, null));
 check(() => assert.throws(() => viewOf({ dnd: false })));
+check(() => assert.deepEqual(viewOf({ state: 'backIn', dnd: false, away: { kind: 'backIn', until: 1760000600000 } }).away,
+  { kind: 'backIn', until: 1760000600000 }));
+check(() => assert.deepEqual(viewOf({ state: 'lunch', dnd: false, away: { kind: 'lunch' } }).away, { kind: 'lunch', until: null }));
+check(() => assert.equal(viewOf({ state: 'free', dnd: false }).away, null));
+
+// the away keys: lit while theirs is the key that's on, dimmed while it isn't; nothing cut off
+const awayView = (kind, until) => ({ state: 'free', moment: null, dnd: false, meeting: null, away: kind ? { kind, until: until || null } : null });
+check(() => assert.equal(awayFace('lunch', null), 'off'));
+check(() => assert.equal(awayFace('lunch', awayView(null)), 'idle'));
+check(() => assert.equal(awayFace('lunch', awayView('nearby')), 'idle'));
+check(() => assert.equal(awayFace('lunch', awayView('lunch')), 'on'));
+const brightness = (frame) => { let sum = 0; for (let i = 0; i < frame.px.length; i++) sum += frame.px[i]; return sum; };
+for (const kind of AWAY_KINDS) {
+  const at = new Date(now);
+  const on = drawAwayKey(kind, awayView(kind, now + 9 * 3600000 + 59 * min), at), idle = drawAwayKey(kind, awayView(null), at);
+  check(() => assert.ok(brightness(on) > brightness(idle) * 1.3, `${kind}: lit when on`));
+  // (dimmed, the type's too faint to find; it's set as when it's lit)
+  const cols = litColumns(on);
+  check(() => assert.ok(cols.size > 0 && Math.min(...cols) >= 1 && Math.max(...cols) <= N - 2, `${kind}: cut off`));
+}
+check(() => assert.notEqual(awayKeyImage('backIn', awayView('backIn', now + 10 * min), new Date(now)),
+  awayKeyImage('backIn', awayView('backIn', now + 20 * min), new Date(now))));
 
 // the Mute and Leave keys' faces
 const inMeeting = (muted, canLeave = true) => ({ state: 'call', moment: null, dnd: false, meeting: { app: 'teams', muted, canLeave } });

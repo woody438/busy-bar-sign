@@ -8,7 +8,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { drawLabel, drawMeetingKey, KEY_ICONS, paint, SIZE } from '../src/key.js';
+import { drawAwayKey, drawLabel, drawMeetingKey, KEY_ICONS, paint, SIZE } from '../src/key.js';
 import { png } from '../src/png.js';
 
 const imgs = path.join(import.meta.dirname, '..', 'com.woodall.busybarsign.sdPlugin', 'imgs');
@@ -82,4 +82,14 @@ for (const [dir, rows] of [['mute', KEY_ICONS.mic], ['leave', KEY_ICONS.handset]
   write(path.join(imgs, 'actions', dir, 'icon.png'), icon(20, rowsGlyph(rows)));
   write(path.join(imgs, 'actions', dir, 'icon@2x.png'), icon(40, rowsGlyph(rows)));
   keyPictures(dir, drawMeetingKey(dir, 'idle'));
+}
+
+// the away keys: the bar's own pictograms in the list, and each key's face while it isn't on
+const E = globalThis.BusyEngine;
+const idle = { state: 'free', moment: null, dnd: false, meeting: null, away: null };
+for (const [dir, kind, rows] of [['nearby', 'nearby', E.ICONS.nearby], ['lunch', 'lunch', E.ICONS.lunch],
+  ['backin', 'backIn', E.ICONS.backIn]]) {
+  write(path.join(imgs, 'actions', dir, 'icon.png'), icon(20, rowsGlyph(rows)));
+  write(path.join(imgs, 'actions', dir, 'icon@2x.png'), icon(40, rowsGlyph(rows)));
+  keyPictures(dir, drawAwayKey(kind, idle, new Date(2026, 9, 16, 12, 0)));
 }

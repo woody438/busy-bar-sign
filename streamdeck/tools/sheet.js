@@ -5,9 +5,10 @@
  *   node tools/sheet.js out.png
  *   node tools/sheet.js ../docs/stream-deck-keys.png --readme    # six in a row, for the README
  *   node tools/sheet.js ../docs/stream-deck-meeting-keys.png --meeting   # the Mute and Leave keys, for the README
+ *   node tools/sheet.js ../docs/stream-deck-away-keys.png --away         # the away keys, for the README
  */
 import fs from 'node:fs';
-import { drawKey, drawMeetingKey, MEETING_FACES, paint, SIZE, STATES } from '../src/key.js';
+import { AWAY_KINDS, drawAwayKey, drawKey, drawMeetingKey, MEETING_FACES, paint, SIZE, STATES } from '../src/key.js';
 import { png } from '../src/png.js';
 
 const at = new Date(2026, 9, 6, 14, 32, 27).getTime();       // Tue 6 Oct, 14:32:27, an odd second
@@ -29,11 +30,20 @@ const keys = [
   { state: 'somethingNew', moment: null },
   // the Mute and Leave keys
   ...MEETING_FACES.map((f) => ({ meeting: f.split(':') })),
-  { meeting: ['leave', 'active', true] }  // a tap on a hold-to-leave key
+  { meeting: ['leave', 'active', true] },  // a tap on a hold-to-leave key
+  // the away keys: off, then each on
+  ...AWAY_KINDS.map((kind) => ({ away: [kind, null] })),
+  ...AWAY_KINDS.map((kind) => ({ away: [kind, { kind, until: kind === 'backIn' ? at + 29 * min + 41000 : null }] }))
 ];
+const awayView = (away) => ({ state: 'free', moment: null, dnd: false, meeting: null, away });
 
-const readme = process.argv.includes('--readme') || process.argv.includes('--meeting');
-if (process.argv.includes('--meeting')) {
+const readme = ['--readme', '--meeting', '--away'].some((a) => process.argv.includes(a));
+if (process.argv.includes('--away')) {
+  // Back In counting down, Lunch and Nearby waiting; the Status key saying it
+  keys.splice(0, keys.length, { away: ['nearby', null] }, { away: ['lunch', null] },
+    { away: ['backIn', { kind: 'backIn', until: at + 29 * min + 41000 }] },
+    { state: 'backIn', moment: { at: at + 29 * min + 41000, kind: 'countdown' } });
+} else if (process.argv.includes('--meeting')) {
   // HOLD only shows with the Leave key set to "hold", so it's not in the README's row
   keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'idle']]
     .map((m) => ({ meeting: m })));
@@ -44,7 +54,9 @@ const G = readme ? 16 : 12, COLS = readme ? keys.length : 6, rows = Math.ceil(ke
 const W = COLS * (SIZE + G) + G, H = rows * (SIZE + G) + G;
 const sheet = Buffer.alloc(W * H * 3, readme ? 20 : 48);
 keys.forEach((k, i) => {
-  const img = paint(k && k.meeting ? drawMeetingKey(...k.meeting) : drawKey(k, new Date(at + (readme || (k && k.even) ? 1000 : 0))));
+  const date = new Date(at + (readme || (k && k.even) ? 1000 : 0));
+  const img = paint(k && k.meeting ? drawMeetingKey(...k.meeting)
+    : k && k.away ? drawAwayKey(k.away[0], awayView(k.away[1]), date) : drawKey(k, date));
   const ox = G + (i % COLS) * (SIZE + G), oy = G + Math.floor(i / COLS) * (SIZE + G);
   for (let y = 0; y < SIZE; y++) img.copy(sheet, ((oy + y) * W + ox) * 3, y * SIZE * 3, (y + 1) * SIZE * 3);
 });

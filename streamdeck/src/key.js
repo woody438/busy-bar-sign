@@ -26,7 +26,8 @@ const WHITE = E.PALETTE.white;
 const WORDS = {
   call: ['ON A', 'CALL'], callMuted: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
   callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], freeTil: ['FREE', 'TILL'],
-  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO']
+  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO'],
+  nearby: ['NEAR-', 'BY'], backIn: ['BACK', 'IN']
 };
 export const STATES = Object.keys(WORDS);
 
@@ -200,6 +201,43 @@ export function drawMeetingKey(kind, face, hold) {
   return f;
 }
 
+/* The away keys: their words in the grey pill, lit while that key's on and
+   dimmed while it isn't. Beneath, Back In counts down to when you're back,
+   or says +10 (a press is ten minutes more); Nearby and Lunch say ON. */
+export const AWAY_KINDS = ['nearby', 'lunch', 'backIn'];
+const AWAY_WORDS = { nearby: WORDS.nearby, lunch: WORDS.lunch, backIn: WORDS.backIn };
+
+/* What an away key shows: 'off' when the app isn't answering, else 'on' or 'idle'. */
+export function awayFace(kind, view) {
+  if (!view) return 'off';
+  return view.away && view.away.kind === kind ? 'on' : 'idle';
+}
+
+/* An away key as LEDs at `date`. */
+export function drawAwayKey(kind, view, date) {
+  const f = new E.Frame(N, N);
+  const face = awayFace(kind, view);
+  if (face === 'off') {
+    drawLines(f, ['APP', 'OFF'], E.palOf('away'), 0.5);
+    return f;
+  }
+  const on = face === 'on';
+  const pal = E.palOf(kind);
+  E.drawPill(f, 0, N, pal, { h: PILL_H, dim: on ? 0 : 0.62 });
+  drawLines(f, AWAY_WORDS[kind], pal, on ? 1 : 0.6);
+  let detail = on ? 'ON' : '';
+  if (kind === 'backIn') {
+    const until = on ? view.away.until : null;
+    detail = until ? E.rightText('backIn', clockOf(date), timerOf({ at: until, kind: 'countdown' }, date.getTime())).top : '+10';
+  }
+  if (detail) {
+    const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => E.clockTextWidth(fn, detail) <= N - 2) || 'busy_regular_5';
+    E.drawClockText(f, font, detail, Math.round((N - E.clockTextWidth(font, detail)) / 2), DETAIL_BASE, WHITE,
+      { alpha: on ? 1 : 0.6 }, 1);
+  }
+  return f;
+}
+
 /* Just a lit pill with words in it, in a state's colours: the key's
    picture before the plugin has drawn one (tools/icons.js). */
 export function drawLabel(lines, state) {
@@ -256,6 +294,11 @@ const dataURL = (frame) => 'data:image/png;base64,' + png(SIZE, SIZE, paint(fram
 /* The key's picture as Stream Deck takes it. */
 export function keyImage(view, date) {
   return dataURL(drawKey(view, date));
+}
+
+/* An away key's picture. */
+export function awayKeyImage(kind, view, date) {
+  return dataURL(drawAwayKey(kind, view, date));
 }
 
 /* A Mute or Leave key's picture; the same face gives the same picture. */

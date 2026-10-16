@@ -79,6 +79,11 @@ struct LEDPanelView: NSViewRepresentable {
 
 final class LEDPanelNSView: NSView {
     var model: BarModel?
+    /// Whether to stop drawing while the window's hidden. Off in the screen
+    /// saver, whose host may not say its windows are visible.
+    var followsOcclusion = true {
+        didSet { occlusionChanged() }
+    }
     var pitchPixels = 0 {
         didSet { if pitchPixels != oldValue { raster = nil; needsLayout = true } }
     }
@@ -167,7 +172,7 @@ final class LEDPanelNSView: NSView {
 
     /// Stop rendering while the window is hidden or its screen is away.
     @objc private func occlusionChanged() {
-        link?.isPaused = !(window?.occlusionState.contains(.visible) ?? false)
+        link?.isPaused = followsOcclusion && !(window?.occlusionState.contains(.visible) ?? false)
     }
 
     override func viewDidChangeBackingProperties() {
@@ -182,8 +187,18 @@ final class LEDPanelNSView: NSView {
         renderFrame()
     }
 
+    /// Frames drawn so far, and when the last was: the screen saver reports
+    /// them, and draws for itself where the display link doesn't run.
+    private(set) var framesDrawn = 0
+    private(set) var lastDrawn: CFTimeInterval = 0
+
+    /// A frame now, without waiting for the display link.
+    func drawNow() { renderFrame() }
+
     private func renderFrame() {
         guard let model, pitchPixels > 1 else { return }
+        framesDrawn &+= 1
+        lastDrawn = CACurrentMediaTime()
         if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: barLayout.cols, rows: barLayout.rows) }
         guard let raster else { return }
 

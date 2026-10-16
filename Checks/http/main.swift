@@ -50,6 +50,14 @@ expect(route("POST", "/meeting/end", here) == .meetingEnd, "POST /meeting/end")
 expect(route("GET", "/meeting/end", here) == .reject(405), "GET can't end a meeting")
 expect(route("POST", "/meeting/leave", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
        "a web page can't make you leave a meeting")
+expect(route("POST", "/away/nearby", here) == .away("nearby"), "POST /away/nearby")
+expect(route("POST", "/away/lunch", here) == .away("lunch"), "POST /away/lunch")
+expect(route("POST", "/away/back-in", here) == .away("backIn"), "POST /away/back-in")
+expect(route("POST", "/away/end", here) == .awayEnd, "POST /away/end")
+expect(route("GET", "/away/lunch", here) == .reject(405), "GET can't go to lunch")
+expect(route("POST", "/away/nap", here) == .reject(404), "no such away key")
+expect(route("POST", "/away/back-in", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
+       "a web page can't press an away key")
 expect(route("POST", "/status", here) == .reject(405), "POST /status")
 expect(route("GET", "/", here) == .reject(404), "unknown path")
 expect(route("GET", "/status", [:]) == .reject(403), "no Host")
@@ -57,6 +65,19 @@ expect(route("GET", "/status", ["host": "evil.example:47811"]) == .reject(403), 
 expect(route("POST", "/dnd/toggle", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
        "a web page's request (Origin)")
 expect(route("POST", "/dnd/toggle", ["host": "127.0.0.1:47811", "origin": "null"]) == .reject(403), "Origin: null")
+
+// the screen saver's report
+func report(_ value: String) -> LocalAPI.SaverReport? {
+    LocalAPI.saverReport(LocalAPI.Request(method: "GET", path: "/status", headers: ["host": "127.0.0.1:47811", "x-busy-bar-saver": value]))
+}
+expect(report("display=4; drawing=1; name=LG HDR 4K") == LocalAPI.SaverReport(display: 4, drawing: true, name: "LG HDR 4K"),
+       "the screen saver's report")
+expect(report("display=69733382;drawing=0;name=Studio Display (2); =x") ==
+       LocalAPI.SaverReport(display: 69733382, drawing: false, name: "Studio Display (2); =x"), "a name with anything in it")
+expect(report("drawing=1; name=X") == nil, "no display, no report")
+expect(LocalAPI.saverReport(request(get)!) == nil, "the Stream Deck's request carries none")
+expect(LocalAPI.saverHeaderValue(LocalAPI.SaverReport(display: 3, drawing: false, name: "A\r\nB"))
+       == "display=3; drawing=0; name=A  B", "a line break in a name can't end the header")
 
 // answering
 let call = LocalAPI.Status(state: "call", moment: LocalAPI.Status.Moment(at: 1_760_000_000_000, kind: "countdown"), dnd: false)
@@ -77,6 +98,15 @@ expect(String(decoding: LocalAPI.encode(inMeeting), as: UTF8.self)
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false,
                                                         meeting: LocalAPI.Status.Meeting(app: "zoom", muted: nil, canLeave: true))), as: UTF8.self)
        == #"{"dnd":false,"meeting":{"app":"zoom","canLeave":true},"state":"call"}"#, "a meeting whose mute can't be read")
+var backIn = LocalAPI.Status(state: "backIn", moment: LocalAPI.Status.Moment(at: 1_760_000_600_000, kind: "countdown"), dnd: false)
+backIn.away = LocalAPI.Status.Away(kind: "backIn", until: 1_760_000_600_000)
+backIn.wall = LocalAPI.Status.Wall(display: 3, layout: "stacked")
+expect(String(decoding: LocalAPI.encode(backIn), as: UTF8.self)
+       == #"{"away":{"kind":"backIn","until":1760000600000},"dnd":false,"moment":{"at":1760000600000,"kind":"countdown"},"state":"backIn","wall":{"display":3,"layout":"stacked"}}"#,
+       "status JSON back in a few minutes, with the wall")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "lunch", moment: nil, dnd: false,
+                                                        away: LocalAPI.Status.Away(kind: "lunch", until: nil))), as: UTF8.self)
+       == #"{"away":{"kind":"lunch"},"dnd":false,"state":"lunch"}"#, "the Lunch key on")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")
