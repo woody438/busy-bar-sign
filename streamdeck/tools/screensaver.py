@@ -7,8 +7,9 @@ for each Stream Deck size.
 
     python3 tools/screensaver.py         # in streamdeck/; needs node and Pillow
 
-Writes screensaver/busy-bar-<model>.gif. Set one in Stream Deck ▸ Settings ▸
-Devices ▸ your Stream Deck ▸ Screensaver.
+Writes screensaver/busy-bar-<model>.gif, and busy-bar-<model>.png as a still
+for a Stream Deck that won't take the GIF. Set one in Stream Deck ▸ Settings
+▸ Devices ▸ your Stream Deck ▸ Screensaver.
 """
 import os
 import subprocess
@@ -37,3 +38,6 @@ for model, (w, h) in MODELS.items():
     path = os.path.join(OUT, f"busy-bar-{model}.gif")
     gif[0].save(path, save_all=True, append_images=gif[1:], duration=200, loop=0, optimize=True)
     print("wrote", os.path.relpath(path), f"{w}x{h}", os.path.getsize(path) // 1024, "KB")
+    still = os.path.join(OUT, f"busy-bar-{model}.png")
+    frames[FRAMES // 2].save(still, optimize=True)            # the sheen half way across
+    print("wrote", os.path.relpath(still), f"{w}x{h}", os.path.getsize(still) // 1024, "KB")

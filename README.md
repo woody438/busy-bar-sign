@@ -314,6 +314,11 @@ BAR in its LEDs, the sheen crossing the pill as it does on the wall.
 2. In Stream Deck ▸ Settings ▸ Devices, choose your Stream Deck and set its
    **Screensaver** to the file. (Stream Deck 6.6 or later; Elgato says the
    original 15-key Stream Deck takes still images only.)
+3. If locking still shows Elgato's logo, try the still instead — the same
+   name ending `.png` ([MK.2](streamdeck/screensaver/busy-bar-mk2.png),
+   [XL](streamdeck/screensaver/busy-bar-xl.png),
+   [+](streamdeck/screensaver/busy-bar-plus.png)) — and quit and reopen
+   Stream Deck after setting it.
 
 `python3 tools/screensaver.py` in `streamdeck/` draws them again (it needs
 node and Pillow).
