@@ -246,8 +246,8 @@ Worth knowing:
   they run in an Apple host (`legacyScreenSaver`) that keeps them running
   after they're dismissed, and on Tahoe can leave a second monitor blank.
   This one stops itself when the screen saver ends and quits the host
-  shortly after, as Aerial and others do. Apple's newer screen saver
-  system is private. If the wall stays black while you're away, that's the
+  shortly after, as Aerial's old screen saver did. Apple's newer one
+  is private. If the wall stays black while you're away, that's the
   host.
 - If your Mac's screen saver is managed (greyed out, "set by your
   organisation"), you can't choose this one.
