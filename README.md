@@ -271,6 +271,8 @@ engine and fonts:
   Each is lit while it's the one that's on, dimmed while it isn't; Back In
   says **+10** beneath, and counts down once pressed.
 
+![The away keys: Wandering and Lunch dimmed, Back In lit and counting down 29:40, and the Status key saying BACK IN 29:40](docs/stream-deck-away-keys.png)
+
 1. Download **`BusyBarSign.streamDeckPlugin`** from the
    [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
    and double-click it. Stream Deck asks to install it. (Stream Deck 7.1 or
