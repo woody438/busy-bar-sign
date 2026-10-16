@@ -299,6 +299,25 @@ engine and fonts:
   source folder; `npm run pack` makes the `.streamDeckPlugin`, and
   `npm run sheet` draws every state to `keys.png` to check by eye.
 
+### While the Mac is locked
+
+When the Mac locks, Stream Deck stops showing the keys and shows its
+screensaver across them — Elgato's logo, unless you give it another. No
+plugin can draw live keys there, but the screensaver can be the bar: BUSY /
+BAR in its LEDs, the sheen crossing the pill as it does on the wall.
+
+![The Stream Deck screensaver: BUSY BAR in white LEDs on the bar's red pill](streamdeck/screensaver/busy-bar-mk2.gif)
+
+1. Download the one for your Stream Deck: [Stream Deck MK.2 or 15-key](streamdeck/screensaver/busy-bar-mk2.gif)
+   (480 × 272), [XL](streamdeck/screensaver/busy-bar-xl.gif) (1024 × 600) or
+   [Stream Deck +](streamdeck/screensaver/busy-bar-plus.gif) (800 × 480).
+2. In Stream Deck ▸ Settings ▸ Devices, choose your Stream Deck and set its
+   **Screensaver** to the file. (Stream Deck 6.6 or later; Elgato says the
+   original 15-key Stream Deck takes still images only.)
+
+`python3 tools/screensaver.py` in `streamdeck/` draws them again (it needs
+node and Pillow).
+
 ### The Status key
 
 ![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
