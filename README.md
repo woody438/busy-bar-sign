@@ -275,8 +275,9 @@ engine and fonts:
   its window is ([below](#mute-and-leave-keys-for-teams-and-zoom)).
 - **Nearby**, **Lunch** and **Back In** — where you've gone when you
   leave your desk, and the Mac locked behind you ([above](#while-youre-away)).
-  Each is lit while it's the one that's on, dimmed while it isn't; Back In
-  says **+10** beneath, and counts down once pressed.
+  Nearby and Lunch are pictures with their word beneath, as Mute and Leave
+  are. Each is lit while it's the one that's on, dimmed while it isn't;
+  Back In says **+10** beneath, and counts down once pressed.
 
 ![The away keys: Nearby and Lunch dimmed, Back In lit and counting down 29:40, and the Status key saying BACK IN 29:40](docs/stream-deck-away-keys.png)
 
@@ -298,6 +299,35 @@ engine and fonts:
   source folder; `npm run pack` makes the `.streamDeckPlugin`, and
   `npm run sheet` draws every state to `keys.png` to check by eye.
 
+### A Busy Bar screensaver for the Stream Deck
+
+When the Stream Deck sleeps it shows a screensaver across its keys —
+Elgato's logo, unless you give it another. No plugin can draw there, but
+the screensaver can be the bar: BUSY / BAR in its LEDs, the sheen crossing
+the pill as it does on the wall.
+
+Elgato says the screensaver shows while the Mac is locked too. On the
+author's Mac (Stream Deck XL, macOS 27) it shows when the deck sleeps
+(Settings ▸ General ▸ **Sleep After**), but locking the Mac switches it to
+Elgato's logo, even from the screensaver.
+
+![The Stream Deck screensaver: BUSY BAR in white LEDs on the bar's red pill](streamdeck/screensaver/busy-bar-mk2.gif)
+
+1. Download the one for your Stream Deck: [Stream Deck MK.2 or 15-key](streamdeck/screensaver/busy-bar-mk2.gif)
+   (480 × 272), [XL](streamdeck/screensaver/busy-bar-xl.gif) (1024 × 600) or
+   [Stream Deck +](streamdeck/screensaver/busy-bar-plus.gif) (800 × 480).
+2. In Stream Deck ▸ Settings ▸ Devices, choose your Stream Deck and set its
+   **Screensaver** to the file. (Stream Deck 6.6 or later; Elgato says the
+   original 15-key Stream Deck takes still images only.)
+3. If locking still shows Elgato's logo, try the still instead — the same
+   name ending `.png` ([MK.2](streamdeck/screensaver/busy-bar-mk2.png),
+   [XL](streamdeck/screensaver/busy-bar-xl.png),
+   [+](streamdeck/screensaver/busy-bar-plus.png)) — and quit and reopen
+   Stream Deck after setting it.
+
+`python3 tools/screensaver.py` in `streamdeck/` draws them again (it needs
+node and Pillow).
+
 ### The Status key
 
 ![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
@@ -315,7 +345,7 @@ engine and fonts:
 
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute and Leave keys: LIVE in green, MUTED in red, dark outside a meeting; LEAVE in red, dark outside a meeting](docs/stream-deck-meeting-keys.png)
+![Mute and Leave keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in —
 what the separate Teams Meeting Keys plugin did, now done by the app, so
@@ -323,9 +353,10 @@ the keys, the sign and the settings always agree:
 
 - **Mute** shows green **LIVE** or red **MUTED**, read from the meeting's
   own mute control; **MIC ?** if the meeting's there but its mute can't be
-  read (Zoom before you join its audio); dark outside a meeting. Press to
-  mute or unmute.
-- **Leave** shows red **LEAVE** in a meeting, dark otherwise. **Press** to
+  read (Zoom before you join its audio); dimmed outside a meeting, with
+  **MUTE** in grey. Press to mute or unmute.
+- **Leave** shows red **LEAVE** throughout a meeting; dimmed outside one,
+  with **LEAVE** in grey. **Press** to
   leave (on release). **Hold it a second** to end a Zoom meeting you're
   hosting for everyone ("End meeting for all"); held in any other meeting it
   just leaves — ending a Teams meeting for everyone isn't done yet. In its
@@ -340,6 +371,10 @@ the keys, the sign and the settings always agree:
   until it's had 2.5 seconds to show, so mute can't toggle twice; an app
   that ignores its own button twice gets the shortcut from then on.
 - With Teams and Zoom both in meetings, the keys act on the one joined last.
+- Teams can redraw its Leave button during a call; the app finds the new
+  one within a few seconds. (Before 2.2.1 it lost it for the rest of the
+  call, and the Leave key went grey, though a press still left through the
+  shortcut.)
 - After a call, Teams' "rate your call" survey (and Zoom's "How was the
   audio and video?") is closed — only ever with a Dismiss, Close, Skip or
   Cancel-type button, then the dialog's own cancel, its window's close button

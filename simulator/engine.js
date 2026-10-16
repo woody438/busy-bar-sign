@@ -923,7 +923,7 @@
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
-    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave,
+    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
     hash: hash
   };
 })(typeof window !== 'undefined' ? window : globalThis);

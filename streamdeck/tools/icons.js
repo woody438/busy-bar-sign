@@ -84,10 +84,10 @@ for (const [dir, rows] of [['mute', KEY_ICONS.mic], ['leave', KEY_ICONS.handset]
   keyPictures(dir, drawMeetingKey(dir, 'idle'));
 }
 
-// the away keys: the bar's own pictograms in the list, and each key's face while it isn't on
+// the away keys: their pictures in the list (Back In's from the bar), and each key's face while it isn't on
 const E = globalThis.BusyEngine;
 const idle = { state: 'free', moment: null, dnd: false, meeting: null, away: null };
-for (const [dir, kind, rows] of [['nearby', 'nearby', E.ICONS.nearby], ['lunch', 'lunch', E.ICONS.lunch],
+for (const [dir, kind, rows] of [['nearby', 'nearby', KEY_ICONS.walker], ['lunch', 'lunch', KEY_ICONS.forkKnife],
   ['backin', 'backIn', E.ICONS.backIn]]) {
   write(path.join(imgs, 'actions', dir, 'icon.png'), icon(20, rowsGlyph(rows)));
   write(path.join(imgs, 'actions', dir, 'icon@2x.png'), icon(40, rowsGlyph(rows)));
