@@ -60,7 +60,7 @@
       shadow:    hex(0x482500),
       flood:     hex(0xC07A14)
     },
-    // not here: away, at lunch, out of office
+    // not here: away, at lunch, out of office, out on site
     grey: {
       highlight: hex(0xC4C8D2),
       top:       hex(0x7E8492),
@@ -77,8 +77,8 @@
     call: 'call', callMuted: 'call', meeting: 'call',
     free: 'free',
     dnd: 'dnd',
-    callIn: 'amber', busyIn: 'amber', late: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
-    away: 'grey', lunch: 'grey', ooo: 'grey', nearby: 'grey', backIn: 'grey'
+    callIn: 'amber', busyIn: 'amber', late: 'amber', lateMtg: 'amber', freeTil: 'amber', callTbc: 'amber', busyTbc: 'amber',
+    away: 'grey', lunch: 'grey', ooo: 'grey', onSite: 'grey', nearby: 'grey', backIn: 'grey'
   };
   const palOf = (state) => PALETTE[STATE_PALETTE[state]];
 
@@ -317,9 +317,11 @@
     meeting: 'MEETING',
     callIn: 'CALL IN', busyIn: 'BUSY IN',                        // + the countdown on the right
     late: 'LATE FOR',                                            // + CALL on the right
+    lateMtg: 'LATE FOR',                                         // + MTG on the right: a meeting in a room
     freeTil: 'FREE TILL',                                        // + the slot's end on the right
     callTbc: 'CALL TBC', busyTbc: 'BUSY TBC',                    // tentative: countdown, then TILL
     away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF',                 // + OFFICE on the right
+    onSite: 'OUT ON',                                            // + SITE on the right: with a client
     nearby: 'NEARBY',                                            // in the building, not at your desk
     backIn: 'BACK IN'                                            // + the countdown on the right
   };
@@ -334,12 +336,14 @@
     callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     late:      { word: 'LATE FOR CALL', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    lateMtg:   { word: 'LATE FOR MTG', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
     freeTil:   { word: 'FREE TILL {t}', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
     callTbc:   { word: 'CALL TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     busyTbc:   { word: 'BUSY TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     lunch:     { word: 'LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
+    onSite:    { word: 'OUT ON SITE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
     nearby: { word: 'NEARBY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
     backIn:    { word: 'BACK IN', font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
   };
@@ -527,14 +531,29 @@
       '......##....',
       '.....##.....',
       '....##......'
+    ],
+    // a map pin: somewhere else
+    onSite: [
+      '..#####..',
+      '.#######.',
+      '###...###',
+      '##.....##',
+      '###...###',
+      '.#######.',
+      '.#######.',
+      '..#####..',
+      '...###...',
+      '...###...',
+      '....#....'
     ]
   };
+  ICONS.lateMtg = ICONS.late;
   ICONS.callIn = ICONS.busyIn = ICONS.soon;
   ICONS.callTbc = ICONS.busyTbc = ICONS.tbc;
   ICONS.freeTil = ICONS.free;
   const ICON_LIFT = {
-    call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0,
-    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, backIn: 0, nearby: 0
+    call: -1, callMuted: -1, free: 1, dnd: -1, meeting: 0, callIn: 0, busyIn: 0, late: 0, lateMtg: 0,
+    freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, onSite: -1, backIn: 0, nearby: 0
   };   // rows above the baseline for the icon's bottom row
 
   /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
@@ -656,13 +675,13 @@
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
   }
 
-  /* How far the pill is dimmed. LATE FOR breathes: by up to a third and
+  /* How far the pill is dimmed. LATE FOR (a call or a meeting) breathes: by up to a third and
      back every 1.6 s, so it reads as urgent rather than as an opening. ON A
      CALL with the mic muted glows at 45%: bright means quiet, dim means the
      room can talk. */
   function pulseAt(now, state) {
     if (state === 'callMuted') return 0.55;
-    if (state !== 'late') return 0;
+    if (state !== 'late' && state !== 'lateMtg') return 0;
     return 0.34 * (0.5 - 0.5 * Math.cos(2 * Math.PI * (now % 1.6) / 1.6));
   }
 
@@ -717,10 +736,12 @@
           return timer.left > 0 ? { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true }
                                 : { top: now, bottom: 'TILL ' + at, blink: true };
         case 'late': return { top: 'CALL', bottom: '+' + elapsedText(timer.left), blink: false };
+        case 'lateMtg': return { top: 'MTG', bottom: '+' + elapsedText(timer.left), blink: false };
         case 'freeTil': return { top: at, bottom: day, blink: false };
       }
     }
     if (state === 'ooo') return { top: now, bottom: 'OFFICE', blink: true };
+    if (state === 'onSite') return { top: now, bottom: 'SITE', blink: true };
     return { top: now, bottom: day, blink: true };
   }
 
@@ -821,12 +842,14 @@
     callIn: ['CALL', 'SOON'],
     busyIn: ['BUSY', 'SOON'],
     late: ['LATE', { t: 'FOR CALL', font: 'busy_bold_10' }],
+    lateMtg: ['LATE', { t: 'FOR MTG', font: 'busy_bold_10' }],
     freeTil: ['FREE', { t: 'TILL {t}', font: 'busy_bold_10' }],
     callTbc: ['CALL', 'TBC'],
     busyTbc: ['BUSY', 'TBC'],
     away: ['AWAY'],
     lunch: ['LUNCH'],
     ooo: ['OUT OF', 'OFFICE'],
+    onSite: ['OUT ON', 'SITE'],
     nearby: ['NEARBY'],
     backIn: ['BACK', 'IN']
   };

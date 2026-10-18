@@ -30,6 +30,10 @@ final class Away: ObservableObject {
     var kind: AwayState.Kind? { state.kind }
     var until: Date? { state.until }
 
+    /// Someone's used the Mac in the last couple of minutes, and it isn't locked:
+    /// you're at your desk. (A meeting in a room that's started says LATE FOR MTG.)
+    var atMac: Bool { !locked && Self.idleSeconds() < 120 }
+
     /// How long after the last press the screen saver starts.
     static let screenSaverDelay: TimeInterval = 3
 

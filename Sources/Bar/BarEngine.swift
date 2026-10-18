@@ -27,9 +27,11 @@ enum BarState: String, CaseIterable {
     case callMuted               // on a call with the mic muted: the same words, a slashed mic, the pill dimmed
     case callIn, busyIn          // 10 minutes before: a countdown on the right
     case late                    // a call has started without you: CALL and how late
+    case lateMtg                 // a meeting in a room has started, with you at the Mac: MTG and how late
     case freeTil                 // you left a call early: free till its slot ends
     case callTbc, busyTbc        // tentative: a countdown to the start, then TILL the end
     case away, lunch, ooo        // not here (ooo: OUT OF + OFFICE on the right)
+    case onSite                  // with a client: OUT ON + SITE on the right
     case nearby                  // you said so: in the building, not at your desk
     case backIn                  // you said so: a countdown on the right to when you're back
 
@@ -41,13 +43,14 @@ enum BarState: String, CaseIterable {
         case .dnd: return "DND"
         case .callIn: return "CALL IN"
         case .busyIn: return "BUSY IN"
-        case .late: return "LATE FOR"
+        case .late, .lateMtg: return "LATE FOR"
         case .freeTil: return "FREE TILL"
         case .callTbc: return "CALL TBC"
         case .busyTbc: return "BUSY TBC"
         case .away: return "AWAY"
         case .lunch: return "LUNCH"
         case .ooo: return "OUT OF"
+        case .onSite: return "OUT ON"
         case .nearby: return "NEARBY"
         case .backIn: return "BACK IN"
         }
@@ -88,7 +91,7 @@ struct BarPalette {
         rimBottom: RGB(hex: 0x7D4C12), edge: RGB(hex: 0xE0A653), shadow: RGB(hex: 0x482500),
         flood: RGB(hex: 0xC07A14))
 
-    /// Not here: away, at lunch, out of office.
+    /// Not here: away, at lunch, out of office, out on site.
     static let grey = BarPalette(
         highlight: RGB(hex: 0xC4C8D2), top: RGB(hex: 0x7E8492), bottom: RGB(hex: 0x272A31),
         rimBottom: RGB(hex: 0x3A3D45), edge: RGB(hex: 0x8E93A0), shadow: RGB(hex: 0x15161A),
@@ -99,8 +102,8 @@ struct BarPalette {
         case .call, .callMuted, .meeting: return call
         case .free: return free
         case .dnd: return dnd
-        case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return amber
-        case .away, .lunch, .ooo, .nearby, .backIn: return grey
+        case .callIn, .busyIn, .late, .lateMtg, .freeTil, .callTbc, .busyTbc: return amber
+        case .away, .lunch, .ooo, .onSite, .nearby, .backIn: return grey
         }
     }
 }
@@ -347,18 +350,7 @@ enum BarEngine {
             "#####.#####"
         ],
         .callIn: soonIcon, .busyIn: soonIcon,
-        // a warning sign
-        .late: [
-            ".....#.....",
-            "....###....",
-            "...##.##...",
-            "...##.##...",
-            "..###.###..",
-            "..###.###..",
-            ".#########.",
-            ".####.####.",
-            "###########"
-        ],
+        .late: lateIcon, .lateMtg: lateIcon,
         .callTbc: tbcIcon, .busyTbc: tbcIcon,
         // a fork and a knife
         .lunch: [
@@ -427,7 +419,33 @@ enum BarEngine {
             "......##....",
             ".....##.....",
             "....##......"
+        ],
+        // a map pin: somewhere else
+        .onSite: [
+            "..#####..",
+            ".#######.",
+            "###...###",
+            "##.....##",
+            "###...###",
+            ".#######.",
+            ".#######.",
+            "..#####..",
+            "...###...",
+            "...###...",
+            "....#...."
         ]
+    ]
+    /// A warning sign.
+    private static let lateIcon = [
+        ".....#.....",
+        "....###....",
+        "...##.##...",
+        "...##.##...",
+        "..###.###..",
+        "..###.###..",
+        ".#########.",
+        ".####.####.",
+        "###########"
     ]
     /// A bell: something's about to start.
     private static let soonIcon = [
@@ -457,8 +475,8 @@ enum BarEngine {
     ]
     /// Rows above the baseline for the icon's bottom row.
     static let iconLift: [BarState: Int] = [
-        .call: -1, .callMuted: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0,
-        .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1, .backIn: 0, .nearby: 0
+        .call: -1, .callMuted: -1, .free: 1, .dnd: -1, .meeting: 0, .callIn: 0, .busyIn: 0, .late: 0, .lateMtg: 0,
+        .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1, .onSite: -1, .backIn: 0, .nearby: 0
     ]
 
     /// The announcement. busy_regular_14 is busy_regular_7 doubled, so
@@ -477,12 +495,14 @@ enum BarEngine {
         case .callIn: return Hero(word: "CALL SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .busyIn: return Hero(word: "BUSY SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .late: return Hero(word: "LATE FOR CALL", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .lateMtg: return Hero(word: "LATE FOR MTG", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .freeTil: return Hero(word: "FREE TILL {t}", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .callTbc: return Hero(word: "CALL TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .busyTbc: return Hero(word: "BUSY TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .away: return Hero(word: "AWAY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .lunch: return Hero(word: "LUNCH", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .ooo: return Hero(word: "OUT OF OFFICE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .onSite: return Hero(word: "OUT ON SITE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .nearby: return Hero(word: "NEARBY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .backIn: return Hero(word: "BACK IN", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         }
@@ -608,13 +628,13 @@ enum BarEngine {
         return (p - 1.8) / 0.2
     }
 
-    /// How far the pill is dimmed. LATE FOR breathes: by up to a third and
+    /// How far the pill is dimmed. LATE FOR (a call or a meeting) breathes: by up to a third and
     /// back every 1.6 s, so it reads as urgent rather than as an opening. ON A
     /// CALL with the mic muted glows at 45%: bright means quiet, dim means the
     /// room can talk.
     static func pulseAt(_ now: Double, _ state: BarState) -> Double {
         if state == .callMuted { return 0.55 }
-        guard state == .late else { return 0 }
+        guard state == .late || state == .lateMtg else { return 0 }
         return 0.34 * (0.5 - 0.5 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: 1.6) / 1.6))
     }
 
@@ -657,6 +677,8 @@ enum BarEngine {
                                       : RightText(top: now, bottom: "TILL " + at, blink: true)
             case .late:
                 return RightText(top: "CALL", bottom: "+" + elapsedText(timer.left), blink: false)
+            case .lateMtg:
+                return RightText(top: "MTG", bottom: "+" + elapsedText(timer.left), blink: false)
             case .freeTil:
                 return RightText(top: at, bottom: day, blink: false)
             default:
@@ -664,6 +686,7 @@ enum BarEngine {
             }
         }
         if state == .ooo { return RightText(top: now, bottom: "OFFICE", blink: true) }
+        if state == .onSite { return RightText(top: now, bottom: "SITE", blink: true) }
         return RightText(top: now, bottom: day, blink: true)
     }
 
@@ -961,12 +984,14 @@ enum BarEngine {
             case .callIn: return [Line("CALL"), Line("SOON")]
             case .busyIn: return [Line("BUSY"), Line("SOON")]
             case .late: return [Line("LATE"), Line("FOR CALL", font: "busy_bold_10")]
+            case .lateMtg: return [Line("LATE"), Line("FOR MTG", font: "busy_bold_10")]
             case .freeTil: return [Line("FREE"), Line("TILL {t}", font: "busy_bold_10")]
             case .callTbc: return [Line("CALL"), Line("TBC")]
             case .busyTbc: return [Line("BUSY"), Line("TBC")]
             case .away: return [Line("AWAY")]
             case .lunch: return [Line("LUNCH")]
             case .ooo: return [Line("OUT OF"), Line("OFFICE")]
+            case .onSite: return [Line("OUT ON"), Line("SITE")]
             case .nearby: return [Line("NEARBY")]
             case .backIn: return [Line("BACK"), Line("IN")]
             }

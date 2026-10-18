@@ -7,7 +7,9 @@ import Foundation
  * Checks/http can test it anywhere Swift runs.
  *
  *   GET  /status          {"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}
- *   POST /dnd/toggle      as a double-click on the bar; answers with the new status
+ *   POST /dnd/toggle      as a double-click on the bar: Do Not Disturb on or off, or
+ *                         during LATE FOR CALL or MTG, there in person (MEETING);
+ *                         answers with the new status
  *   POST /meeting/mute    mutes or unmutes the Teams or Zoom meeting; answers
  *   POST /meeting/leave   leaves it;
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host

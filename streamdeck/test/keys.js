@@ -34,11 +34,13 @@ check(() => assert.equal(say('meeting', { at: now + 65 * min, kind: 'countdown' 
 check(() => assert.deepEqual(say('free', null), { lines: ['FREE'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('callMuted', { at: now + 47 * min + 12000 - 30, kind: 'countdown' }).lines, ['ON A', 'CALL']));
 check(() => assert.deepEqual(say('late', { at: now - 80030, kind: 'countUp' }), { lines: ['LATE'], detail: '+01:20', blink: false }));
+check(() => assert.deepEqual(say('lateMtg', { at: now - 80030, kind: 'countUp' }), { lines: ['LATE', 'MTG'], detail: '+01:20', blink: false }));
 check(() => assert.deepEqual(say('callTbc', { at: now + 250000, kind: 'countdown' }).lines, ['CALL', 'TBC']));
 check(() => assert.deepEqual(say('busyTbc', { at: new Date(2026, 9, 6, 15, 30).getTime(), kind: 'fixed' }),
   { lines: ['TBC', 'TILL'], detail: '15:30', blink: false }));
 check(() => assert.equal(say('freeTil', { at: new Date(2026, 9, 6, 15, 0).getTime(), kind: 'fixed' }).detail, '15:00'));
 check(() => assert.equal(say('ooo', null).detail, '14:32'));
+check(() => assert.deepEqual(say('onSite', null), { lines: ['ON', 'SITE'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('nearby', null), { lines: ['NEAR-', 'BY'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('backIn', { at: now + 29 * min + 41000 - 30, kind: 'countdown' }),
   { lines: ['BACK', 'IN'], detail: '29:41', blink: true }));

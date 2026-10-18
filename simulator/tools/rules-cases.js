@@ -82,6 +82,41 @@ scenario([], [], [600], { away: 'backIn', awayUntil: null });
 scenario([], [], [600], { away: 'lunch', override: 'free' });
 scenario([], [], [600], { away: 'nearby', dndUntil: 620 * M });
 
+// out on site, a call never joined, in person, and late for a meeting in a room
+const venue = ev({ id: 'v', title: 'v', start: 600 * M, end: 660 * M, attendees: 3, location: 'The Ivy' });
+const huddle = ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3, location: 'LP Huddle' });
+const office = ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 3, location: "Woody's office" });
+scenario([venue], [], [595, 610, 659.9, 660]);
+scenario([venue, call('c', 615, 640)], [[620, 630]], [610, 612, 625, 635]);
+scenario([venue, ev({ id: 'p', title: 'Paris', start: 590 * M, end: 700 * M, availability: 'ooo' })], [], [610]);
+scenario([ev({ id: 'd', title: 'ON SITE', start: 0, end: 1440 * M, allDay: true }), call('c', 600, 630)], [], [595, 610]);
+scenario([call('h', 600, 660, { location: 'Microsoft Teams Meeting; LP Huddle' })], [], [595, 601, 615]);
+scenario([call('a', 600, 660)], [], [609.9, 610, 630, 659.9, 660]);
+scenario([call('a', 600, 660)], [], [620], { locked: true });
+scenario([call('a', 600, 660), call('b', 630, 690)], [], [625, 632, 645, 670]);
+scenario([ev({ title: 'NO MEETINGS', start: 540 * M, end: 720 * M }), call('a', 600, 660)], [], [620]);
+for (const mic of [[], [[604, null]], [[604, 620]]]) {
+  scenario([call('a', 600, 660)], mic, [595, 603, 610, 625], { inPerson: ['a'] });
+}
+scenario([call('a', 600, 660)], [], [603], { inPerson: ['b'] });
+for (const extra of [{ active: true }, {}, { active: true, locked: true }, { active: true, inPerson: ['r'] }]) {
+  scenario([huddle], [], [595, 600, 603, 609.9, 610], extra);
+  scenario([huddle], [[601, 605]], [603, 608], extra);
+}
+scenario([ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3, location: 'LP Huddle', availability: 'tentative' })],
+  [], [603], { active: true });
+scenario([office], [], [603], { active: true });
+scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'The Den' })], [], [610],
+  { config: { places: { office: ['the den'] } } });
+scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'Studio 3' })], [], [603],
+  { active: true, config: { places: { rooms: ['studio'] } } });
+scenario([ev({ id: 'c', title: 'Client day', start: 600 * M, end: 660 * M })], [], [610], { config: { keywords: { onSite: ['client day'] } } });
+for (const t of ['09:46', '11:10', '14:05', '14:11', '15:40']) {
+  for (const extra of [{ active: true }, { inPerson: ['oneone', 'network'] }]) {
+    add(Object.assign({ now: D.at(0, t), override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions }, extra));
+  }
+}
+
 // classification: one event at a time, half way through it
 const ONE = [
   { attendees: 3, notes: 'https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fteams.microsoft.com%2Fl%2F' },
@@ -98,7 +133,23 @@ const ONE = [
   { title: 'Paris', availability: 'ooo' }, { title: 'PARIS', allDay: true }, { title: 'Maybe', allDay: true, availability: 'tentative' },
   { attendees: 2, availability: 'tentative', location: 'Microsoft Teams Meeting' }, { title: 'Lunch', availability: 'tentative' },
   { title: 'Out of office - Ian' }, { title: 'OOO' }, { title: 'Woody OOO pm' }, { title: 'Spartan Day' }, { title: '' },
-  { title: 'Call: Mum %F0%9F%98%80' }, { attendees: 1, url: 'https://zoom.us/j/9' }, { attendees: 1, notes: '%E2%9C%88 not a link' }
+  { title: 'Call: Mum %F0%9F%98%80' }, { attendees: 1, url: 'https://zoom.us/j/9' }, { attendees: 1, notes: '%E2%9C%88 not a link' },
+  // where: a room, your office, somewhere else, or nowhere in particular
+  { attendees: 3, notes: 'https://teams.microsoft.com/l/x', rooms: ['Arc'], location: 'Arc' }, { attendees: 3, location: 'LP Huddle' },
+  { attendees: 3, notes: 'https://teams.microsoft.com/l/x', location: 'Boardroom' }, { attendees: 3, location: 'MTL-210' },
+  { attendees: 3, location: 'mtl-210 (8)' }, { attendees: 2, notes: 'https://teams.microsoft.com/l/x', location: "Woody's office" },
+  { attendees: 2, location: 'Woody’s Office' }, { attendees: 2, location: 'My office' },
+  { attendees: 3, location: 'OVO Arena Wembley, Arena Square, London HA9 0AA' },
+  { attendees: 3, notes: 'https://teams.microsoft.com/l/x', location: 'Live Nation, 9348 Civic Center Dr, Beverly Hills' },
+  { title: 'Lunch with Paul', attendees: 1, location: 'The Ivy' }, { attendees: 3, location: 'LP Huddle; The Ivy' },
+  { attendees: 3, availability: 'tentative', location: 'The Ivy' }, { attendees: 2, location: 'TBC' }, { attendees: 2, location: 'Teams' },
+  { attendees: 2, location: '+44 20 7946 0000' }, { attendees: 2, location: 'Tel +44 (0)20 7946 0000' },
+  { attendees: 2, location: 'https://bluejeans.com/123' }, { attendees: 2, location: 'https://teams.microsoft.com/l/x' },
+  { attendees: 2, location: '-' }, { attendees: 2, location: 'Café de Flore; Microsoft Teams Meeting' }, { attendees: 2, location: '東京' },
+  { title: 'Dentist', location: '12 High St' }, { title: 'On site - Live Nation' }, { title: 'Wembley onsite' },
+  { title: 'On-site: Glastonbury' }, { title: 'Nonsite' }, { title: 'ON SITE', allDay: true },
+  { title: 'On site Coldplay', availability: 'ooo' }, { title: '✈ LHR→LAX on site' },
+  { title: 'On site prep', attendees: 3, notes: 'https://teams.microsoft.com/l/x' }
 ];
 ONE.forEach((o, i) => scenario([ev(Object.assign({ id: 'one' + i, start: 600 * M, end: 660 * M }, o))], [], [590, 630]));
 

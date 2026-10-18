@@ -12,8 +12,8 @@ Disturb**. The
 state is detected automatically from which app has your microphone — Zoom,
 Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
 it warns people ten minutes before a call (**CALL IN 09:41**), says when
-you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY** and **OUT OF
-OFFICE**, and on a call counts down to when you're free.
+you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY**, **OUT ON
+SITE** and **OUT OF OFFICE**, and on a call counts down to when you're free.
 [More below](#your-calendar). When you're **muted** on a call, the mic on the
 sign gets a slash and flashes, so the room knows it can talk
 ([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
@@ -129,8 +129,8 @@ open "build/Build/Products/Release/Busy Bar Sign.app"
   it rather than jumping onto your desk monitor, and comes back when it does.
 - On a secondary display the bar sits above that display's menu bar and Dock,
   so nothing covers it while you're in another app. Clicking it never pulls
-  focus from a call: a double-click toggles Do Not Disturb, and single
-  clicks do nothing.
+  focus from a call: a double-click toggles Do Not Disturb (or, during LATE
+  FOR, says you're there in person), and single clicks do nothing.
 - While it's showing, the Mac won't let displays sleep. macOS applies that to
   every display, not just the wall.
 
@@ -179,6 +179,10 @@ where the clock was, with its end time beneath. **Double-click again** to end
 it and go back to FREE. It's also in the controls window, the menu-bar menu,
 the Dock menu and the floating window's right-click menu (**Do Not Disturb
 (30 min)** / **End Do Not Disturb**).
+
+While the sign says **LATE FOR CALL** or **LATE FOR MTG**, a double-click
+says you're there in person instead: the sign shows MEETING till the
+meeting ends ([Your calendar](#your-calendar)).
 
 - **A call outranks it.** If a call starts, the bar shows ON A CALL; when the
   call ends, it goes back to Do Not Disturb with whatever time is left. The
@@ -270,7 +274,10 @@ engine and fonts:
 - **Status** — the bar on a key, live: its colour, its words, and beneath
   them the countdown or the time. **Press it** for Do Not Disturb, as you'd
   double-click the bar; press again to end it. On a call the sign stays ON A
-  CALL, so the key flashes a tick to say the press counted.
+  CALL, so the key flashes a tick to say the press counted. **During LATE
+  FOR CALL or MTG, a press says you're there in person**: someone's come to
+  your office for a Teams meeting, so the sign goes straight to MEETING till
+  it ends. (Join on the Mac after all and it says ON A CALL as usual.)
 - **Mute** and **Leave** — for the Teams or Zoom meeting you're in, wherever
   its window is ([below](#mute-and-leave-keys-for-teams-and-zoom)).
 - **Nearby**, **Lunch** and **Back In** — where you've gone when you
@@ -333,8 +340,9 @@ node and Pillow).
 ![Six Status keys: ON A CALL 47:11, FREE 14:32, DND 23:58, CALL IN 09:40, LATE +01:21, LUNCH 14:32](docs/stream-deck-keys.png)
 
 - The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
-  meeting, CALL / IN 09:41, FREE / TILL 15:00, TBC / TILL once a tentative
-  meeting is on, OOO, NEAR- / BY, BACK / IN 29:41.
+  meeting, CALL / IN 09:41, LATE +01:20 for a call and LATE / MTG for a
+  meeting, FREE / TILL 15:00, TBC / TILL once a tentative meeting is on, OOO,
+  ON / SITE, NEAR- / BY, BACK / IN 29:41.
 - It asks the app once a second, on the second, so its countdown turns with
   the bar's. While the app isn't running the key says **APP OFF**, and a
   press flashes a warning.
@@ -400,29 +408,53 @@ account's own "Calendar" by itself.
 | The bar | What puts it there |
 |---|---|
 | **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
-| **MEETING** · *countdown* | A meeting with invitees and no Teams, Zoom or Meet link. |
+| **MEETING** · *countdown* | A meeting in your office or a Solotech room — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
-| **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then gives up and shows FREE. |
+| **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
+| **LATE FOR** · *MTG +01:20* | A meeting in a Solotech room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
 | **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** | An event of your own with **lunch** in the title. It beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office**, an all-day busy event, or **✈** in the title (flight apps put it there). |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office or a Solotech room — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
 
 **Who wins**, highest first: your **Sign** setting; the microphone; the
 [away keys](#while-youre-away); a double-click Do Not Disturb (which waits
-while the Mac's locked); then the calendar — out of office, lunch, away, a
-phone-call block, an in-person meeting, a call you're late for, a warning, a
+while the Mac's locked); then the calendar — out of office, out on site,
+lunch, away, a phone-call block, a meeting in a room you're late for, an
+in-person meeting, a call you're late for, a call never joined, a warning, a
 tentative meeting; then, with the Mac locked, NEARBY; then a no-meetings
 block, and a call you left early with something straight after it.
 
-The title words for your own events are in the Calendar tab: whole words,
-any case, separated by commas. Meetings are sorted by their invitees and
-join link, so their titles never matter.
+**Where a meeting is** decides it before its Teams or Zoom link does: the
+location says where you'll be, a link only that others can dial in.
+
+- **Your office** — a location with **my office** or **Woody's office** in
+  it: MEETING, even with a link.
+- **A Solotech room** — a room booked on the invite (whatever it's called),
+  a location with **room**, **huddle** or **boardroom** in it, or a code like
+  **MTL-210**: MEETING, even with a link, and LATE FOR MTG if you're still at
+  the Mac when it starts.
+- **Anywhere else** — OUT ON SITE.
+- **No location**, or one that says nothing about where — "TBC", "Teams", a
+  dial-in number, a link: by the link, a call; without one, MEETING.
+
+The title words for your own events and the location words are in the
+Calendar tab: whole words, any case, separated by commas. Meetings are
+sorted by their location, invitees and join link, so their titles never
+matter.
+
+If Outlook adds a Teams link to every meeting you send (new Outlook: Settings
+▸ Calendar ▸ Events and invitations ▸ **Add online meeting to all meetings**),
+a meeting in your office with no location reads as a call: CALL SOON, LATE,
+then MEETING. Put your office or the room in the location, switch that
+setting off (or take the link off one meeting with **Don't host online**), or
+press the Status key when they arrive.
 
 Worth knowing:
 
@@ -468,6 +500,9 @@ The full menu:
 - **Sign** — Automatic, or force ON A CALL / FREE (for in-person meetings, recording).
 - **Detect** — *Any app except ignored* (default) or *Known call apps only*.
 - **Do Not Disturb (30 min)** / **End Do Not Disturb**.
+- **In Person: “…”** — while the sign warns of a call or says you're late for
+  one: you're there in person, so MEETING till it ends (in the Dock menu and
+  the controls' Status tab too).
 - **Nearby** and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
   In: 10 More Minutes**) and **I'm Back**: the away keys.
 - **Microphone** — every app holding the mic right now, each with an
@@ -640,22 +675,24 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 106 moments —
+- **The Swift engine matches the simulator LED for LED** across 118 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
-  collapse, slide-in, LATE's pulse and the muted call's glow and flashing mic,
+  collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 2,995
+- **The Swift status rules decide exactly what the simulator's do** in 3,138
   cases: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
   after, one never joined, an in-person meeting, a tentative one, lunch
-  with a call inside it, a no-meetings block, phone calls, a flight — with
-  and without the manual controls, plus back-to-back chains, overruns and
-  how each kind of Outlook event is read (safelinks, Teams rooms, cancelled
-  titles, Show As), and the away keys and a locked Mac across the day. The
-  rules themselves have 134 hand-checked cases
-  (`simulator/tools/rules-check.js`).
+  with a call inside it, a no-meetings block, phone calls, a venue, a
+  flight — with and without the manual controls, plus back-to-back chains,
+  overruns and how each kind of Outlook event is read (safelinks, Teams
+  rooms, cancelled titles, Show As, and where it is: a booked room, a room
+  code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
+  in person, a meeting in a room started with you at the Mac, and the away
+  keys and a locked Mac across the day. The rules themselves have 208
+  hand-checked cases (`simulator/tools/rules-check.js`).
 - **The away keys** (`Checks/away`): Nearby and Lunch on and off, Back
   In ten minutes a press from the first (and from then, once it's run out),
   no further than a working day, and running out on time.
@@ -689,7 +726,7 @@ errors or warnings in its code.
   a press and ends it on a hold, turns Lunch and Nearby on and off one at
   a time,
   says APP OFF and warns on a press while the app is away, recovers when
-  it's back, and stops asking when no key shows it. Its key drawing has 127
+  it's back, and stops asking when no key shows it. Its key drawing has 137
   checks of its own: every state the engine has, every word and countdown
   inside the key, the countdown text against the bar's, and every face of
   the Mute, Leave and away keys (`streamdeck/test/keys.js`).
@@ -737,7 +774,11 @@ Calendar.app and an Elgato Stream Deck:
   and Accessibility still allowed, both builds signed with the project's
   certificate.
 
-**Not yet run on a real Mac:** the away keys and the screen saver, new in
+**Not yet run on a real Mac:** 2.3's places and in person — whether
+EventKit marks a room booked on an Outlook invite as a room (if not, the
+location words and room codes still catch it), whether the Mac's idle time
+reads right for LATE FOR MTG, and the Status key's press during LATE. And
+the away keys and the screen saver, new in
 2.2 — whether `Away.swift` sees the Mac lock and unlock and starts the screen
 saver (`ScreenSaverEngine`), whether `SaverInstaller.swift` puts it in place,
 and above all whether macOS 27's screen saver host shows it on every
@@ -764,7 +805,11 @@ misbehaves on another Mac, these are the likeliest places:
    arrive through EventKit: does the Calendar tab list your Outlook
    calendar, and during a Teams meeting does the Status tab say "On
    “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
-   instead of a call, its join link isn't where the rules look.
+   instead of a call, its join link isn't where the rules look — or its
+   location names your office or a room. In a booked room, the Status tab
+   should say "In a meeting, in a room"; if it says "In a meeting", EventKit
+   isn't marking the room as one, so add a word from its name to
+   **Solotech rooms**.
 6. `LocalServer.swift` — if the Stream Deck key says APP OFF while the app
    is running, `curl http://127.0.0.1:47811/status` should answer with the
    sign's state; if it doesn't, the listener didn't start (the controls'

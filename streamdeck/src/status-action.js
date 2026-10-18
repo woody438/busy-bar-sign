@@ -1,8 +1,10 @@
 /*
  * The Status key. Shows what the sign says, from the app's answer once a
  * second on the second (live.js), so its countdown turns with the bar's. A
- * press starts or ends Do Not Disturb, as a double-click on the bar does;
- * on a call, where the sign stays ON A CALL, a tick shows the press counted.
+ * press does what a double-click on the bar does: starts or ends Do Not
+ * Disturb or, during LATE FOR CALL or MTG, says you're there in person, so
+ * the sign shows MEETING (the app decides which). On a call, where the sign
+ * stays ON A CALL, a tick shows the press counted.
  */
 import streamDeck, { SingletonAction } from '@elgato/streamdeck';
 import { toggleDND } from './app.js';

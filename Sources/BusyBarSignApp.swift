@@ -76,7 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         let dnd = NSMenuItem(title: detector.dndUntil == nil ? detector.dndStartLabel : "End Do Not Disturb",
                              action: #selector(toggleDND), keyEquivalent: "")
         menu.insertItem(dnd, at: 0)
-        menu.insertItem(.separator(), at: 1)
+        var top = 1
+        // a call the sign's warning about or says you're late for: you're there in person
+        if let event = status.inPersonEvent {
+            menu.insertItem(NSMenuItem(title: "In Person: “\(event.title)”", action: #selector(markInPerson), keyEquivalent: ""), at: top)
+            top += 1
+        }
+        menu.insertItem(.separator(), at: top)
 
         let float = NSMenuItem(title: "Floating Window", action: #selector(toggleFloating), keyEquivalent: "")
         float.state = floating.isShown ? .on : .off
@@ -92,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @objc private func toggleFloating() { floating.isShown ? floating.hide() : floating.show() }
     @objc private func openControls() { controls.show() }
     @objc private func toggleDND() { detector.toggleDND() }
+    @objc private func markInPerson() { status.markInPerson() }
     @objc private func showOnScreen(_ item: NSMenuItem) {
         if let id = item.representedObject as? String { window.show(onScreenID: id) }
     }
@@ -158,6 +165,10 @@ private struct MenuContent: View {
             Button(detector.dndStartLabel) { detector.startDND() }
         } else {
             Button("End Do Not Disturb") { detector.endDND() }
+        }
+        // a call the sign's warning about or says you're late for: you're there in person
+        if let event = status.inPersonEvent {
+            Button("In Person: “\(event.title)”") { status.markInPerson() }
         }
 
         Divider()

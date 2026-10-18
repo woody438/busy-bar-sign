@@ -42,7 +42,11 @@ let calendarCases: [(BarState, BarState?, Double, String?)] = [
     // the away keys: NEARBY alone in its pill, BACK IN counting down (an hour and more: 1H15)
     (.nearby, .free, 2.0, nil), (.nearby, .free, 3.75, nil), (.nearby, nil, 9.0, nil),
     (.backIn, .nearby, 2.0, "soon"), (.backIn, .nearby, 3.75, "soon"), (.backIn, .free, 9.0, "soon"),
-    (.backIn, .lunch, 9.0, "free"), (.call, .backIn, 0.05, "free")
+    (.backIn, .lunch, 9.0, "free"), (.call, .backIn, 0.05, "free"),
+    // a meeting in a room started without you, breathing as LATE does; out on site with a client
+    (.lateMtg, .busyIn, 2.0, "late"), (.lateMtg, .busyIn, 3.75, "late"), (.lateMtg, .busyIn, 9.0, "late"),
+    (.lateMtg, .busyIn, 9.4, "late"), (.meeting, .lateMtg, 0.05, "free"),
+    (.onSite, .free, 2.0, nil), (.onSite, .free, 3.8, nil), (.onSite, .free, 9.0, nil)
 ]
 let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.meeting, .free, 2.0, "free"), (.meeting, .free, 9.0, "free"), (.callIn, .free, 2.0, "soon"), (.callIn, .free, 3.8, "soon"),
@@ -51,7 +55,8 @@ let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.ooo, .free, 9.0, nil), (.away, .free, 2.0, nil), (.callMuted, .free, 2.0, "free"), (.callMuted, .call, 9.0, "free"),
     (.callMuted, .call, 9.5, "free"),
     (.nearby, .free, 2.0, nil), (.nearby, .free, 3.8, nil), (.nearby, .free, 9.0, nil),
-    (.backIn, .free, 2.0, "soon"), (.backIn, .free, 9.0, "soon")
+    (.backIn, .free, 2.0, "soon"), (.backIn, .free, 9.0, "soon"),
+    (.lateMtg, .busyIn, 2.0, "late"), (.lateMtg, .busyIn, 9.3, "late"), (.onSite, .free, 2.0, nil), (.onSite, .free, 9.0, nil)
 ]
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)
 var out = Data()

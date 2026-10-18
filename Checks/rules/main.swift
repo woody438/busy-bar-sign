@@ -14,7 +14,8 @@ func event(_ o: [String: Any]) -> CalEvent {
     CalEvent(id: str(o["id"]), title: str(o["title"]), start: num(o["start"]) ?? 0, end: num(o["end"]) ?? 0,
              allDay: o["allDay"] as? Bool ?? false,
              availability: CalEvent.Availability(rawValue: str(o["availability"])) ?? .busy,
-             attendees: Int(num(o["attendees"]) ?? 0), notes: str(o["notes"]), location: str(o["location"]),
+             attendees: Int(num(o["attendees"]) ?? 0), rooms: o["rooms"] as? [String] ?? [],
+             notes: str(o["notes"]), location: str(o["location"]),
              url: str(o["url"]), cancelled: o["cancelled"] as? Bool ?? false)
 }
 
@@ -25,9 +26,16 @@ func input(_ o: [String: Any]) -> StatusInput {
     i.away = o["away"] as? String
     i.awayUntil = num(o["awayUntil"])
     i.locked = o["locked"] as? Bool ?? false
+    i.active = o["active"] as? Bool ?? false
+    i.inPerson = o["inPerson"] as? [String] ?? []
     i.micSessions = (o["micSessions"] as? [[String: Any]] ?? []).map { MicSession(start: num($0["start"])!, end: num($0["end"])) }
     i.events = (o["events"] as? [[String: Any]] ?? []).map(event)
+    if let config = o["config"] as? [String: Any], let places = config["places"] as? [String: [String]] {
+        if let w = places["office"] { i.config.places.office = w }
+        if let w = places["rooms"] { i.config.places.rooms = w }
+    }
     if let config = o["config"] as? [String: Any], let kw = config["keywords"] as? [String: [String]] {
+        if let w = kw["onSite"] { i.config.keywords.onSite = w }
         if let w = kw["ooo"] { i.config.keywords.ooo = w }
         if let w = kw["lunch"] { i.config.keywords.lunch = w }
         if let w = kw["dnd"] { i.config.keywords.dnd = w }

@@ -22,6 +22,7 @@ struct CalEvent: Equatable {
     var allDay = false
     var availability: Availability = .busy
     var attendees = 0                   // invitees; 0 for your own blocks
+    var rooms: [String] = []            // the rooms booked on it, by name
     var notes = ""
     var location = ""
     var url = ""
@@ -36,18 +37,27 @@ struct MicSession: Equatable {
 
 struct StatusConfig {
     var leadMinutes = 10.0       // CALL IN / BUSY IN this long before
-    var lateMinutes = 10.0       // LATE FOR CALL for at most this long, then FREE
+    var lateMinutes = 10.0       // LATE FOR CALL / MTG for at most this long, then MEETING
     var joinEarlyMinutes = 5.0   // a mic opened this long before a call counts as joining it
     var chainGapMinutes = 5.0    // meetings this close together count as back to back
     var keywords = Keywords()
+    var places = Places()
 
     /// Words in the titles of your own events (ones with no invitees).
     /// Matched as whole words, any case; the first list that matches wins.
     struct Keywords {
+        var onSite = ["on site", "onsite", "on-site"]
         var ooo = ["✈", "out of office", "ooo"]
         var lunch = ["lunch"]
         var dnd = ["no meetings", "focus", "do not disturb"]
         var call = ["call"]
+    }
+
+    /// Words in a meeting's location, matched the same way: your own office,
+    /// and Solotech's rooms (a room booked on the invite counts whatever its name).
+    struct Places {
+        var office = ["my office", "woody's office"]
+        var rooms = ["room", "huddle", "boardroom"]
     }
 }
 
@@ -58,6 +68,8 @@ struct StatusInput {
     var away: String? = nil             // the away keys: nearby, lunch, backIn
     var awayUntil: Double? = nil        // ms: when you'll be back, for backIn
     var locked = false                  // the Mac is locked, or its screen saver is on
+    var active = false                  // someone's used the Mac in the last couple of minutes
+    var inPerson: [String] = []         // the ids of calls you said you're at in person
     var micSessions: [MicSession] = []
     var events: [CalEvent] = []
     var config = StatusConfig()
@@ -76,7 +88,7 @@ struct StatusDecision: Equatable {
 enum StatusRules {
     static let minute = 60.0 * 1000
 
-    enum Kind: String { case ignore, ooo, call, inPerson, lunch, dndBlock, phone, away }
+    enum Kind: String { case ignore, ooo, onSite, call, inPerson, lunch, dndBlock, phone, away }
 
     /* Where a call's join link lives. Outlook puts it in the notes (wrapped in
        safelinks, which still carries the host in plain text) or names the
@@ -120,11 +132,15 @@ enum StatusRules {
     }
 
     /// Whole-word, any-case match; a keyword that doesn't start with a letter
-    /// or digit (✈) matches anywhere.
+    /// or digit (✈) matches anywhere. Curly apostrophes count as straight ones
+    /// (Outlook types "Woody’s office").
     static func matches(_ title: String, _ words: [String]) -> Bool {
-        let t = title.lowercased()
+        func fold(_ s: String) -> String {
+            s.lowercased().replacingOccurrences(of: "‘", with: "'").replacingOccurrences(of: "’", with: "'")
+        }
+        let t = fold(title)
         return words.contains { w in
-            let k = w.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            let k = fold(w).trimmingCharacters(in: .whitespacesAndNewlines)
             guard let first = k.unicodeScalars.first else { return false }
             let alnum = (first.value >= 97 && first.value <= 122) || (first.value >= 48 && first.value <= 57)
             if !alnum { return t.range(of: k, options: .literal) != nil }
@@ -133,25 +149,66 @@ enum StatusRules {
         }
     }
 
+    /// Locations that say nothing about where: a link, a dial-in number, a call app, "TBC".
+    static let nowhere = ["tbc", "tbd", "tba", "n/a", "online", "virtual", "remote", "phone", "mobile", "call", "dial-in", "dial in",
+                          "teams", "zoom", "facetime", "whatsapp", "slack", "skype", "webex"]
+    static let phonePattern = #"\+?\d[\d ().-]{7,}\d"#
+    static let roomCode = #"(^|[^a-z0-9])[a-z]{2,5}-\d{2,4}($|[^a-z0-9])"#      // MTL-210
+
+    enum Place { case office, room, away }
+
+    /*
+     * Where a meeting is, from its location:
+     *   office — yours (places.office)
+     *   room   — a Solotech room: booked on the invite, named with a word in
+     *            places.rooms, or a code like MTL-210
+     *   away   — anywhere else: a client, a venue, a restaurant
+     *   nil    — no location, or one that says nothing about where
+     * Outlook joins several locations with "; ".
+     */
+    static func placeOf(_ ev: CalEvent, _ cfg: StatusConfig = StatusConfig()) -> Place? {
+        var office = false, room = !ev.rooms.isEmpty, away = false
+        for raw in ev.location.components(separatedBy: ";") {
+            let part = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if part.isEmpty || find(joinPlaces, in: part) || find(joinHosts, in: part) || find(#"https?://|www\."#, in: part) { continue }
+            if matches(part, cfg.places.office) { office = true }
+            else if matches(part, cfg.places.rooms) || find(roomCode, in: part) { room = true }
+            else if find(#"\p{L}"#, in: part) && !find(phonePattern, in: part) && !matches(part, nowhere) { away = true }
+        }
+        return office ? .office : room ? .room : away ? .away : nil
+    }
+
     /*
      * What an event means for the sign:
      *   ignore   — cancelled (or titled "Canceled: …"), Show As Free, or an all-day event that isn't busy
      *   ooo      — Show As Out of Office, an all-day busy event, or ✈ in your own block's title
-     *   call     — has a Teams / Zoom / Meet link
-     *   inPerson — has invitees but no link
+     *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
+     *   call     — has a Teams / Zoom / Meet link, and no location that says where
+     *   inPerson — has invitees and no link, or a link and your office or a room as the location;
+     *              `room` when it's in one of Solotech's rooms, not your office
      *   lunch / dndBlock / phone / away — your own blocks, by title
-     * `tentative` is Show As Tentative, for calls and meetings: CALL TBC / BUSY TBC.
+     * Where beats how: a meeting's location says where you'll be, and a link
+     * only that others can dial in. `tentative` is Show As Tentative, for calls
+     * and meetings: CALL TBC / BUSY TBC (an off-site one too: you may not go).
      */
-    static func classify(_ ev: CalEvent, _ cfg: StatusConfig = StatusConfig()) -> (kind: Kind, tentative: Bool) {
+    static func classify(_ ev: CalEvent, _ cfg: StatusConfig = StatusConfig()) -> (kind: Kind, tentative: Bool, room: Bool) {
         let kw = cfg.keywords
-        func out(_ kind: Kind) -> (kind: Kind, tentative: Bool) {
-            (kind, ev.availability == .tentative && (kind == .call || kind == .inPerson))
+        func out(_ kind: Kind, room: Bool = false) -> (kind: Kind, tentative: Bool, room: Bool) {
+            (kind, ev.availability == .tentative && (kind == .call || kind == .inPerson), room)
         }
         if ev.cancelled || find("^cancell?ed:", in: ev.title) || ev.availability == .free { return out(.ignore) }
-        if ev.allDay { return out(ev.availability == .busy || ev.availability == .ooo ? .ooo : .ignore) }
-        if ev.availability == .ooo { return out(.ooo) }
-        if hasJoinLink(ev) { return out(.call) }
-        if ev.attendees > 0 { return out(.inPerson) }
+        let gone: Kind = matches(ev.title, kw.onSite) ? .onSite : .ooo
+        if ev.allDay { return out(ev.availability == .busy || ev.availability == .ooo ? gone : .ignore) }
+        if ev.availability == .ooo { return out(gone) }
+        let link = hasJoinLink(ev)
+        if ev.attendees > 0 {
+            let place = placeOf(ev, cfg)
+            if place == .away { return out(ev.availability == .tentative ? .inPerson : .onSite) }
+            if link && place == nil { return out(.call) }
+            return out(.inPerson, room: place == .room)
+        }
+        if link { return out(.call) }
+        if matches(ev.title, kw.onSite) { return out(.onSite) }
         if matches(ev.title, kw.ooo) { return out(.ooo) }
         if matches(ev.title, kw.lunch) { return out(.lunch) }
         if matches(ev.title, kw.dnd) { return out(.dndBlock) }
@@ -164,6 +221,8 @@ enum StatusRules {
         let ev: CalEvent
         let kind: Kind
         let tentative: Bool
+        let room: Bool
+        let here: Bool                  // you said you're there in person
         var start: Double { ev.start }
         var end: Double { ev.end }
     }
@@ -225,7 +284,10 @@ enum StatusRules {
         var numbered: [(i: Int, s: Sorted)] = []
         for (i, e) in input.events.enumerated() {
             let c = classify(e, cfg)
-            if c.kind != .ignore { numbered.append((i, Sorted(ev: e, kind: c.kind, tentative: c.tentative))) }
+            // you said you're there in person: a call becomes a meeting, and a room never says LATE
+            let here = input.inPerson.contains(e.id)
+            let kind: Kind = here && c.kind == .call ? .inPerson : c.kind
+            if kind != .ignore { numbered.append((i, Sorted(ev: e, kind: kind, tentative: c.tentative, room: c.room, here: here))) }
         }
         let evs: [Sorted] = numbered
             .sorted { a, b in
@@ -269,18 +331,27 @@ enum StatusRules {
         }
 
         // 5. the calendar
-        // not here, by your own blocks — these outrank meetings, warnings included
+        // not here: out of office, out on site, your own blocks — these outrank meetings, warnings included
         if let e = first({ $0.kind == .ooo }) { return sign("ooo", "Out of office: " + quote(e), event: e, at: e.end) }
+        if let e = first({ $0.kind == .onSite }) { return sign("onSite", "Out on site: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .away }) { return sign("away", "Away: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .phone }) { return until("call", "Call in your calendar: " + quote(e), e) }
 
-        // in a meeting, or should be on a call
-        if let e = first({ $0.kind == .inPerson && !$0.tentative }) {
-            return until("meeting", "In a meeting: " + quote(e), e)
+        // in a meeting, or should be: a meeting in a room that's started with you still at the Mac
+        if let e = first({ $0.kind == .inPerson && $0.room && !$0.tentative && !$0.here && now - $0.start < late &&
+                           input.active && !input.locked && !joined($0, sessions, now, cfg) }) {
+            return sign("lateMtg", "Late for " + quote(e), event: e, left: (now - e.start) / 1000, at: e.start)
         }
+        if let e = first({ $0.kind == .inPerson && !$0.tentative }) {
+            return until("meeting", (e.here ? "In person: " : e.room ? "In a meeting, in a room: " : "In a meeting: ") + quote(e), e)
+        }
+        // or on a call: late for it, then — never joined — in it in person
         if let e = first({ $0.kind == .call && !$0.tentative && now - $0.start < late && !joined($0, sessions, now, cfg) }) {
             return sign("late", "Late for " + quote(e), event: e, left: (now - e.start) / 1000, at: e.start)
+        }
+        if let e = first({ $0.kind == .call && !$0.tentative && !joined($0, sessions, now, cfg) }) {
+            return until("meeting", "Never joined " + quote(e) + ": in person", e)
         }
 
         // about to be busy
