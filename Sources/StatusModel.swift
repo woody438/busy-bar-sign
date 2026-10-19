@@ -16,6 +16,9 @@ final class StatusModel: ObservableObject {
     @Published private(set) var decision = StatusDecision(state: "free", why: "Free")
     /// The moment the bar's right-hand side is about, or nil for the clock.
     @Published private(set) var moment: BarMoment?
+    /// What the sign says, in words, for the menus and the controls: the
+    /// Nearby key's own word for .nearby.
+    var stateName: String { state == .nearby ? away.nearbyName : state.name }
 
     let detector: CallDetector
     let calendar: CalendarSource

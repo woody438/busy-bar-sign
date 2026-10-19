@@ -197,6 +197,9 @@ private struct StatusTab: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
+    /// The Nearby key's word as it's being typed: set on Return, or on leaving the field, once it fits.
+    @State private var nearbyDraft = ""
+    @FocusState private var nearbyFocused: Bool
 
     var body: some View {
         Card {
@@ -204,7 +207,7 @@ private struct StatusTab: View {
                 BarPreview(status: status)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Circle().fill(status.state.colour).frame(width: 10, height: 10)
-                    Text(status.state.name).font(.headline)
+                    Text(status.stateName).font(.headline)
                     Text(status.decision.why).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
             }
@@ -241,17 +244,28 @@ private struct StatusTab: View {
                         Text(away.statusLine(at: context.date) ?? "").foregroundStyle(.secondary)
                     }
                 }
-                Button("Nearby") { away.press(.nearby) }
+                Button(away.nearbyName) { away.press(.nearby) }
                 Button("Lunch") { away.press(.lunch) }
                 Button("Back In +10") { away.press(.backIn) }
                 if away.kind != nil { Button("I'm Back") { away.end() } }
+            }
+            Row(label: "The Nearby key says") {
+                TextField("Nearby", text: $nearbyDraft)
+                    .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 140)
+                    .focused($nearbyFocused)
+                    .onSubmit(setNearbyWord)
+                    .onChange(of: nearbyFocused) { _, focused in if !focused { setNearbyWord() } }
+                    .onAppear { nearbyDraft = away.nearbyWord }
+                    .onDisappear(perform: setNearbyWord)
             }
             Row(label: "Start the screen saver (and lock the Mac)") {
                 Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
             }
         }
+        if let warning = nearbyWarning { Warning(text: warning) }
         if let problem = away.problem { Warning(text: problem) }
         Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
+        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.")
 
         Card {
             Row(label: "Microphone", divider: false) {
@@ -272,6 +286,22 @@ private struct StatusTab: View {
         }
         if let problem = server.problem { Warning(text: problem) }
         UpdatesCard(updater: status.updater)
+    }
+
+    /// The word typed, once the sign can show it.
+    private func setNearbyWord() {
+        guard BarEngine.nearbyProblem(nearbyDraft) == nil, nearbyDraft != away.nearbyWord else { return }
+        away.nearbyWord = nearbyDraft
+    }
+
+    /// Why the sign can't show the word typed, or nil.
+    private var nearbyWarning: String? {
+        guard let problem = BarEngine.nearbyProblem(nearbyDraft) else { return nil }
+        let still = " The sign says \(BarEngine.nearbyWord) till then."
+        switch problem {
+        case .characters: return "Plain letters, numbers and punctuation only: the sign's LED fonts have no accents or symbols." + still
+        case .sign, .key: return "Too long: about seven letters fit, the most a Stream Deck key shows, so W HOUSE rather than WAREHOUSE." + still
+        }
     }
 }
 

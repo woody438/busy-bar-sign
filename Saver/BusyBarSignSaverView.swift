@@ -10,8 +10,8 @@ import ScreenSaver
  * it with the wall's own engine and LEDs: on the wall's monitor as the
  * full-screen display is laid out (wide or stacked), on every other screen
  * as the wide bar. Just the LEDs, as large as whole pixels allow — no case.
- * While the app doesn't answer it says NEARBY: the screen saver's on, so
- * you're not at the Mac.
+ * While the app doesn't answer it says NEARBY — or the Nearby key's own
+ * word, if it heard one: the screen saver's on, so you're not at the Mac.
  *
  * It runs inside macOS's legacyScreenSaver, which since Sonoma keeps savers
  * going after they're dismissed and starts more than it stops. So when the
@@ -28,6 +28,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
     private var startedAt = Date()
     private var heardAt: Date?
     private var wall: SaverStatus.Wall?
+    private var nearbyWord: String?
     private var drift = CGSize.zero
     private var ticks = 0
     private var framesReported = 0
@@ -148,6 +149,11 @@ final class BusyBarSignSaverView: ScreenSaverView {
             if wall != status.wall {
                 wall = status.wall
                 place()
+            }
+            // the Nearby key's word, kept for when the app stops answering
+            if status.nearbyWord != nearbyWord {
+                nearbyWord = status.nearbyWord
+                BarEngine.setNearbyWord(nearbyWord)
             }
             bar.moment = status.moment.map { m in
                 BarMoment(at: Date(timeIntervalSince1970: m.at / 1000),

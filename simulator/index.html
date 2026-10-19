@@ -269,6 +269,11 @@
       </div>
       <p class="m-sub">Double-click the bar to start or end Do Not Disturb. A call still shows ON A CALL.</p>
       <div class="m-card">
+        <div class="m-row"><span class="k">The Nearby key says</span><span class="m-kw"><input id="m-nearby" placeholder="Nearby" aria-label="The Nearby key's word" style="width:140px"></span></div>
+        <div class="m-warn" id="m-nearby-warn" style="display:none"></div>
+      </div>
+      <p class="m-sub">The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.</p>
+      <div class="m-card">
         <div class="m-row"><span class="k">Microphone</span><span style="color:var(--m-dim)">idle</span></div>
         <div class="m-row"><span class="k">Calendar</span><span style="color:var(--m-dim)"><span class="m-ok">●</span> up to date · checked 1 min ago</span></div>
       </div>
@@ -650,6 +655,22 @@
   }
   for (const b of document.querySelectorAll('#m-sign button')) b.onclick = () => setMode(b.dataset.mode);
   document.getElementById('m-dnd').onclick = () => setMode(state === 'dnd' ? 'free' : 'dnd');
+  // the Nearby key's word: warned of as it's typed, set on Return or leaving the field once it fits
+  const nearbyField = document.getElementById('m-nearby'), nearbyWarn = document.getElementById('m-nearby-warn');
+  nearbyField.oninput = () => {
+    const problem = E.nearbyProblem(nearbyField.value);
+    nearbyWarn.style.display = problem ? '' : 'none';
+    nearbyWarn.textContent = !problem ? '' : (problem === 'characters'
+      ? 'Plain letters, numbers and punctuation only: the sign\'s LED fonts have no accents or symbols.'
+      : 'Too long: about seven letters fit, the most a Stream Deck key shows, so W HOUSE rather than WAREHOUSE.') +
+      ' The sign says ' + E.WORDS.nearby + ' till then.';
+  };
+  nearbyField.onchange = () => {
+    if (E.nearbyProblem(nearbyField.value)) return;
+    const word = E.setNearbyWord(nearbyField.value);
+    NAMES.nearby = word === E.NEARBY ? 'Nearby' : nearbyField.value.trim().replace(/\s+/g, ' ');
+    nearbyField.oninput();
+  };
   for (const seg of document.querySelectorAll('[data-seg]')) {
     for (const b of seg.querySelectorAll('button')) b.onclick = () => { for (const o of seg.querySelectorAll('button')) o.setAttribute('aria-pressed', String(o === b)); };
   }
