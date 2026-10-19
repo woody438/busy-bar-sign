@@ -106,6 +106,11 @@ for (const extra of [{ active: true }, {}, { active: true, locked: true }, { act
 scenario([ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3, location: 'LP Huddle', availability: 'tentative' })],
   [], [603], { active: true });
 scenario([office], [], [603], { active: true });
+const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Solotech - Nashville' });
+scenario([nashville], [], [595, 603, 610, 744.9], { active: true });
+scenario([nashville, call('c', 620, 640)], [], [615, 625]);
+scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'Production Resource Group' })], [], [610],
+  { config: { places: { sites: ['production resource group'] } } });
 scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'The Den' })], [], [610],
   { config: { places: { office: ['the den'] } } });
 scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'Studio 3' })], [], [603],
@@ -149,7 +154,10 @@ const ONE = [
   { title: 'Dentist', location: '12 High St' }, { title: 'On site - Live Nation' }, { title: 'Wembley onsite' },
   { title: 'On-site: Glastonbury' }, { title: 'Nonsite' }, { title: 'ON SITE', allDay: true },
   { title: 'On site Coldplay', availability: 'ooo' }, { title: '✈ LHR→LAX on site' },
-  { title: 'On site prep', attendees: 3, notes: 'https://teams.microsoft.com/l/x' }
+  { title: 'On site prep', attendees: 3, notes: 'https://teams.microsoft.com/l/x' },
+  { attendees: 7, location: 'Solotech - Nashville' }, { attendees: 7, notes: 'https://teams.microsoft.com/l/x', location: 'Solotech - Nashville' },
+  { attendees: 7, location: 'Solotech - Nashville; MTL-210' }, { attendees: 3, location: 'Solotech’s warehouse' },
+  { attendees: 3, location: 'Solotechnics Ltd, 4 High St' }
 ];
 ONE.forEach((o, i) => scenario([ev(Object.assign({ id: 'one' + i, start: 600 * M, end: 660 * M }, o))], [], [590, 630]));
 

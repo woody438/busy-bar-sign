@@ -321,8 +321,9 @@
       <div class="m-card">
         <div class="m-row"><span class="k">YOUR OFFICE</span><span class="m-kw"><input value="my office, woody's office" aria-label="Your office words"></span></div>
         <div class="m-row"><span class="k">SOLOTECH ROOMS</span><span class="m-kw"><input value="room, huddle, boardroom" aria-label="Solotech room words"></span></div>
+        <div class="m-row"><span class="k">SOLOTECH SITES</span><span class="m-kw"><input value="solotech" aria-label="Solotech site words"></span></div>
       </div>
-      <p class="m-sub">A meeting’s location says where you’ll be; a Teams or Zoom link only that others can dial in. Your office or a Solotech room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — is MEETING, even with a link. Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.</p>
+      <p class="m-sub">A meeting’s location says where you’ll be; a Teams or Zoom link only that others can dial in. Your office, a Solotech room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — or a Solotech site such as “Solotech - Nashville” is MEETING, even with a link (a room, and LATE FOR MTG if you’re still at the Mac). Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.</p>
     </div>
 
     <div class="mac-body" data-pane="mic" role="tabpanel">
@@ -673,7 +674,7 @@
   // the guide: each state as the bar draws it, and what puts it there
   const GUIDE = [
     ['call', 'Automatic when an app uses your microphone.', 'Counts down to when you’re free, through back-to-back meetings. Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
-    ['meeting', 'A meeting in your office or a Solotech room, or with invitees and no Teams, Zoom or Meet link.', 'A link doesn’t matter with the room or your office as the location. Or a call never joined, once LATE gives up.'],
+    ['meeting', 'A meeting in your office or at Solotech, or with invitees and no Teams, Zoom or Meet link.', 'A link doesn’t matter with the room or your office as the location. Or a call never joined, once LATE gives up.'],
     ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time.'],
     ['late', 'A call has started and your microphone hasn’t.', 'Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you’re there in person.'],
     ['lateMtg', 'A meeting in a Solotech room has started, and you’re still at the Mac.', 'Pulses for up to 10 minutes, or till you leave the Mac, then MEETING.'],
@@ -683,7 +684,7 @@
     ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title.', 'Beats any meeting over it: no warnings during lunch.'],
     ['away', 'Any other event of your own — no invitees.', 'e.g. “Gym”, “Drive home”, “School run”. Beats meetings too.'],
     ['ooo', 'Show As: <span class="m-tok">Out of Office</span>, an all-day busy event, or <span class="m-tok">✈</span> in the title.', 'Flights from TripIt or Flighty carry the ✈.'],
-    ['onSite', 'A meeting somewhere other than your office or a Solotech room, or <span class="m-tok">on site</span> in the title.', 'A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”.'],
+    ['onSite', 'A meeting somewhere other than your office or Solotech, or <span class="m-tok">on site</span> in the title.', 'A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”.'],
     [null, 'Ignored: Show As <span class="m-tok">Free</span>, cancelled meetings, and all-day events that aren’t busy.', 'Declined meetings disappear from Outlook, so they never count.']
   ];
   (function buildGuide() {

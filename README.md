@@ -408,7 +408,7 @@ account's own "Calendar" by itself.
 | The bar | What puts it there |
 |---|---|
 | **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
-| **MEETING** · *countdown* | A meeting in your office or a Solotech room — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
+| **MEETING** · *countdown* | A meeting in your office or at Solotech (a room or a site) — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a Solotech room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
@@ -418,7 +418,7 @@ account's own "Calendar" by itself.
 | **LUNCH** | An event of your own with **lunch** in the title. It beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office**, an all-day busy event, or **✈** in the title (flight apps put it there). |
-| **OUT ON SITE** | With a client: a meeting somewhere other than your office or a Solotech room — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office or Solotech — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
@@ -440,6 +440,9 @@ location says where you'll be, a link only that others can dial in.
   a location with **room**, **huddle** or **boardroom** in it, or a code like
   **MTL-210**: MEETING, even with a link, and LATE FOR MTG if you're still at
   the Mac when it starts.
+- **A Solotech site** — a location with **Solotech** in it, such as
+  "Solotech - Nashville": MEETING, even with a link. Not LATE FOR MTG: it
+  doesn't say which room, and it could be your office.
 - **Anywhere else** — OUT ON SITE.
 - **No location**, or one that says nothing about where — "TBC", "Teams", a
   dial-in number, a link: by the link, a call; without one, MEETING.
@@ -681,7 +684,7 @@ errors or warnings in its code.
   NEARBY and BACK IN counting down, each with the countdown the app gives
   it — to within float rounding. What you see in the simulator is what the
   app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 3,138
+- **The Swift status rules decide exactly what the simulator's do** in 3,155
   cases: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
   after, one never joined, an in-person meeting, a tentative one, lunch
@@ -691,7 +694,7 @@ errors or warnings in its code.
   rooms, cancelled titles, Show As, and where it is: a booked room, a room
   code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
   in person, a meeting in a room started with you at the Mac, and the away
-  keys and a locked Mac across the day. The rules themselves have 208
+  keys and a locked Mac across the day. The rules themselves have 218
   hand-checked cases (`simulator/tools/rules-check.js`).
 - **The away keys** (`Checks/away`): Nearby and Lunch on and off, Back
   In ten minutes a press from the first (and from then, once it's run out),

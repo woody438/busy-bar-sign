@@ -54,10 +54,12 @@ struct StatusConfig {
     }
 
     /// Words in a meeting's location, matched the same way: your own office,
-    /// and Solotech's rooms (a room booked on the invite counts whatever its name).
+    /// Solotech's rooms (a room booked on the invite counts whatever its name),
+    /// and Solotech's sites — somewhere at Solotech, not saying which room.
     struct Places {
         var office = ["my office", "woody's office"]
         var rooms = ["room", "huddle", "boardroom"]
+        var sites = ["solotech"]
     }
 }
 
@@ -155,27 +157,29 @@ enum StatusRules {
     static let phonePattern = #"\+?\d[\d ().-]{7,}\d"#
     static let roomCode = #"(^|[^a-z0-9])[a-z]{2,5}-\d{2,4}($|[^a-z0-9])"#      // MTL-210
 
-    enum Place { case office, room, away }
+    enum Place { case office, room, site, away }
 
     /*
      * Where a meeting is, from its location:
      *   office — yours (places.office)
      *   room   — a Solotech room: booked on the invite, named with a word in
      *            places.rooms, or a code like MTL-210
+     *   site   — somewhere at Solotech, not saying where (places.sites): "Solotech - Nashville"
      *   away   — anywhere else: a client, a venue, a restaurant
      *   nil    — no location, or one that says nothing about where
      * Outlook joins several locations with "; ".
      */
     static func placeOf(_ ev: CalEvent, _ cfg: StatusConfig = StatusConfig()) -> Place? {
-        var office = false, room = !ev.rooms.isEmpty, away = false
+        var office = false, room = !ev.rooms.isEmpty, site = false, away = false
         for raw in ev.location.components(separatedBy: ";") {
             let part = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if part.isEmpty || find(joinPlaces, in: part) || find(joinHosts, in: part) || find(#"https?://|www\."#, in: part) { continue }
             if matches(part, cfg.places.office) { office = true }
             else if matches(part, cfg.places.rooms) || find(roomCode, in: part) { room = true }
+            else if matches(part, cfg.places.sites) { site = true }
             else if find(#"\p{L}"#, in: part) && !find(phonePattern, in: part) && !matches(part, nowhere) { away = true }
         }
-        return office ? .office : room ? .room : away ? .away : nil
+        return office ? .office : room ? .room : site ? .site : away ? .away : nil
     }
 
     /*
@@ -184,8 +188,8 @@ enum StatusRules {
      *   ooo      — Show As Out of Office, an all-day busy event, or ✈ in your own block's title
      *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
      *   call     — has a Teams / Zoom / Meet link, and no location that says where
-     *   inPerson — has invitees and no link, or a link and your office or a room as the location;
-     *              `room` when it's in one of Solotech's rooms, not your office
+     *   inPerson — has invitees and no link, or a link and your office, a room or a Solotech site
+     *              as the location; `room` when it's in one of Solotech's rooms (LATE FOR MTG)
      *   lunch / dndBlock / phone / away — your own blocks, by title
      * Where beats how: a meeting's location says where you'll be, and a link
      * only that others can dial in. `tentative` is Show As Tentative, for calls

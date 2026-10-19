@@ -549,8 +549,9 @@ private struct CalendarTab: View {
         Card {
             keywordRow("YOUR OFFICE", $calendar.officeWords, divider: false)
             keywordRow("SOLOTECH ROOMS", $calendar.roomWords)
+            keywordRow("SOLOTECH SITES", $calendar.siteWords)
         }
-        Note("A meeting's location says where you'll be; a Teams or Zoom link only that others can dial in. Your office or a Solotech room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — is MEETING, even with a link. Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.")
+        Note("A meeting's location says where you'll be; a Teams or Zoom link only that others can dial in. Your office, a Solotech room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — or a Solotech site such as “Solotech - Nashville” is MEETING, even with a link (a room, and LATE FOR MTG if you're still at the Mac). Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.")
     }
 
     private func keywordRow(_ label: String, _ text: Binding<String>, divider: Bool = true) -> some View {
@@ -566,7 +567,7 @@ private enum Guide {
     static let rows: [Line] = [
         Line(state: .call, how: "Automatic when an app uses your microphone.",
              more: "Counts down to when you're free, through back-to-back meetings. Or an event of your own with “call” in the title, e.g. “Call - Linda”, for calls on your phone."),
-        Line(state: .meeting, how: "A meeting in your office or a Solotech room, or with invitees and no Teams, Zoom or Meet link.",
+        Line(state: .meeting, how: "A meeting in your office or at Solotech, or with invitees and no Teams, Zoom or Meet link.",
              more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up."),
         Line(state: .callIn, how: "10 minutes before a call or a meeting.",
              more: "BUSY IN for a meeting in person. A countdown, then the start time."),
@@ -586,7 +587,7 @@ private enum Guide {
              more: "e.g. “Gym”, “Drive home”, “School run”. Beats meetings too."),
         Line(state: .ooo, how: "Show As: Out of Office, an all-day busy event, or ✈ in the title.",
              more: "Flight apps such as Flighty put the ✈ in."),
-        Line(state: .onSite, how: "A meeting somewhere other than your office or a Solotech room, or “on site” in the title.",
+        Line(state: .onSite, how: "A meeting somewhere other than your office or Solotech, or “on site” in the title.",
              more: "A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”."),
         Line(state: nil, how: "Ignored: Show As Free, cancelled meetings, and all-day events that aren't busy.",
              more: "Declined meetings leave your Outlook calendar, so they never count.")

@@ -34,10 +34,12 @@
       call: ['call']
     },
     // Words in a meeting's location, matched the same way: your own office,
-    // and Solotech's rooms (a room booked on the invite counts whatever its name).
+    // Solotech's rooms (a room booked on the invite counts whatever its name),
+    // and Solotech's sites — somewhere at Solotech, not saying which room.
     places: {
       office: ['my office', "woody's office"],
-      rooms: ['room', 'huddle', 'boardroom']
+      rooms: ['room', 'huddle', 'boardroom'],
+      sites: ['solotech']
     }
   };
 
@@ -82,21 +84,23 @@
    *   office — yours (places.office)
    *   room   — a Solotech room: booked on the invite, named with a word in
    *            places.rooms, or a code like MTL-210
+   *   site   — somewhere at Solotech, not saying where (places.sites): "Solotech - Nashville"
    *   away   — anywhere else: a client, a venue, a restaurant
    *   null   — no location, or one that says nothing about where
    * Outlook joins several locations with "; ".
    */
   function placeOf(ev, cfg) {
     const places = (cfg || DEFAULTS).places;
-    let office = false, room = (ev.rooms || []).length > 0, away = false;
+    let office = false, room = (ev.rooms || []).length > 0, site = false, away = false;
     for (const raw of (ev.location || '').split(';')) {
       const part = raw.trim();
       if (!part || JOIN_PLACES.test(part) || JOIN_HOSTS.test(part) || /https?:\/\/|www\./i.test(part)) continue;
       if (matches(part, places.office)) office = true;
       else if (matches(part, places.rooms) || ROOM_CODE.test(part)) room = true;
+      else if (matches(part, places.sites)) site = true;
       else if (/\p{L}/u.test(part) && !PHONE.test(part) && !matches(part, NOWHERE)) away = true;
     }
-    return office ? 'office' : room ? 'room' : away ? 'away' : null;
+    return office ? 'office' : room ? 'room' : site ? 'site' : away ? 'away' : null;
   }
 
   /*
@@ -105,8 +109,8 @@
    *   ooo      — Show As Out of Office, an all-day busy event, or ✈ in your own block's title
    *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
    *   call     — has a Teams / Zoom / Meet link, and no location that says where
-   *   inPerson — has invitees and no link, or a link and your office or a room as the location;
-   *              `room` when it's in one of Solotech's rooms, not your office
+   *   inPerson — has invitees and no link, or a link and your office, a room or a Solotech site
+   *              as the location; `room` when it's in one of Solotech's rooms (LATE FOR MTG)
    *   lunch / dndBlock / phone / away — your own blocks, by title
    * Where beats how: a meeting's location says where you'll be, and a link
    * only that others can dial in. `tentative` is Show As Tentative, for calls

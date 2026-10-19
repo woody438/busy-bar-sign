@@ -46,9 +46,10 @@ final class CalendarSource: ObservableObject {
     @Published var callWords: String { didSet { save(callWords, "callWords") } }
     @Published var oooWords: String { didSet { save(oooWords, "oooWords") } }
     @Published var onSiteWords: String { didSet { save(onSiteWords, "onSiteWords") } }
-    /// Comma-separated location words: your office, and Solotech's rooms.
+    /// Comma-separated location words: your office, Solotech's rooms and its sites.
     @Published var officeWords: String { didSet { save(officeWords, "officeWords") } }
     @Published var roomWords: String { didSet { save(roomWords, "roomWords") } }
+    @Published var siteWords: String { didSet { save(siteWords, "siteWords") } }
 
     private let store = EKEventStore()
     private var timer: Timer?
@@ -69,6 +70,7 @@ final class CalendarSource: ObservableObject {
         onSiteWords = d.string(forKey: "onSiteWords") ?? kw.onSite.joined(separator: ", ")
         officeWords = d.string(forKey: "officeWords") ?? places.office.joined(separator: ", ")
         roomWords = d.string(forKey: "roomWords") ?? places.rooms.joined(separator: ", ")
+        siteWords = d.string(forKey: "siteWords") ?? places.sites.joined(separator: ", ")
     }
 
     /// The rules' settings, from the controls.
@@ -84,6 +86,7 @@ final class CalendarSource: ObservableObject {
         c.keywords.onSite = words(onSiteWords)
         c.places.office = words(officeWords)
         c.places.rooms = words(roomWords)
+        c.places.sites = words(siteWords)
         return c
     }
 

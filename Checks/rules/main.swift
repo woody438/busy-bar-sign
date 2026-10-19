@@ -33,6 +33,7 @@ func input(_ o: [String: Any]) -> StatusInput {
     if let config = o["config"] as? [String: Any], let places = config["places"] as? [String: [String]] {
         if let w = places["office"] { i.config.places.office = w }
         if let w = places["rooms"] { i.config.places.rooms = w }
+        if let w = places["sites"] { i.config.places.sites = w }
     }
     if let config = o["config"] as? [String: Any], let kw = config["keywords"] as? [String: [String]] {
         if let w = kw["onSite"] { i.config.keywords.onSite = w }

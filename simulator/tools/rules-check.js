@@ -84,6 +84,12 @@ expect('…is not a room', room({ attendees: 2, notes: teams, location: "Woody's
 expect('your office, curly', kind({ attendees: 2, notes: teams, location: 'Woody’s Office' }), 'inPerson');
 expect('my office', kind({ attendees: 2, location: 'My office' }), 'inPerson');
 expect('no location', room({ attendees: 2 }), false);
+expect('a Solotech site', kind({ attendees: 7, location: 'Solotech - Nashville' }), 'inPerson');
+expect('…with a teams link', kind({ attendees: 7, notes: teams, location: 'Solotech - Nashville' }), 'inPerson');
+expect('…is not a room', room({ attendees: 7, location: 'Solotech - Nashville' }), false);
+expect('…but a room there is', room({ attendees: 7, location: 'Solotech - Nashville; MTL-210' }), true);
+expect('Solotech’s, curly', kind({ attendees: 3, location: 'Solotech’s warehouse' }), 'inPerson');
+expect('a client named like it is not', kind({ attendees: 3, location: 'Solotechnics Ltd, 4 High St' }), 'onSite');
 expect('a venue', kind({ attendees: 3, location: 'OVO Arena Wembley, Arena Square, London HA9 0AA' }), 'onSite');
 expect('a venue with a teams link', kind({ attendees: 3, notes: teams, location: 'Live Nation, 9348 Civic Center Dr, Beverly Hills' }), 'onSite');
 expect('a restaurant', kind({ title: 'Lunch with Paul', attendees: 1, location: 'The Ivy' }), 'onSite');
@@ -240,10 +246,16 @@ expect('…joined, then off it: in the meeting', decideWith(608, [huddle], [[601
 expect('…tentative: busy tbc', decideWith(603, [ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3,
   location: 'LP Huddle', availability: 'tentative' })], [], { active: true }).state, 'busyTbc');
 expect('in your office, at the Mac: in the meeting', decideWith(603, [meeting], [], { active: true }).state, 'meeting');
+const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Solotech - Nashville' });
+expect('at a Solotech site: a meeting, not out on site', decide(610, [nashville]).state, 'meeting');
+expect('…and at the Mac, not late for it', decideWith(603, [nashville], [], { active: true }).state, 'meeting');
+expect('…busy soon before it', decide(595, [nashville]).state, 'busyIn');
 
 // custom words
 expect('custom office word', R.decide({ now: 610 * M, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'The Den' })],
   config: { places: { office: ['the den'] } } }).state, 'meeting');
+expect('custom site word', R.decide({ now: 610 * M, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2,
+  location: 'Production Resource Group' })], config: { places: { sites: ['production resource group'] } } }).state, 'meeting');
 expect('custom room word', R.decide({ now: 603 * M, active: true, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2,
   location: 'Studio 3' })], config: { places: { rooms: ['studio'] } } }).state, 'lateMtg');
 expect('custom on-site word', R.decide({ now: 610 * M, events: [own('Client day', 600, 660)],
