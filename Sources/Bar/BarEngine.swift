@@ -664,8 +664,9 @@ enum BarEngine {
         if let timer {
             let at = String(format: "%02d:%02d", timer.h, timer.m)
             switch state {
-            case .dnd, .call, .callMuted, .meeting:
-                // Do Not Disturb, or on a call / in a meeting: how long till you're free, and when
+            case .dnd, .call, .callMuted, .meeting, .lunch:
+                // Do Not Disturb, on a call / in a meeting, or at lunch (from the calendar):
+                // how long till you're free, or back, and when
                 let c = countdownText(timer)
                 return RightText(top: c.mmss, bottom: c.until, blink: true)
             case .callIn, .busyIn, .backIn:

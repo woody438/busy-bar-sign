@@ -41,6 +41,8 @@ check(() => assert.deepEqual(say('busyTbc', { at: new Date(2026, 9, 6, 15, 30).g
 check(() => assert.equal(say('freeTil', { at: new Date(2026, 9, 6, 15, 0).getTime(), kind: 'fixed' }).detail, '15:00'));
 check(() => assert.equal(say('ooo', null).detail, '14:32'));
 check(() => assert.deepEqual(say('onSite', null), { lines: ['ON', 'SITE'], detail: '14:32', blink: true }));
+check(() => assert.deepEqual(say('lunch', { at: now + 45 * min + 12000 - 30, kind: 'countdown' }), { lines: ['LUNCH'], detail: '45:12', blink: true }));
+check(() => assert.deepEqual(say('lunch', null), { lines: ['LUNCH'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('nearby', null), { lines: ['NEAR-', 'BY'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('backIn', { at: now + 29 * min + 41000 - 30, kind: 'countdown' }),
   { lines: ['BACK', 'IN'], detail: '29:41', blink: true }));

@@ -415,7 +415,7 @@ account's own "Calendar" by itself.
 | **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
-| **LUNCH** | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It beats any meeting over it, warnings included. |
+| **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office** (except your own lunch), an all-day busy event, or **✈** in the title (flight apps put it there). |
 | **OUT ON SITE** | With a client: a meeting somewhere other than your office or Solotech — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
@@ -678,7 +678,7 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 118 moments —
+- **The Swift engine matches the simulator LED for LED** across 121 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
@@ -694,7 +694,7 @@ errors or warnings in its code.
   rooms, cancelled titles, Show As, and where it is: a booked room, a room
   code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
   in person, a meeting in a room started with you at the Mac, and the away
-  keys and a locked Mac across the day. The rules themselves have 225
+  keys and a locked Mac across the day. The rules themselves have 229
   hand-checked cases (`simulator/tools/rules-check.js`).
 - **The away keys** (`Checks/away`): Nearby and Lunch on and off, Back
   In ten minutes a press from the first (and from then, once it's run out),
@@ -729,7 +729,7 @@ errors or warnings in its code.
   a press and ends it on a hold, turns Lunch and Nearby on and off one at
   a time,
   says APP OFF and warns on a press while the app is away, recovers when
-  it's back, and stops asking when no key shows it. Its key drawing has 137
+  it's back, and stops asking when no key shows it. Its key drawing has 139
   checks of its own: every state the engine has, every word and countdown
   inside the key, the countdown text against the bar's, and every face of
   the Mute, Leave and away keys (`streamdeck/test/keys.js`).

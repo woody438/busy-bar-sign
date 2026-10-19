@@ -255,7 +255,8 @@
     // not here: out of office, out on site, your own blocks — these outrank meetings, warnings included
     if ((e = first((x) => x.kind === 'ooo'))) return sign('ooo', 'Out of office: ' + quote(e), { event: e, at: e.end });
     if ((e = first((x) => x.kind === 'onSite'))) return sign('onSite', 'Out on site: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch: ' + quote(e), { event: e, at: e.end });
+    // lunch: you're coming back — a countdown to when
+    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch: ' + quote(e), { event: e, left: (e.end - now) / 1000, at: e.end });
     if ((e = first((x) => x.kind === 'away'))) return sign('away', 'Away: ' + quote(e), { event: e, at: e.end });
     if ((e = first((x) => x.kind === 'phone'))) return sign('call', 'Call in your calendar: ' + quote(e), until(e));
 

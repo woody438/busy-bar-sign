@@ -726,8 +726,8 @@
     if (timer) {
       switch (state) {
         case 'dnd': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
-        // on a call or in a meeting: how long till you're free, and when
-        case 'call': case 'callMuted': case 'meeting': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
+        // on a call, in a meeting or at lunch (from the calendar): how long till you're free, or back, and when
+        case 'call': case 'callMuted': case 'meeting': case 'lunch': { const c = countdownText(timer); return { top: c.mmss, bottom: c.until, blink: true }; }
         // a warning, or back in a few minutes: a countdown to it, and when
         case 'callIn': case 'busyIn': case 'backIn':
           return { top: countdownText(timer).mmss, bottom: 'AT ' + at, blink: true };

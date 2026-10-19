@@ -173,6 +173,9 @@ expect('joined a minute early: counts to its end', sAt('08:29:30').at, D.at(base
 expect('quoting call from lunch: free at 13:15', sAt('13:05').at, D.at(base, '13:15'));
 expect('calendar phone call counts down', sAt('15:10').left, 1200);
 expect('in-person meeting counts down', sAt('11:10').at, D.at(base, '11:30'));
+expect('lunch counts down to when you\'re back', sAt('12:40').at, D.at(base, '13:25'));
+expect('…45 minutes to go', sAt('12:40').left, 2700);
+expect('the lunch key alone has no time', R.decide({ now: 600 * M, events: [], away: 'lunch' }).left, undefined);
 const chain = [call('a', 600, 660), call('b', 660, 690), ev({ title: 'm', start: 695 * M, end: 720 * M, attendees: 2 }), call('d', 730, 760)];
 expect('back to back: through b and the 5-min gap to m', decide(630, chain, [[600, null]]).at, 720 * M);
 expect('…not across a 10-min gap', decide(630, chain, [[600, null]]).state, 'call');
@@ -258,6 +261,7 @@ expect('…busy soon before it', decide(595, [nashville]).state, 'busyIn');
 // your lunch, shown as Out of Office: LUNCH, as you're coming back
 const oofLunch = own('Lunch', 750, 805, { availability: 'ooo' });
 expect('lunch shown as out of office: lunch', decide(760, [oofLunch]).state, 'lunch');
+expect('…back at its end', decide(760, [oofLunch]).at, 805 * M);
 expect('…beats a call warning', decide(760, [oofLunch, call('c', 800, 815)]).state, 'lunch');
 expect('…a real out of office still beats it', decide(760, [oofLunch, own('Paris', 700, 900, { availability: 'ooo' })]).state, 'ooo');
 

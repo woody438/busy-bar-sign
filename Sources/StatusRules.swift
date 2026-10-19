@@ -343,7 +343,8 @@ enum StatusRules {
         // not here: out of office, out on site, your own blocks — these outrank meetings, warnings included
         if let e = first({ $0.kind == .ooo }) { return sign("ooo", "Out of office: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .onSite }) { return sign("onSite", "Out on site: " + quote(e), event: e, at: e.end) }
-        if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch: " + quote(e), event: e, at: e.end) }
+        // lunch: you're coming back — a countdown to when
+        if let e = first({ $0.kind == .lunch }) { return sign("lunch", "Lunch: " + quote(e), event: e, left: (e.end - now) / 1000, at: e.end) }
         if let e = first({ $0.kind == .away }) { return sign("away", "Away: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .phone }) { return until("call", "Call in your calendar: " + quote(e), e) }
 

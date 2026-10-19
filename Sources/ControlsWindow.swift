@@ -582,7 +582,7 @@ private enum Guide {
         Line(state: .dnd, how: "An event titled “No meetings” or “Focus”.",
              more: "Or double-click the bar for 30 minutes. Warnings for calls still show inside it."),
         Line(state: .lunch, how: "An event of your own with “lunch” in the title — Show As Out of Office too.",
-             more: "Beats any meeting over it: no warnings during lunch."),
+             more: "Counts down to when you're back. Beats any meeting over it: no warnings during lunch."),
         Line(state: .away, how: "Any other event of your own — no invitees.",
              more: "e.g. “Gym”, “Drive home”, “School run”. Beats meetings too."),
         Line(state: .ooo, how: "Show As: Out of Office, an all-day busy event, or ✈ in the title.",
@@ -603,6 +603,7 @@ private enum Guide {
         let timers: [BarState: BarTimer] = [
             .call: BarTimer(left: 2832, h: 11, m: 30), .meeting: BarTimer(left: 1080, h: 11, m: 30),
             .callIn: BarTimer(left: 461, h: 11, m: 0), .late: BarTimer(left: 80, h: 9, m: 45), .lateMtg: BarTimer(left: 80, h: 10, m: 30),
+            .lunch: BarTimer(left: 1980, h: 13, m: 25),
             .freeTil: BarTimer(left: 0, h: 11, m: 0), .callTbc: BarTimer(left: 461, h: 12, m: 0)
         ]
         BarEngine.render(into: &frame, now: 1060, state: state, prev: nil, since: 1000,

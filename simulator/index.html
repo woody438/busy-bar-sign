@@ -577,6 +577,7 @@
       case 'backIn': { const left = Math.max(0, 29 * 60 + 52 - e); return Object.assign({ left: left }, later(left)); }
       case 'callIn': case 'busyIn': case 'callTbc': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
       case 'call': case 'callMuted': case 'meeting': { const left = Math.max(0, 47 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
+      case 'lunch': { const left = Math.max(0, 38 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
       case 'late': case 'lateMtg': { const t = new Date(d.getTime() - (80 + e) * 1000); return { left: 80 + e, h: t.getHours(), m: t.getMinutes() }; }
       case 'freeTil': return Object.assign({ left: 0 }, later(18 * 60));
       case 'dnd': { const end = new Date(dndUntil); return { left: (dndUntil - d.getTime()) / 1000, h: end.getHours(), m: end.getMinutes() }; }
@@ -681,7 +682,7 @@
     ['freeTil', 'You left a call before its slot ended, and something follows it straight after.', 'Until the booked end time. With nothing within 5 minutes after it, just FREE.'],
     ['callTbc', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE — you may not be going.'],
     ['dnd', 'An event titled <span class="m-tok">No meetings</span> or <span class="m-tok">Focus</span>.', 'Or double-click the bar for 30 minutes. Warnings for calls still show inside it.'],
-    ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title — Show As Out of Office too.', 'Beats any meeting over it: no warnings during lunch.'],
+    ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title — Show As Out of Office too.', 'Counts down to when you’re back. Beats any meeting over it: no warnings during lunch.'],
     ['away', 'Any other event of your own — no invitees.', 'e.g. “Gym”, “Drive home”, “School run”. Beats meetings too.'],
     ['ooo', 'Show As: <span class="m-tok">Out of Office</span>, an all-day busy event, or <span class="m-tok">✈</span> in the title.', 'Flights from TripIt or Flighty carry the ✈.'],
     ['onSite', 'A meeting somewhere other than your office or Solotech, or <span class="m-tok">on site</span> in the title.', 'A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”.'],
@@ -691,7 +692,7 @@
     const off = document.createElement('canvas'), painter = new window.LedPainter(off, E.COLS, E.ROWS), f = new E.Frame();
     painter.resize(472, 64);
     const clock = { h: 10, m: 52, s: 0, ms: 0, dow: 5, date: 2 };
-    const TIMERS = { callIn: { left: 461, h: 11, m: 0 }, late: { left: 80, h: 9, m: 45 }, lateMtg: { left: 80, h: 10, m: 30 }, freeTil: { left: 0, h: 11, m: 0 },
+    const TIMERS = { callIn: { left: 461, h: 11, m: 0 }, late: { left: 80, h: 9, m: 45 }, lateMtg: { left: 80, h: 10, m: 30 }, lunch: { left: 1980, h: 13, m: 25 }, freeTil: { left: 0, h: 11, m: 0 },
       callTbc: { left: 461, h: 12, m: 0 }, call: { left: 2832, h: 11, m: 30 }, meeting: { left: 1080, h: 11, m: 30 }, dnd: undefined };
     const table = document.getElementById('m-guide');
     for (const [st, how, more] of GUIDE) {
