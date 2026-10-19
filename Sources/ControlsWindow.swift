@@ -581,7 +581,7 @@ private enum Guide {
              more: "Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE."),
         Line(state: .dnd, how: "An event titled “No meetings” or “Focus”.",
              more: "Or double-click the bar for 30 minutes. Warnings for calls still show inside it."),
-        Line(state: .lunch, how: "An event of your own with “lunch” in the title.",
+        Line(state: .lunch, how: "An event of your own with “lunch” in the title — Show As Out of Office too.",
              more: "Beats any meeting over it: no warnings during lunch."),
         Line(state: .away, how: "Any other event of your own — no invitees.",
              more: "e.g. “Gym”, “Drive home”, “School run”. Beats meetings too."),

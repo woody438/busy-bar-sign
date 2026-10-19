@@ -64,6 +64,10 @@ expect('cancelled', kind({ attendees: 9, cancelled: true }), 'ignore');
 expect('"Canceled:" title', kind({ title: 'Canceled: Supplier sync', attendees: 5, location: 'Microsoft Teams Meeting' }), 'ignore');
 expect('"Cancelled:" title', kind({ title: 'Cancelled: Lunch' }), 'ignore');
 expect('show as out of office', kind({ title: 'Paris', availability: 'ooo' }), 'ooo');
+expect('your lunch shown as out of office is lunch', kind({ title: 'Lunch', availability: 'ooo' }), 'lunch');
+expect('…an invited one stays out of office', kind({ title: 'Lunch with Paul', attendees: 1, availability: 'ooo' }), 'ooo');
+expect('…on site beats it', kind({ title: 'Lunch on site', availability: 'ooo' }), 'onSite');
+expect('…an all-day one stays out of office', kind({ title: 'Lunch', allDay: true, availability: 'ooo' }), 'ooo');
 expect('all-day busy', kind({ title: 'PARIS', allDay: true }), 'ooo');
 expect('all-day tentative', kind({ title: 'Maybe', allDay: true, availability: 'tentative' }), 'ignore');
 expect('tentative call', R.classify(ev({ attendees: 2, availability: 'tentative', location: 'Microsoft Teams Meeting' })).tentative, true);
@@ -250,6 +254,12 @@ const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attend
 expect('at a Solotech site: a meeting, not out on site', decide(610, [nashville]).state, 'meeting');
 expect('…and at the Mac, not late for it', decideWith(603, [nashville], [], { active: true }).state, 'meeting');
 expect('…busy soon before it', decide(595, [nashville]).state, 'busyIn');
+
+// your lunch, shown as Out of Office: LUNCH, as you're coming back
+const oofLunch = own('Lunch', 750, 805, { availability: 'ooo' });
+expect('lunch shown as out of office: lunch', decide(760, [oofLunch]).state, 'lunch');
+expect('…beats a call warning', decide(760, [oofLunch, call('c', 800, 815)]).state, 'lunch');
+expect('…a real out of office still beats it', decide(760, [oofLunch, own('Paris', 700, 900, { availability: 'ooo' })]).state, 'ooo');
 
 // custom words
 expect('custom office word', R.decide({ now: 610 * M, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'The Den' })],

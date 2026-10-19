@@ -185,7 +185,8 @@ enum StatusRules {
     /*
      * What an event means for the sign:
      *   ignore   — cancelled (or titled "Canceled: …"), Show As Free, or an all-day event that isn't busy
-     *   ooo      — Show As Out of Office, an all-day busy event, or ✈ in your own block's title
+     *   ooo      — Show As Out of Office (but not your own lunch), an all-day busy event, or ✈ in
+     *              your own block's title
      *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
      *   call     — has a Teams / Zoom / Meet link, and no location that says where
      *   inPerson — has invitees and no link, or a link and your office, a room or a Solotech site
@@ -203,7 +204,11 @@ enum StatusRules {
         if ev.cancelled || find("^cancell?ed:", in: ev.title) || ev.availability == .free { return out(.ignore) }
         let gone: Kind = matches(ev.title, kw.onSite) ? .onSite : .ooo
         if ev.allDay { return out(ev.availability == .busy || ev.availability == .ooo ? gone : .ignore) }
-        if ev.availability == .ooo { return out(gone) }
+        if ev.availability == .ooo {
+            // your own lunch, shown as Out of Office so no one books over it: you're coming back, so LUNCH
+            if gone == .ooo && ev.attendees == 0 && matches(ev.title, kw.lunch) { return out(.lunch) }
+            return out(gone)
+        }
         let link = hasJoinLink(ev)
         if ev.attendees > 0 {
             let place = placeOf(ev, cfg)
