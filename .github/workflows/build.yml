@@ -163,6 +163,8 @@ jobs:
             --title "Busy Bar Sign — preview (PR #${{ github.event.pull_request.number }})" \
             --notes "Built from pull request #${{ github.event.pull_request.number }} (\`${{ github.head_ref }}\`) at ${{ github.event.pull_request.head.sha }}. For testing; the latest release is still the one built from main.
 
+          **Already have Busy Bar Sign 2.4.2 or later?** Settings ▸ Status ▸ Updates ▸ **Get preview builds**, and it installs this as it does an update.
+
           **Install:** download BusyBarSign.zip, double-click to unzip, drag **Busy Bar Sign** to Applications (replacing the old one).
 
           **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. Allow calendar access when it asks.

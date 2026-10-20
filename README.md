@@ -78,7 +78,8 @@ It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
 (`.github/workflows/build.yml`) and replaces the release. A pull request's
 build is published as the **preview** pre-release instead, for trying before
-it's merged.
+it's merged: Settings ▸ Status ▸ Updates ▸ **Get preview builds** installs it
+too ([Updates](#updates)).
 
 > **In use on one Mac.** It runs day to day on its author's Mac — the sign,
 > the microphone, an Outlook calendar, real Teams and Zoom meetings and the
@@ -871,12 +872,18 @@ second or two. **Settings ▸ Status ▸ Updates** shows the build you have,
 checks or installs on demand, and can switch the automatic install off; the
 menu-bar menu has **Check for Updates** too.
 
-- A copy built from main follows the **latest** release; a pull request's
-  preview build follows the **preview** release, then main's once it's
-  merged. A preview build says so in Settings ▸ Status ▸ Updates: an orange
-  **PREVIEW** tag and the pull request it was built from (builds from 2.4.1
-  on). Each build is numbered by its CI run, and only a higher number is an
-  update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
+- Every copy follows main's **latest** release. Switch on **Get preview
+  builds** (from 2.4.2) and it follows the **preview** release too: a pull
+  request's build, before it's merged, installed as main's are. There's one
+  preview at a time, whichever pull request was pushed last. Each build is
+  numbered by its CI run, and only a higher number is an update
+  (`Sources/UpdateCheck.swift`, checked by `Checks/update`), so a preview
+  gives way to main's build once its pull request is merged.
+- A preview build says so in Settings ▸ Status ▸ Updates: an orange
+  **PREVIEW** tag and the pull request it was built from (from 2.4.1). It
+  starts with Get preview builds on. Switch it off and it waits for main's
+  next build — or **Back to Main Release** installs main's current one now,
+  though its number is lower.
 - It only installs a download signed with the project's certificate — the
   same one as the running copy ([Signing](#signing)) — so the update is the
   same app to macOS and keeps its permissions. A download the app makes

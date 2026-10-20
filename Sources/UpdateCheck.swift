@@ -9,8 +9,10 @@ import Foundation
  *
  * `build` is the CI run's number, the app's CFBundleVersion: higher is newer.
  * Main's builds go to the "latest" release; a pull request's to "preview".
- * An app built from main follows "latest"; a preview build follows both, so a
- * tester gets the next preview, and then main once it's merged.
+ * Every copy follows "latest"; with Settings ▸ Updates ▸ Get preview builds
+ * on, "preview" too, so a tester gets the next preview, and then main once
+ * it's merged. Switched off on a preview, main's build is newer only once
+ * main next builds: till then, Back to Main Release installs main's now.
  */
 enum Updates {
     static let repository = "woody438/busy-bar-sign"
@@ -28,9 +30,9 @@ enum Updates {
         URL(string: "https://github.com/\(repository)/releases/download/\(channel)/\(file)")!
     }
 
-    /// The releases an app built for `channel` follows.
-    static func channels(following channel: String) -> [String] {
-        channel == "preview" ? ["preview", "latest"] : ["latest"]
+    /// The releases followed: main's, and the preview's while previews are on.
+    static func channels(previews: Bool) -> [String] {
+        previews ? ["preview", "latest"] : ["latest"]
     }
 
     static func decode(_ data: Data) -> Release? {
@@ -40,6 +42,14 @@ enum Updates {
     /// The newest release built after `build`, if any.
     static func newest(_ releases: [Release], after build: Int) -> Release? {
         releases.filter { $0.build > build }.max { $0.build < $1.build }
+    }
+
+    /// Main's release to go back to from a preview build, with previews off:
+    /// older than the preview by number, so not an update, but where you'd be.
+    /// Nil on main's builds, with previews on, or once main's is newer anyway.
+    static func backToMain(_ releases: [Release], running build: Int, channel: String, previews: Bool) -> Release? {
+        guard channel == "preview", !previews else { return nil }
+        return releases.first { $0.channel == "latest" && $0.build < build }
     }
 
     /// The newest plugin among `releases`, if it's newer than the one installed

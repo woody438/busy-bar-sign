@@ -5,7 +5,9 @@ import Security
  * Keeps Busy Bar Sign up to date from its GitHub releases (UpdateCheck says
  * which): looks at launch and every four hours, and installs a newer build
  * when you're not on a call or in a meeting, so the sign never blinks out
- * mid-call. Or by hand, from Settings ▸ Status.
+ * mid-call. Or by hand, from Settings ▸ Status. With Get preview builds on,
+ * a pull request's preview build counts too; turned off on a preview, Back to
+ * Main Release installs main's build, though its number is lower.
  *
  * A download is only installed if it's signed with the same certificate as
  * the app that's running (tools/sign.sh): its signature must satisfy this
@@ -44,6 +46,17 @@ final class Updater: ObservableObject {
     @Published var automatic: Bool {
         didSet { UserDefaults.standard.set(automatic, forKey: "installUpdatesAutomatically") }
     }
+    /// Whether preview builds (a pull request's, before it's merged) are updates too, as main's are.
+    /// Off to begin with, unless this is a preview build.
+    @Published var previews = UserDefaults.standard.object(forKey: "getPreviewBuilds") as? Bool
+        ?? (Bundle.main.object(forInfoDictionaryKey: "BBSUpdateChannel") as? String == "preview") {
+        didSet {
+            UserDefaults.standard.set(previews, forKey: "getPreviewBuilds")
+            if previews != oldValue { check() }
+        }
+    }
+    /// Main's release, while this is a preview build and previews are off: Back to Main Release installs it.
+    @Published private(set) var mainRelease: Updates.Release?
 
     let build = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
     let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -118,9 +131,10 @@ final class Updater: ObservableObject {
     func check() {
         guard phase != .checking, phase != .downloading, phase != .installing else { return }
         phase = .checking
+        let previews = self.previews
         Task {
             var found: [Updates.Release] = []
-            for c in Updates.channels(following: channel) {
+            for c in Updates.channels(previews: previews) {
                 if let release = await fetch(c) { found.append(release) }
             }
             lastChecked = Date()
@@ -131,8 +145,17 @@ final class Updater: ObservableObject {
                 phase = available == nil ? .upToDate : .available
             }
             if !found.isEmpty { self.found = found }      // GitHub out of reach: keep what it last said
+            mainRelease = Updates.backToMain(self.found, running: build, channel: channel, previews: previews)
             refreshPlugin()
+            if previews != self.previews { check() }      // switched while it looked: again, for what's followed now
         }
+    }
+
+    /// Installs main's release over this preview build, though its number is lower.
+    func backToMain() {
+        guard let release = mainRelease else { return }
+        available = release
+        install()
     }
 
     private func fetch(_ channel: String) async -> Updates.Release? {
@@ -293,7 +316,8 @@ final class Updater: ObservableObject {
 
     /// Downloads the plugin and hands it to Stream Deck, which asks to install it.
     func updatePlugin() {
-        let channel = available?.channel ?? Updates.channels(following: self.channel)[0]
+        // from the release that has it: main's, or a preview's while previews are on
+        let channel = available?.channel ?? found.first(where: { $0.plugin == plugin?.available })?.channel ?? "latest"
         Task {
             guard let got = try? await URLSession.shared.download(from: Updates.url(channel, "BusyBarSign.streamDeckPlugin")),
                   (got.1 as? HTTPURLResponse)?.statusCode == 200 else {
