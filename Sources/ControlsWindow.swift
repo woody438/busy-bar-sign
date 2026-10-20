@@ -197,7 +197,8 @@ private struct StatusTab: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
-    /// The Nearby key's word as it's being typed: set on Return, or on leaving the field, once it fits.
+    /// The Nearby key's word as it's being typed: set on Return, on leaving the field, or on closing
+    /// Settings or quitting, once it fits; emptied, NEARBY at once.
     @State private var nearbyDraft = ""
     @FocusState private var nearbyFocused: Bool
 
@@ -261,8 +262,15 @@ private struct StatusTab: View {
                     .focused($nearbyFocused)
                     .onSubmit(setNearbyWord)
                     .onChange(of: nearbyFocused) { _, focused in if !focused { setNearbyWord() } }
+                    // emptied: NEARBY straight away, as the field's placeholder now says
+                    .onChange(of: nearbyDraft) { _, draft in if BarEngine.signWord(draft).isEmpty { setNearbyWord() } }
                     .onAppear { nearbyDraft = away.nearbyWord }
                     .onDisappear(perform: setNearbyWord)
+                    // Settings closed, or the app quit, before Return: keep the word typed
+                    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
+                        if (note.object as? NSWindow)?.contentViewController is NSHostingController<ControlsView> { setNearbyWord() }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in setNearbyWord() }
             }
             Row(label: "Start the screen saver (and lock the Mac)") {
                 Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
@@ -271,7 +279,7 @@ private struct StatusTab: View {
         if let warning = nearbyWarning { Warning(text: warning) }
         if let problem = away.problem { Warning(text: problem) }
         Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
-        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.")
+        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return, or close Settings, and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
 
         Card {
             Row(label: "Microphone", divider: false) {
@@ -319,8 +327,16 @@ private struct UpdatesCard: View {
         Heading("Updates")
         Card {
             Row(label: "Version", divider: false) {
-                Text("\(updater.version) (build \(updater.build))\(updater.channel == "preview" ? " · preview" : "")")
-                    .foregroundStyle(.secondary)
+                Text("\(updater.version) (build \(updater.build))").foregroundStyle(.secondary)
+            }
+            // a pull request's build, not main's: plainly, so it's not taken for the release
+            if updater.channel == "preview" {
+                Row(label: "Release") {
+                    Text(updater.previewPR.map { "From pull request #\($0)" } ?? "From a pull request").foregroundStyle(.secondary)
+                    Text("PREVIEW").font(.caption.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Capsule().fill(Color.orange))
+                }
             }
             Row(label: "Updates") {
                 Text(updater.statusLine).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.trailing)
@@ -354,6 +370,10 @@ private struct UpdatesCard: View {
         .onAppear { updater.refreshPlugin() }
         if updater.pluginIncomplete {
             Warning(text: "Stream Deck has the plugin's new version number but older code: an install stopped part way, so the keys may not do what this version does. Reinstall it; if the keys don't change, quit Stream Deck and open it again.")
+        }
+        if updater.channel == "preview" {
+            let pr = updater.previewPR.map { "pull request #\($0)" } ?? "a pull request"
+            Note("This copy is a preview, built from \(pr) to try before it's merged. It updates to newer previews and to main's releases, so once the pull request is merged, main's build replaces this one.")
         }
         if let problem = updater.installProblem { Warning(text: problem) }
         Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")

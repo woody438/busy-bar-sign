@@ -209,11 +209,12 @@ menu and in Settings ▸ Status.
 ### Your own word for Nearby
 
 Settings ▸ Status ▸ **The Nearby key says**: type a word — *W House*,
-*Studio 2*, *On site* — and press Return. The sign says it in capitals
-wherever it would say NEARBY: for the Nearby key, for a locked Mac with
-no key on, on the wall, on the Stream Deck's Nearby and Status keys and in
-the screen saver. The menus and Settings say it as you typed it. Leave it
-empty for NEARBY.
+*Studio 2*, *On site* — and press Return, or just close Settings (quitting
+keeps it too). The sign says it in capitals wherever it would say NEARBY:
+for the Nearby key, for a locked Mac with no key on, on the wall, on the
+Stream Deck's Nearby and Status keys and in the screen saver. The menus
+and Settings say it as you typed it. Empty the field for NEARBY: that
+takes at once, everywhere, with no Return.
 
 - **About seven letters**: as many as a Stream Deck key can show beneath
   the walker in its 5-row face (W HOUSE just fits; WAREHOUSE and UPSTAIRS
@@ -872,8 +873,10 @@ menu-bar menu has **Check for Updates** too.
 
 - A copy built from main follows the **latest** release; a pull request's
   preview build follows the **preview** release, then main's once it's
-  merged. Each build is numbered by its CI run, and only a higher number is
-  an update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
+  merged. A preview build says so in Settings ▸ Status ▸ Updates: an orange
+  **PREVIEW** tag and the pull request it was built from (builds from 2.4.1
+  on). Each build is numbered by its CI run, and only a higher number is an
+  update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
 - It only installs a download signed with the project's certificate — the
   same one as the running copy ([Signing](#signing)) — so the update is the
   same app to macOS and keeps its permissions. A download the app makes
