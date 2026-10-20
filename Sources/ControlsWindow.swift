@@ -197,7 +197,8 @@ private struct StatusTab: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
-    /// The Nearby key's word as it's being typed: set on Return, or on leaving the field, once it fits.
+    /// The Nearby key's word as it's being typed: set on Return, or on leaving the field, once it fits;
+    /// emptied, NEARBY at once.
     @State private var nearbyDraft = ""
     @FocusState private var nearbyFocused: Bool
 
@@ -261,6 +262,8 @@ private struct StatusTab: View {
                     .focused($nearbyFocused)
                     .onSubmit(setNearbyWord)
                     .onChange(of: nearbyFocused) { _, focused in if !focused { setNearbyWord() } }
+                    // emptied: NEARBY straight away, as the field's placeholder now says
+                    .onChange(of: nearbyDraft) { _, draft in if BarEngine.signWord(draft).isEmpty { setNearbyWord() } }
                     .onAppear { nearbyDraft = away.nearbyWord }
                     .onDisappear(perform: setNearbyWord)
             }
@@ -271,7 +274,7 @@ private struct StatusTab: View {
         if let warning = nearbyWarning { Warning(text: warning) }
         if let problem = away.problem { Warning(text: problem) }
         Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
-        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.")
+        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
 
         Card {
             Row(label: "Microphone", divider: false) {
