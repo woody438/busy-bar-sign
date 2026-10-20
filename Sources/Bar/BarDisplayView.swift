@@ -27,15 +27,20 @@ struct BarDisplayView: View {
         self.style = style
     }
 
-    /// Burn-in protection: every few minutes the whole bar moves a few
-    /// device pixels. Whole pixels, so the dots stay sharp.
-    @State private var drift = CGSize.zero
-    private let driftTimer = Timer.publish(every: 180, on: .main, in: .common).autoconnect()
+    /// Looking after the wall's screen: the LEDs never stand still, moving a
+    /// device pixel at a time through every position within an LED
+    /// (BarGeometry.orbit). Read once a second.
+    @State private var clock = Date().timeIntervalSince1970
+    private let orbitTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         GeometryReader { geo in
             let layout = style == .wall ? wallLayout : .wide
             let g = BarGeometry(size: geo.size, scale: displayScale, layout: layout)
+            let orbit = style == .wall ? BarGeometry.orbit(at: clock, pitch: g.pitchPixels) : BarGeometry.Offset()
+            let px = { (v: Int) -> CGFloat in CGFloat(v) / max(displayScale, 1) }
+            // out of hours, with nothing going on: black, so an OLED's pixels are off
+            let dark = style == .wall && status.wallDark
             ZStack(alignment: .topLeading) {
                 if style == .wall {
                     Color.black
@@ -45,11 +50,14 @@ struct BarDisplayView: View {
                 }
                 // the stacked layout is just the LEDs: small screens have their own bezel
                 if layout == .wide { DeviceBody(g: g, castsShadow: style == .wall) }
-                LEDPanelView(model: bar, pitchPixels: g.pitchPixels, layout: layout)
+                // the wall's LEDs move inside the case on rounded corners, and rest when nothing's going on
+                LEDPanelView(model: bar, pitchPixels: g.pitchPixels, layout: layout, rests: style == .wall, paused: dark,
+                             cornerRadius: style == .wall && layout == .wide ? BarGeometry.fieldCorner * g.u : 0)
                     .frame(width: g.field.width, height: g.field.height)
-                    .offset(x: g.field.minX, y: g.field.minY)
+                    .offset(x: g.field.minX + px(orbit.x), y: g.field.minY + px(orbit.y))
             }
-            .offset(style == .wall ? drift : .zero)
+            .opacity(dark ? 0 : 1)
+            .animation(.easeInOut(duration: 2), value: dark)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
         .background(style == .wall ? Color.black : Color.clear)
@@ -57,9 +65,8 @@ struct BarDisplayView: View {
         .onAppear { show(status.state, status.moment) }
         .onChange(of: status.state) { _, state in show(state, status.moment) }
         .onChange(of: status.moment) { _, moment in bar.moment = moment }
-        .onReceive(driftTimer) { _ in
-            let px = { CGFloat(Int.random(in: -3...3)) / max(displayScale, 1) }
-            drift = CGSize(width: px(), height: px())
+        .onReceive(orbitTimer) { date in
+            if style == .wall { clock = date.timeIntervalSince1970 }
         }
     }
 }

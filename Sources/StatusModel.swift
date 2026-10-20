@@ -8,8 +8,9 @@ import SwiftUI
  * and the calendar (CalendarSource), decided by
  * StatusRules once a second and whenever one of them changes. On a call, the call app's own mute button
  * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
- * its muted look. Every view of the bar, the menus and the controls read
- * it from here.
+ * its muted look. Out of the wall's hours (WallHours), with nothing going
+ * on, it says the wall's dark. Every view of the bar, the menus and the
+ * controls read it from here.
  */
 @MainActor
 final class StatusModel: ObservableObject {
@@ -17,6 +18,15 @@ final class StatusModel: ObservableObject {
     @Published private(set) var decision = StatusDecision(state: "free", why: "Free")
     /// The moment the bar's right-hand side is about, or nil for the clock.
     @Published private(set) var moment: BarMoment?
+    /// Out of hours with nothing going on: the wall and the screen saver are black.
+    @Published private(set) var wallDark = false
+    /// When the wall goes dark (Settings ▸ Displays ▸ Out of hours).
+    @Published var wallHours = WallHours(.standard) {
+        didSet {
+            wallHours.save(to: .standard)
+            evaluate()
+        }
+    }
     /// The calendar events you've said you're at in person (In Person, or the
     /// Status key during LATE): a call there shows MEETING, and never LATE.
     @Published private(set) var inPerson: Set<String> = []
@@ -126,9 +136,12 @@ final class StatusModel: ObservableObject {
             else if [.freeTil, .callTbc, .busyTbc].contains(next) { m = BarMoment(at: at, kind: .fixed) }
         }
 
+        let dark = wallHours.isDark(at: now, quiet: BarEngine.quiet(next))
+
         if decision != d { decision = d }
         if moment != m { moment = m }
         if state != next { state = next }
+        if wallDark != dark { wallDark = dark }
     }
 }
 

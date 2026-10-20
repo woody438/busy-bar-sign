@@ -6,8 +6,9 @@ import Network
 /*
  * What the screen saver needs from the app: what the sign says, the moment
  * its countdown is about, which monitor is the wall and how it's laid out,
- * and the Nearby key's word if it's been given one — read from the app's
- * answer to GET /status (Sources/LocalAPI.swift).
+ * the Nearby key's word if it's been given one, and whether the wall's dark
+ * out of hours — read from the app's answer to GET /status
+ * (Sources/LocalAPI.swift).
  * The reading is Foundation only, so Checks/saver tests it anywhere Swift
  * runs, against LocalAPI's own answers. (LocalAPI.swift is compiled into
  * the screen saver too, for the port and the report it sends.)
@@ -28,6 +29,8 @@ struct SaverStatus: Equatable {
     var wall: Wall?
     /// What the sign says in place of NEARBY, or nil for NEARBY.
     var nearbyWord: String? = nil
+    /// Out of hours with nothing going on: the wall's black, and the screen saver with it.
+    var dark = false
 
     /// What the screen saver sends: the Host LocalAPI expects, no Origin, and
     /// where it is, so the app can say which monitors it's showing on.
@@ -53,6 +56,7 @@ struct SaverStatus: Equatable {
             status.wall = Wall(display: display, layout: layout)
         }
         status.nearbyWord = o["nearbyWord"] as? String
+        status.dark = o["dark"] as? Bool ?? false
         return status
     }
 }

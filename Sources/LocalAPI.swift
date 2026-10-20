@@ -35,6 +35,9 @@ import Foundation
  * sign says in place of NEARBY. `wall` appears while the full-screen display
  * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
  * layout, for the screen saver to draw the wall as the wall is drawn.
+ * `dark` appears, true, only while the wall's dark out of hours (nothing
+ * going on, outside Settings ▸ Displays ▸ Out of hours): the screen saver
+ * goes black too. `state` is still what the sign would say.
  *
  * The screen saver adds a header to its GET /status saying where it is:
  *   X-Busy-Bar-Saver: display=4; drawing=1; name=LG HDR 4K
@@ -180,6 +183,8 @@ enum LocalAPI {
         var wall: Wall? = nil
         /// The Nearby key's own word, if it's been given one.
         var nearbyWord: String? = nil
+        /// Only there, and true, while the wall's dark out of hours.
+        var dark: Bool? = nil
     }
 
     static func encode(_ status: Status) -> Data {

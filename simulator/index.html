@@ -53,7 +53,11 @@
   .plate{border-radius:calc(var(--u) * 8);background:linear-gradient(180deg,#3b3e42,#26282b 60%,#1c1d20)}
   .plate-base{background:linear-gradient(180deg,#141516,#0b0b0c)}
   .button{border-radius:calc(var(--u) * 6) calc(var(--u) * 6) 0 0;background:linear-gradient(90deg,#1b1c1e,#2e3033,#18191b)}
-  .window{border-radius:calc(var(--u) * 6);overflow:hidden;background:#000}
+  /* rounded, so the LEDs can move half an LED inside the case (BarGeometry.fieldCorner) */
+  .window{border-radius:calc(var(--u) * 40);overflow:hidden;background:#000}
+  .floating .window,.stacked .window{border-radius:calc(var(--u) * 6)}
+  /* out of hours, with nothing going on: black */
+  .device{transition:opacity 2s ease}
   .window canvas{display:block;width:100%;height:100%}
   /* floating-window view: a desktop behind the bar */
   .desk{position:absolute;inset:0;display:none;background:
@@ -218,6 +222,8 @@
     <button class="chip" id="b-day" aria-pressed="false">Calendar day</button>
     <button class="chip" id="b-mute" aria-pressed="false">Mic muted</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
+    <button class="chip" id="b-idle" aria-pressed="false">Quiet hour</button>
+    <button class="chip" id="b-night" aria-pressed="false">Out of hours</button>
     <button class="chip" id="b-float" aria-pressed="false">Floating window</button>
     <button class="chip" id="b-stack" aria-pressed="false">Stacked layout</button>
     <button class="chip" id="b-full" aria-pressed="false">Full screen</button>
@@ -302,6 +308,14 @@
         </div>
       </div>
       <p class="m-sub">Stacked fills small screens such as 960 × 540 with the status on top and a big clock beneath. The floating window always uses the wide bar. Warnings — a scaled display mode, a monitor that's gone to sleep — appear on the card.</p>
+      <p class="m-h">Out of hours</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Dark out of hours</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Dark out of hours"></button></div>
+        <div class="m-row"><span class="k">Hours</span><span style="display:flex;gap:8px;align-items:center"><span class="m-pop">07:30</span> to <span class="m-pop">19:00</span>
+          <span class="m-seg"><button aria-pressed="true">M</button><button aria-pressed="true">T</button><button aria-pressed="true">W</button><button aria-pressed="true">T</button><button aria-pressed="true">F</button><button aria-pressed="false">S</button><button aria-pressed="false">S</button></span></span></div>
+        <div class="m-row"><span class="k">Let the displays sleep then</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Let the displays sleep then"></button></div>
+      </div>
+      <p class="m-sub">Outside these hours, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning lights it as usual. The <b>Out of hours</b> button above shows it.</p>
     </div>
 
     <div class="mac-body" data-pane="calendar" role="tabpanel">
@@ -383,6 +397,7 @@
     <div class="cell"><h3>The clock</h3><p>Set as the firmware's clock app sets it: bold 7-row digits in white on black, the colon dimming on odd seconds, and the day beneath at half brightness.</p></div>
     <div class="cell"><h3>LEDs and glass</h3><p>Dots follow Flipper's own preview shader — rounded squares at 85% of the pitch, shading toward their corners — and unlit LEDs vanish into the glossy black face. Colours are corrected for the firmware's LED gamma, so dim tones sit back the way they do on the device.</p></div>
     <div class="cell"><h3>Small screens</h3><p>The <strong>Stacked layout</strong> button shows the option for small monitors such as 960 × 540: the pill across the top, the time large beneath it, the LEDs filling the screen. The announcement fills the whole panel on two lines, then draws up into the pill as the clock rises.</p></div>
+    <div class="cell"><h3>Looking after the screen</h3><p>A wall display shows the same thing for hours, which an OLED remembers. So the LEDs never stand still: they move a pixel at a time through every position within an LED, so no pixel is always lit and no gap always dark. After half an hour of FREE they ease down to about 60% of their light, and every 15 minutes the word scrolls out and back. Out of hours, with nothing going on, the wall goes black. <strong>Quiet hour</strong> shows the first three, sped up; <strong>Out of hours</strong> the last.</p></div>
     <div class="cell"><h3>Do Not Disturb</h3><p>Double-click the display for 30 minutes of DO NOT DISTURB: an indigo pill with a moon, and a countdown where the clock was. Double-click again to end it. In the app a call still shows ON A CALL, then Do Not Disturb returns with whatever time is left.</p></div>
     <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL, and never joined, it says MEETING; leave early and it says FREE TILL the slot ends if something follows straight after, or just FREE if nothing does. On a call or in a meeting the clock counts down to when you're free, through back-to-back meetings. A meeting's location says where you'll be: your office or a Solotech room is MEETING, even with a Teams link, and anywhere else is OUT ON SITE. Tentative meetings say CALL TBC. Lunch, your own blocks and flights show LUNCH, AWAY and OUT OF OFFICE.</p></div>
     <div class="cell"><h3>Who wins</h3><p>Your own controls first, then the microphone, then the away keys (Nearby, Lunch, Back In), then Do Not Disturb, then the calendar: out of office, lunch, away, a phone call, an in-person meeting, a call you're late for, a warning, a tentative meeting; then NEARBY if the Mac's locked; then a no-meetings block, and a call you left early with something straight after. The microphone always turns it red.</p></div>
@@ -433,6 +448,22 @@
                   frame: new E.Frame(E.STACKED.cols, E.STACKED.rows) };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // The LEDs' orbit, as BarGeometry.orbit: a device pixel at a time, snaking
+  // through every position within an LED and back, a one-way pass an hour.
+  function orbit(t, pitch) {
+    const p = Math.max(pitch, 1), cells = p * p;
+    if (cells <= 1) return { x: 0, y: 0 };
+    const step = Math.min(60, Math.max(2, 3600 / cells)), period = 2 * (cells - 1);
+    let i = Math.floor(t / step) % period;
+    if (i < 0) i += period;
+    if (i >= cells) i = period - i;
+    const row = Math.floor(i / p), col = row % 2 === 0 ? i % p : p - 1 - i % p;
+    return { x: col - Math.floor(p / 2), y: row - Math.floor(p / 2) };
+  }
+  // the wall's hours, as WallHours' defaults (minutes after midnight); the calendar day is a weekday
+  const WALL_HOURS = { from: 7 * 60 + 30, to: 19 * 60 };
+  let scale = 1, stackPitch = PITCH;               // CSS px per 4K pixel; the stacked layout's LED in 4K pixels
+
   // Floating window: the device alone, over a desktop that looks like
   // 2560 x 1440 points, at the app's Small / Medium / Large widths.
   const params = new URLSearchParams(location.search);
@@ -456,6 +487,7 @@
     if (stacked) {
       // whole-pixel LEDs with a one-LED margin, centred — as the app does it
       const P = Math.floor(Math.min(SCREEN_W / (E.STACKED.cols + 2), SCREEN_H / (E.STACKED.rows + 2)));
+      scale = s; stackPitch = P;
       const fw = E.STACKED.cols * P, fh = E.STACKED.rows * P;
       const W = full ? innerWidth : mw, H = full ? innerHeight : mh;
       Object.assign(device.style, { left: (W - fw * s) / 2 + 'px', top: (H - fh * s) / 2 + 'px',
@@ -483,6 +515,7 @@
     }
     Object.assign(device.style, { top: top + 'px', left: left + 'px', width: SCREEN_W * s + 'px', height: CASE_H * s + 'px' });
     device.style.setProperty('--s', s);
+    scale = s;
     for (const [id, x, y, w, h] of PARTS) {
       Object.assign(document.getElementById(id).style,
         { left: x * s + 'px', top: y * s + 'px', width: w * s + 'px', height: h * s + 'px' });
@@ -501,7 +534,7 @@
   const pad = (n) => (n < 10 ? '0' : '') + n;
   let state = 'call', prev = null, since = now();
   let mode = 'auto', lastFlip = now();
-  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd', day: 'b-day' };
+  const btn = { auto: 'b-auto', call: 'b-call', free: 'b-free', dnd: 'b-dnd', day: 'b-day', idle: 'b-idle' };
   const SPILL = { call: '#ff1d35', callMuted: '#8a1020', meeting: '#ff1d35', free: '#17eb79', dnd: '#5b45ff',
     callIn: '#ffa21a', busyIn: '#ffa21a', late: '#ffa21a', lateMtg: '#ffa21a', freeTil: '#ffa21a', callTbc: '#ffa21a', busyTbc: '#ffa21a',
     away: '#7e8492', lunch: '#7e8492', ooo: '#7e8492', onSite: '#7e8492', nearby: '#7e8492', backIn: '#7e8492' };
@@ -531,6 +564,7 @@
     for (const b of document.querySelectorAll('#m-sign button')) b.setAttribute('aria-pressed', String(b.dataset.mode === (m === 'call' || m === 'free' ? m : 'auto')));
     document.getElementById('day').classList.toggle('on', m === 'day');
     if (m === 'call' || m === 'free' || m === 'dnd') setState(shown(m));
+    if (m === 'idle') { setState('free'); idleAt = now(); }
     if (m === 'auto') { demoIndex = 0; setState(DEMO[0]); }
   }
   document.getElementById('b-auto').onclick = () => setMode('auto');
@@ -538,6 +572,15 @@
   document.getElementById('b-free').onclick = () => setMode('free');
   document.getElementById('b-dnd').onclick = () => setMode('dnd');
   document.getElementById('b-day').onclick = () => setMode('day');
+  // FREE for half an hour and more, sped up: resting at 60%, the word scrolling every 6 s, the LEDs orbiting at 60x
+  let idleAt = now();
+  document.getElementById('b-idle').onclick = () => setMode('idle');
+  // out of the wall's hours: black while nothing's going on (the calendar day plays 06:45 to 07:30 dark)
+  let afterHours = false;
+  document.getElementById('b-night').onclick = (ev) => {
+    afterHours = !afterHours;
+    ev.currentTarget.setAttribute('aria-pressed', String(afterHours));
+  };
   document.getElementById('b-mute').onclick = (ev) => {
     micMuted = !micMuted;
     ev.currentTarget.setAttribute('aria-pressed', String(micMuted));
@@ -766,20 +809,31 @@
         if (state === 'dnd' && timer.left <= 0) setMode('free');
       }
       if (mode === 'call') setState(shown('call'));
-      why = mode === 'auto' ? DEMO_WHY[state] : (onCall(state) ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
+      if (mode === 'idle') setState('free');
+      why = mode === 'auto' ? DEMO_WHY[state] : mode === 'idle' ? 'Free for over half an hour: resting'
+        : (onCall(state) ? 'Forced ON A CALL' : state === 'free' ? 'Forced FREE' : 'Do Not Disturb');
     }
     const clock = { h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(), ms: d.getMilliseconds(), dow: d.getDay(), date: d.getDate() };
     // with reduced motion, skip straight to the settled screen
-    const s = reduced ? since - 60 : since;
+    let s = reduced ? since - 60 : since;
+    // a quiet hour: three quarters of an hour into FREE, the scroll playing a second into every 6 s
+    if (mode === 'idle') s = t - (E.SETTLED + 3 * E.SCROLL.every + (t - idleAt) % 6 - 1);
     const L = stacked ? STACK : WIDE;
     (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
-    L.painter.paint(L.frame);
+    // the wall's LEDs rest when nothing's going on, and orbit (60x in a quiet hour)
+    L.painter.paint(L.frame, floating ? 1 : E.restAt(t, state, s));
+    const o = floating ? { x: 0, y: 0 } : orbit(mode === 'idle' ? (t - idleAt) * 60 : Date.now() / 1000, stacked ? stackPitch : PITCH);
+    win.style.transform = `translate(${o.x * scale}px, ${o.y * scale}px)`;
+    // out of hours, with nothing going on: black
+    const minute = d.getHours() * 60 + d.getMinutes();
+    const dark = !floating && E.quiet(state) && (afterHours || (mode === 'day' && (minute < WALL_HOURS.from || minute >= WALL_HOURS.to)));
+    device.style.opacity = dark ? '0' : '1';
     // the settings window's preview: always the wide bar
     E.render(preview.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
     if (preview.canvas.clientWidth) { if (!preview.sized) { sizePreview(); preview.sized = true; } preview.painter.paint(preview.frame); }
     document.getElementById('m-state').textContent = NAMES[state];
     document.getElementById('m-why').textContent = why;
-    spill.style.opacity = '.12';
+    spill.style.opacity = dark ? '0' : '.12';
     requestAnimationFrame(tick);
   }
   setMode(params.get('mode') === 'day' ? 'day' : 'auto');

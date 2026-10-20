@@ -605,6 +605,42 @@
     hold: 3.4,         // the announcement stays up this long after the cut
     collapse: 0.667    // 41 frames, as indicator_busy_transition
   };
+  const SETTLED = T.swap + T.hold + T.collapse;
+
+  /*
+   * Looking after the wall's screen. When nothing's going on — FREE, or
+   * not here (quiet) — the same screen can stay up for hours, so:
+   *   - after half an hour unchanged the LEDs ease down to about 60% of
+   *     their light, over 20 s; any change brings them straight back
+   *   - every 15 minutes the pill's icon and word scroll out to the left
+   *     and back in from the right, as a sign does now and then
+   * Calls, meetings and warnings always show at full brightness, still.
+   */
+  const REST = { after: 30 * 60, fade: 20, level: 0.83 };   // 0.83 before the LED gamma: about 60% of the light
+  const SCROLL = { every: 15 * 60, duration: 2.4 };        // out to the left in half of it, in from the right in the other
+  const QUIET = { free: true, away: true, lunch: true, ooo: true, onSite: true, nearby: true };
+  const quiet = (state) => QUIET[state] === true;
+
+  /* How bright the LEDs are, 0..1: 1 except in a quiet state that's been up
+     half an hour. In hundredths, so a fade reuses its LEDs' drawings. */
+  function restAt(now, state, since) {
+    if (!quiet(state)) return 1;
+    const k = smooth(REST.after, REST.after + REST.fade, now - since);
+    return Math.round(lerp(1, REST.level, k) * 100) / 100;
+  }
+
+  /* How far the pill's icon and word are scrolled, in LEDs: 0 except for a
+     moment every 15 minutes of a quiet state, once the announcement's done. */
+  function scrollAt(now, state, since, pillW) {
+    if (!quiet(state)) return 0;
+    const s = now - since - SETTLED;
+    if (s < SCROLL.every) return 0;
+    const p = s % SCROLL.every, half = SCROLL.duration / 2;
+    if (p >= SCROLL.duration) return 0;
+    // far enough that the icon and word, shadow and all, are out of the pill
+    const away = (statusContentWidth(state) + pillW) / 2 + 2;
+    return p < half ? -Math.round(away * easeIn(p / half)) : Math.round(away * (1 - easeOut((p - half) / half)));
+  }
 
   /* Move everything down by dy rows (the firmware's press effect). */
   function shiftDown(f, dy) {
@@ -662,7 +698,7 @@
       const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawRight(f, state, clock, timer, slide, Math.ceil(edge) + 2);
     } else {
-      drawSteady(f, now, state, clock, timer, 0);
+      drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
@@ -704,10 +740,12 @@
       HERO[state].base, PALETTE.white, heroStyle(state, pal));
   }
 
-  function drawSteady(f, now, state, clock, timer, slide) {
+  /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill. */
+  function drawSteady(f, now, state, clock, timer, slide, scroll) {
     const pal = palOf(state);
     drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
-    drawStatusContent(f, now, state, pal, LAYOUT.statusX, LAYOUT.statusW, 1);
+    const clip = scroll ? [LAYOUT.statusX + 1, LAYOUT.statusX + LAYOUT.statusW - 1] : undefined;
+    drawStatusContent(f, now, state, pal, LAYOUT.statusX + (scroll || 0), LAYOUT.statusW, 1, clip);
     drawRight(f, state, clock, timer, slide, 0);
   }
 
@@ -954,16 +992,17 @@
       const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
     } else {
-      drawStackedSteady(f, now, state, clock, timer, 0);
+      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
-  function drawStackedSteady(f, now, state, clock, timer, slide) {
+  function drawStackedSteady(f, now, state, clock, timer, slide, scroll) {
     const S = STACKED, pal = palOf(state);
     drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
-    drawStatusContent(f, now, state, pal, S.pillX, S.pillW, 1);
+    const clip = scroll ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined;
+    drawStatusContent(f, now, state, pal, S.pillX + (scroll || 0), S.pillW, 1, clip);
     drawStackedClock(f, state, clock, timer, slide, 0);
   }
 
@@ -1014,6 +1053,7 @@
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
     drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
     hash: hash,
+    REST: REST, SCROLL: SCROLL, SETTLED: SETTLED, quiet: quiet, restAt: restAt, scrollAt: scrollAt,
     NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord
   };
 })(typeof window !== 'undefined' ? window : globalThis);

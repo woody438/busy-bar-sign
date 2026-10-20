@@ -61,5 +61,50 @@ for (name, w, h, s) in smallScreens {
                  aligned ? "yes" : "NO", exact ? "yes" : "NO", fits ? "yes" : "NO"))
     if !(aligned && exact && fits) { ok = false }
 }
+// The orbit: a device pixel a step, through every position within an LED,
+// each as often as the next (the ends of the path once a round trip, the rest twice).
+print("\norbit")
+for pitch in [4, 9, 11, 15, 16, 20, 22, 32, 44] {
+    let step = BarGeometry.orbitStep(pitch: pitch), period = 2 * (pitch * pitch - 1)
+    var visits = [Int: Int](), last: BarGeometry.Offset?, moves = true, inside = true
+    for k in 0..<period {
+        let o = BarGeometry.orbit(at: 1_760_000_000 + (Double(k) + 0.5) * step, pitch: pitch)
+        visits[(o.y + pitch / 2) * pitch + o.x + pitch / 2, default: 0] += 1
+        if let last, abs(o.x - last.x) + abs(o.y - last.y) != 1 { moves = false }
+        if o.x < -pitch / 2 || o.x >= pitch - pitch / 2 || o.y < -pitch / 2 || o.y >= pitch - pitch / 2 { inside = false }
+        last = o
+    }
+    let even = visits.count == pitch * pitch && visits.values.filter { $0 == 1 }.count == 2
+        && visits.values.allSatisfy { $0 == 1 || $0 == 2 }
+    let pass = Double(pitch * pitch - 1) * step / 60
+    print(String(format: "pitch %2d px  a step every %4.1f s  one way in %3.0f min  steps of a pixel:%@ within an LED:%@ every position evenly:%@",
+                 pitch, step, pass, moves ? "yes" : "NO", inside ? "yes" : "NO", even ? "yes" : "NO"))
+    if !(moves && inside && even) { ok = false }
+}
+// In the wide layout the LEDs move inside the case: at the orbit's furthest, in
+// each direction, their rounded corners must stay on the case's black face
+// (4K pixels: the face is the case less its 10-pixel rim, corners 86).
+func faceDistance(_ x: CGFloat, _ y: CGFloat) -> CGFloat {
+    let (cx, cy, hw, hh, r): (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) = (1920, 312, 1910, 302, 86)
+    let qx = abs(x - cx) - (hw - r), qy = abs(y - cy) - (hh - r)
+    return (max(qx, 0) * max(qx, 0) + max(qy, 0) * max(qy, 0)).squareRoot() + min(max(qx, qy), 0) - r
+}
+var onFace = true
+for pitch in [10, 16, 20, 32] {
+    let lo = CGFloat(-(pitch / 2)) * 32 / CGFloat(pitch), hi = CGFloat(pitch - 1 - pitch / 2) * 32 / CGFloat(pitch)
+    for dx in [lo, hi] {
+        for dy in [lo, hi] {
+            // the field's rounded rectangle, walked round its edge
+            let x0 = 32 + dx, y0 = 56 + dy, w: CGFloat = 3776, h: CGFloat = 512, r = BarGeometry.fieldCorner
+            for k in 0..<720 {
+                let a = CGFloat(k) / 720 * 2 * .pi
+                let corner = (x: a < .pi / 2 || a > 3 * .pi / 2 ? x0 + w - r : x0 + r, y: a < .pi ? y0 + h - r : y0 + r)
+                if faceDistance(corner.x + r * cos(a), corner.y + r * sin(a)) > 1e-6 { onFace = false }
+            }
+        }
+    }
+}
+print("the LEDs stay on the case's face as they move:", onFace ? "yes" : "NO")
+if !onFace { ok = false }
 print(ok ? "\nall layouts pixel-exact" : "\nLAYOUT PROBLEMS ABOVE")
 exit(ok ? 0 : 1)

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Builds the platform-independent parts of the app and checks them:
 # LED-for-LED parity with the simulator, pixel alignment on common displays,
-# frame time, the call detector's decisions on a scripted afternoon, the
-# status rules, the away keys, the local web server's request handling, the
-# screen saver's reading of it, and the Stream Deck plugin end to end.
+# frame time, the LEDs' orbit, the call detector's decisions on a scripted
+# afternoon, the status rules, the wall's hours, the away keys, the local web
+# server's request handling, the screen saver's reading of it, and the Stream
+# Deck plugin end to end.
 #
 #   Checks/run.sh                 # uses swiftc, node and npm from PATH
 #   SWIFTC=/path/to/swiftc Checks/run.sh
@@ -19,7 +20,7 @@ echo "== parity with the simulator"
 "$OUT/parity" "$OUT/swift.bin" >/dev/null
 node simulator/tools/parity.js "$OUT/swift.bin" | tail -1
 
-echo; echo "== geometry"
+echo; echo "== geometry (and the LEDs' orbit)"
 "$SWIFTC" -O $B/BarGeometry.swift Checks/geometry/main.swift -o "$OUT/geometry"
 "$OUT/geometry" | tail -1
 
@@ -58,6 +59,10 @@ M=Sources/Meeting
 echo; echo "== updates (which GitHub release is newer)"
 "$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"
 "$OUT/update"
+
+echo; echo "== the wall's hours (dark out of hours)"
+"$SWIFTC" Sources/WallHours.swift Checks/hours/main.swift -o "$OUT/hours"
+"$OUT/hours"
 
 echo; echo "== away keys (Nearby, Lunch, Back In)"
 "$SWIFTC" Sources/AwayState.swift Checks/away/main.swift -o "$OUT/away"

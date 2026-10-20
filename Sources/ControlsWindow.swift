@@ -113,7 +113,7 @@ struct ControlsView: View {
                 switch tab {
                 case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
                                         server: server)
-                case .displays: DisplaysTab(wall: wall, floating: floating, saver: saver)
+                case .displays: DisplaysTab(status: status, wall: wall, floating: floating, saver: saver)
                 case .calendar: CalendarTab(calendar: calendar)
                 case .microphone: MicrophoneTab(detector: detector)
                 case .meetings: MeetingsTab(meeting: status.meeting, mute: status.mute)
@@ -412,6 +412,7 @@ private struct BarPreview: View {
 // MARK: - Displays
 
 private struct DisplaysTab: View {
+    @ObservedObject var status: StatusModel
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
     @ObservedObject var saver: SaverInstaller
@@ -463,6 +464,8 @@ private struct DisplaysTab: View {
             }
         }
         Note("Stacked fills small screens such as 960 × 540: the status on top and a big clock beneath. The floating window always uses the wide bar and stays above other windows, on every Space.")
+
+        OutOfHours(status: status)
 
         Heading("Screen saver")
         Card {
@@ -525,6 +528,58 @@ private struct DisplaysTab: View {
             .frame(height: 58)
             .padding(.horizontal, 12).padding(.vertical, 6)
         }
+    }
+}
+
+/// When the wall goes dark: Settings ▸ Displays ▸ Out of hours.
+private struct OutOfHours: View {
+    @ObservedObject var status: StatusModel
+
+    var body: some View {
+        Heading("Out of hours")
+        Card {
+            Row(label: "Dark out of hours", divider: false) {
+                if status.wallDark { Text("Dark now").foregroundStyle(.secondary) }
+                Toggle("Dark out of hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
+            }
+            if status.wallHours.on {
+                Row(label: "Hours") {
+                    DatePicker("From", selection: time(\.from), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
+                    Text("to")
+                    DatePicker("To", selection: time(\.to), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
+                    HStack(spacing: 3) {
+                        ForEach(Self.weekdays, id: \.self) { day in
+                            Toggle(Calendar.current.veryShortWeekdaySymbols[day - 1], isOn: Binding(
+                                get: { status.wallHours.days.contains(day) },
+                                set: { on in
+                                    if on { status.wallHours.days.insert(day) } else { status.wallHours.days.remove(day) }
+                                }))
+                                .toggleStyle(.button)
+                        }
+                    }
+                }
+                Row(label: "Let the displays sleep then") {
+                    Toggle("Let the displays sleep then", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
+                }
+            }
+        }
+        Note("Outside these hours, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning lights it as usual. Left to sleep, the displays go off by Lock Screen ▸ “Turn display off when inactive”, and come back on when the hours begin, unless the Mac's locked. Turn that off if the wall's TV doesn't come back on by itself. In hours the wall's LEDs move a pixel at a time, and ease down after half an hour with nothing going on.")
+    }
+
+    /// The days of the week, as this Mac starts them: Monday first in the UK.
+    private static let weekdays = (0..<7).map { (Calendar.current.firstWeekday - 1 + $0) % 7 + 1 }
+
+    /// One end of the wall's hours, as a time of day for a picker.
+    private func time(_ end: WritableKeyPath<WallHours, Int>) -> Binding<Date> {
+        Binding(
+            get: {
+                let m = status.wallHours[keyPath: end]
+                return Calendar.current.date(bySettingHour: m / 60, minute: m % 60, second: 0, of: Date()) ?? Date()
+            },
+            set: { date in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+                status.wallHours[keyPath: end] = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+            })
     }
 }
 
