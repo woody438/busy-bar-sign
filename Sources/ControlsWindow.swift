@@ -332,7 +332,7 @@ private struct UpdatesCard: View {
             }
             if let plugin = updater.plugin {
                 Row(label: "Stream Deck plugin") {
-                    Text("\(plugin.installed) installed, \(plugin.available) out").foregroundStyle(.secondary)
+                    Text("\(plugin.installed) installed · \(plugin.available) ready to install").foregroundStyle(.secondary)
                     Button("Update…") { updater.updatePlugin() }
                 }
             } else if let installed = updater.pluginInstalled {
