@@ -48,6 +48,8 @@ final class Updater: ObservableObject {
     let build = Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
     let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     let channel = Bundle.main.object(forInfoDictionaryKey: "BBSUpdateChannel") as? String ?? "latest"
+    /// The pull request a preview build was built from, where it says (builds from 2.4.1 on).
+    let previewPR = Int(Bundle.main.object(forInfoDictionaryKey: "BBSPreviewPR") as? String ?? "")
 
     /// Whether you're on a call or in a meeting, when an update would interrupt.
     var isBusy: @MainActor () -> Bool = { false }

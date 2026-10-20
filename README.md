@@ -873,8 +873,10 @@ menu-bar menu has **Check for Updates** too.
 
 - A copy built from main follows the **latest** release; a pull request's
   preview build follows the **preview** release, then main's once it's
-  merged. Each build is numbered by its CI run, and only a higher number is
-  an update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
+  merged. A preview build says so in Settings ▸ Status ▸ Updates: an orange
+  **PREVIEW** tag and the pull request it was built from (builds from 2.4.1
+  on). Each build is numbered by its CI run, and only a higher number is an
+  update (`Sources/UpdateCheck.swift`, checked by `Checks/update`).
 - It only installs a download signed with the project's certificate — the
   same one as the running copy ([Signing](#signing)) — so the update is the
   same app to macOS and keeps its permissions. A download the app makes

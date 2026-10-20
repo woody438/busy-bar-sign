@@ -327,8 +327,16 @@ private struct UpdatesCard: View {
         Heading("Updates")
         Card {
             Row(label: "Version", divider: false) {
-                Text("\(updater.version) (build \(updater.build))\(updater.channel == "preview" ? " · preview" : "")")
-                    .foregroundStyle(.secondary)
+                Text("\(updater.version) (build \(updater.build))").foregroundStyle(.secondary)
+            }
+            // a pull request's build, not main's: plainly, so it's not taken for the release
+            if updater.channel == "preview" {
+                Row(label: "Release") {
+                    Text(updater.previewPR.map { "From pull request #\($0)" } ?? "From a pull request").foregroundStyle(.secondary)
+                    Text("PREVIEW").font(.caption.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Capsule().fill(Color.orange))
+                }
             }
             Row(label: "Updates") {
                 Text(updater.statusLine).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.trailing)
@@ -362,6 +370,10 @@ private struct UpdatesCard: View {
         .onAppear { updater.refreshPlugin() }
         if updater.pluginIncomplete {
             Warning(text: "Stream Deck has the plugin's new version number but older code: an install stopped part way, so the keys may not do what this version does. Reinstall it; if the keys don't change, quit Stream Deck and open it again.")
+        }
+        if updater.channel == "preview" {
+            let pr = updater.previewPR.map { "pull request #\($0)" } ?? "a pull request"
+            Note("This copy is a preview, built from \(pr) to try before it's merged. It updates to newer previews and to main's releases, so once the pull request is merged, main's build replaces this one.")
         }
         if let problem = updater.installProblem { Warning(text: problem) }
         Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")

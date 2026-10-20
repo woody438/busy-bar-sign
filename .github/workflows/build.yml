@@ -31,6 +31,7 @@ jobs:
       # each build's number, which the updater compares, and the release it goes to
       BUILD_NUMBER: ${{ github.run_number }}
       UPDATE_CHANNEL: ${{ github.event_name == 'pull_request' && 'preview' || 'latest' }}
+      PREVIEW_PR: ${{ github.event.pull_request.number }}         # empty for main's builds
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +54,7 @@ jobs:
             -configuration Release -derivedDataPath build \
             -destination 'generic/platform=macOS' \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" UPDATE_CHANNEL="$UPDATE_CHANNEL" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" UPDATE_CHANNEL="$UPDATE_CHANNEL" PREVIEW_PR="$PREVIEW_PR" \
             build 2>&1 | tee build.log | grep -E "error:|warning: .*(Sources/|Saver/)|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log                  # a failed build can still leave a partial app
           test -d "build/Build/Products/Release/Busy Bar Sign.app"
@@ -99,6 +100,9 @@ jobs:
           plutil -extract CFBundleIconName raw "$APP/Contents/Info.plist"
           test "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" = "$BUILD_NUMBER"
           test "$(plutil -extract BBSUpdateChannel raw "$APP/Contents/Info.plist")" = "$UPDATE_CHANNEL"
+          if [ "$UPDATE_CHANNEL" = preview ]; then                         # Settings says which pull request
+            test "$(plutil -extract BBSPreviewPR raw "$APP/Contents/Info.plist")" = "$PREVIEW_PR"
+          fi
           ditto -c -k --sequesterRsrc --keepParent "$APP" BusyBarSign.zip
           ls -l BusyBarSign.zip
           # what the updater reads (Sources/UpdateCheck.swift)
