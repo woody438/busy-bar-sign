@@ -322,7 +322,7 @@
     callTbc: 'CALL TBC', busyTbc: 'BUSY TBC',                    // tentative: countdown, then TILL
     away: 'AWAY', lunch: 'LUNCH', ooo: 'OUT OF',                 // + OFFICE on the right
     onSite: 'OUT ON',                                            // + SITE on the right: with a client
-    nearby: 'NEARBY',                                            // in the building, not at your desk
+    nearby: 'NEARBY',                                            // in the building, not at your desk (or your word: setNearbyWord)
     backIn: 'BACK IN'                                            // + the countdown on the right
   };
   /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
@@ -858,6 +858,72 @@
     busy_bold_10: { h: 10, depth: 1, space: undefined }
   };
 
+  /* ------------------------------------------------------------------ *
+   * The Nearby key's word: NEARBY, or one of your own (W HOUSE) from    *
+   * the app's settings. The sign says it wherever it would say NEARBY.  *
+   * ------------------------------------------------------------------ */
+  const NEARBY = 'NEARBY';
+  /* Room for it, in LEDs: beside the walker in the pill, as ON A CALL
+     has beside its mic, and beneath the walker on a Stream Deck key in
+     the 5-row face (streamdeck/src/key.js). */
+  const NEARBY_ROOM = { pill: 76, key: 34 };
+
+  /* A word as the sign sets it: capitals, single spaces. */
+  function signWord(word) {
+    return String(word === undefined || word === null ? '' : word).trim().replace(/\s+/g, ' ').toUpperCase();
+  }
+
+  /* Why a word can't be the Nearby key's — 'characters', 'sign' or 'key',
+     what it won't go on — or null if it can. */
+  function nearbyProblem(word) {
+    const w = signWord(word);
+    if (!/^[\x20-\x7E]*$/.test(w)) return 'characters';      // the fonts have plain ASCII only
+    if (iconWidth('nearby') + textWidth(LAYOUT.statusFont, w) > NEARBY_ROOM.pill) return 'sign';
+    if (textWidth('busy_regular_5', w) > NEARBY_ROOM.key) return 'key';
+    return null;
+  }
+
+  /* The word the sign says for `word`: NEARBY for none, or one that won't do. */
+  function nearbyWordOf(word) {
+    const w = signWord(word);
+    return w !== '' && nearbyProblem(w) === null ? w : NEARBY;
+  }
+
+  /* Its announcement on the wide bar: the 14-row face where it fits, as
+     BUSY SOON does, else the status face, as DO NOT DISTURB. */
+  function nearbyHero(word) {
+    return textWidth('busy_regular_14', word, 0, 6) <= LAYOUT.heroW - 6
+      ? { word: word, font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
+      : { word: word, font: 'busy_bold_10', base: 12, depth: 1, space: undefined };
+  }
+
+  /* ...and stacked: one line in the 14-row face, set a step tighter if it
+     needs it, as MEETING is; else two, broken at the space that leaves the
+     longer line shortest; else one in the 10-row face. */
+  function nearbyStackedHero(word) {
+    const room = STACKED.pillW - 2;                  // DISTURB's width
+    const wide = (t, tracking) => textWidth('busy_regular_14', t, tracking, 6);
+    if (wide(word, 0) <= room) return [word];
+    if (wide(word, -1) <= room) return [{ t: word, tracking: -1 }];
+    let best = null, longest = Infinity;
+    for (let i = word.indexOf(' '); i >= 0; i = word.indexOf(' ', i + 1)) {
+      const a = word.slice(0, i), b = word.slice(i + 1);
+      const l = Math.max(wide(a, 0), wide(b, 0));
+      if (l <= room && l < longest) { best = [a, b]; longest = l; }
+    }
+    return best || [{ t: word, font: 'busy_bold_10' }];
+  }
+
+  /* Sets the word everywhere the bar says NEARBY. Call it after setFonts:
+     the announcement is laid out by the word's width. */
+  function setNearbyWord(word) {
+    const w = nearbyWordOf(word);
+    WORDS.nearby = w;
+    HERO.nearby = nearbyHero(w);
+    STACKED_HERO.nearby = nearbyStackedHero(w);
+    return w;
+  }
+
   function renderStacked(f, now, state, prev, since, clock, timer) {
     f.px.fill(0);
     const S = STACKED, pal = palOf(state);
@@ -947,6 +1013,7 @@
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
     drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
-    hash: hash
+    hash: hash,
+    NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord
   };
 })(typeof window !== 'undefined' ? window : globalThis);

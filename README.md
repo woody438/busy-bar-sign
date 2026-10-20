@@ -19,8 +19,8 @@ sign gets a slash and flashes, so the room knows it can talk
 ([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
 sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
 Teams or Zoom meeting from anywhere ([below](#stream-deck)). Leaving your
-desk, a **Nearby**, **Lunch** or **Back In** key (Back In counts down:
-ten minutes a press) locks the Mac and the sign stays up on every screen,
+desk, a **Nearby** (or a word of your own for it, such as **W HOUSE**),
+**Lunch** or **Back In** key (Back In counts down: ten minutes a press) locks the Mac and the sign stays up on every screen,
 through its own **screen saver** ([below](#while-youre-away)). It **updates
 itself** when you're off calls ([below](#updates)).
 
@@ -199,12 +199,33 @@ Bar Sign carries one, and three **away keys** say where you've gone:
 
 | The bar | What puts it there |
 |---|---|
-| **NEARBY** | The **Nearby** key: in the building, not at your desk. Or the Mac locked with nothing in the calendar to say where you are. |
+| **NEARBY** — or your own word | The **Nearby** key: in the building, not at your desk. Or the Mac locked with nothing in the calendar to say where you are. Give it a word of your own ([below](#your-own-word-for-nearby)) and the sign says that instead. |
 | **LUNCH** | The **Lunch** key — or lunch in your calendar, as before. |
 | **BACK IN** · *29:41 AT 14:30* | The **Back In** key: ten minutes a press, so three presses for a half-hour meeting down the corridor. When the time's up, the sign moves on to what's next — NEARBY, if the Mac's still locked. |
 
 The keys are on the Stream Deck ([below](#stream-deck)), in the menu-bar
 menu and in Settings ▸ Status.
+
+### Your own word for Nearby
+
+Settings ▸ Status ▸ **The Nearby key says**: type a word — *W House*,
+*Studio 2*, *On site* — and press Return. The sign says it in capitals
+wherever it would say NEARBY: for the Nearby key, for a locked Mac with
+no key on, on the wall, on the Stream Deck's Nearby and Status keys and in
+the screen saver. The menus and Settings say it as you typed it. Leave it
+empty for NEARBY.
+
+- **About seven letters**: as many as a Stream Deck key can show beneath
+  the walker in its 5-row face (W HOUSE just fits; WAREHOUSE and UPSTAIRS
+  don't). Settings says so when a word's too long, or has a letter the
+  LED fonts don't have (é, ✈), and the sign keeps the word it had.
+- The sign fits it as it fits its own words: beside the walker in the
+  pill, and in the announcement in the 14-row face — or a step tighter,
+  on two lines, or in the 10-row face on the stacked layout, whichever
+  fits first.
+- The Stream Deck plugin needs 1.4 or later (Busy Bar Sign offers it).
+  Stream Deck's own list of actions still calls the key **Nearby**: that
+  name is the plugin's, the same for everyone.
 
 **Setting it up**, once:
 
@@ -230,14 +251,17 @@ menu and in Settings ▸ Status.
 - Nearby and Lunch: press again to end. Back In: hold it a second.
 - **Unlock and the key's done**: the sign goes back to the microphone and
   the calendar.
-- **Lock without a key** (⌃⌘Q, a hot corner) and the sign says NEARBY —
+- **Lock without a key** (⌃⌘Q, a hot corner) and the sign says NEARBY (or
+  your word for it) — on the Stream Deck, and on the screens once the
+  screen saver's on (⌃⌘Q's lock screen covers them till then) —
   unless the calendar has something to say: LUNCH, MEETING, CALL IN, LATE
   and the tentative ones still show. A double-click Do Not Disturb waits
   underneath while you're away, and comes back with whatever time is left.
 - The microphone still outranks it all: leave a call running and the sign
   says ON A CALL.
 - The screen saver asks the app once a second, as the Stream Deck does. If
-  the app isn't answering, it says NEARBY.
+  the app isn't answering, it says NEARBY — or your word for it, once it's
+  heard it from the app.
 - **Settings ▸ Status ▸ Start the screen saver** off: the keys just change
   the sign, and don't lock anything.
 
@@ -283,7 +307,8 @@ engine and fonts:
 - **Nearby**, **Lunch** and **Back In** — where you've gone when you
   leave your desk, and the Mac locked behind you ([above](#while-youre-away)).
   Nearby and Lunch are pictures with their word beneath, as Mute and Leave
-  are. Each is lit while it's the one that's on, dimmed while it isn't;
+  are — Nearby's your own, if you've given it one
+  ([above](#your-own-word-for-nearby)). Each is lit while it's the one that's on, dimmed while it isn't;
   Back In says **+10** beneath, and counts down once pressed.
 
 ![The away keys: Nearby and Lunch dimmed, Back In lit and counting down 29:40, and the Status key saying BACK IN 29:40](docs/stream-deck-away-keys.png)
@@ -482,7 +507,7 @@ The same controls are in three places:
 - **The controls window** — click the app's Dock icon, or press ⌘, while the
   app is in front. It opens by itself on first launch. Five tabs:
   **Status** (the bar live, why it says what it says, Sign, Do Not
-  Disturb, the away keys, and Updates), **Displays** (the full-screen
+  Disturb, the away keys and the Nearby key's word, and Updates), **Displays** (the full-screen
   display and the floating window side by side, and the screen saver), **Calendar** (which calendar, the warning
   and late times, a guide to what to put in Outlook, and the title words),
   **Microphone** (what counts as a call, and what's using the mic now, to
@@ -506,7 +531,7 @@ The full menu:
 - **In Person: “…”** — while the sign warns of a call or says you're late for
   one: you're there in person, so MEETING till it ends (in the Dock menu and
   the controls' Status tab too).
-- **Nearby** and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
+- **Nearby** (or your word for it) and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
   In: 10 More Minutes**) and **I'm Back**: the away keys.
 - **Microphone** — every app holding the mic right now, each with an
   **Ignore** toggle. If something that isn't a call lights the sign, ignore it
@@ -678,12 +703,14 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 121 moments —
+- **The Swift engine matches the simulator LED for LED** across 134 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
-  it — to within float rounding. What you see in the simulator is what the
-  app draws.
+  it, LUNCH counting down to when you're back, and words of your own for
+  Nearby through every way of fitting one — to within float rounding. Both
+  take and turn away the same words for Nearby. What you see in the
+  simulator is what the app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 3,168
   cases: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
@@ -727,12 +754,13 @@ errors or warnings in its code.
   and with the Leave key left on a press, leaves on release and ends the
   meeting for everyone when held a second, lights Back In with ten minutes
   a press and ends it on a hold, turns Lunch and Nearby on and off one at
-  a time,
+  a time, has Nearby say the word the app gives it,
   says APP OFF and warns on a press while the app is away, recovers when
-  it's back, and stops asking when no key shows it. Its key drawing has 139
+  it's back, and stops asking when no key shows it. Its key drawing has 181
   checks of its own: every state the engine has, every word and countdown
-  inside the key, the countdown text against the bar's, and every face of
-  the Mute, Leave and away keys (`streamdeck/test/keys.js`).
+  inside the key, the countdown text against the bar's, every face of
+  the Mute, Leave and away keys, and the widest words of your own the sign
+  takes for Nearby, on the Nearby and Status keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
   Meeting Keys' helper tests carried across, and more: 112 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
@@ -776,11 +804,18 @@ Calendar.app and an Elgato Stream Deck:
 - An update installing itself — build 35 to build 36 — with no Open Anyway
   and Accessibility still allowed, both builds signed with the project's
   certificate.
+- Where a meeting is (2.4), on the author's own Outlook calendar through the
+  preview builds. That is how it was found that a typed "Solotech -
+  Nashville" location, with no room booked, read as OUT ON SITE (it now reads
+  as a Solotech site: MEETING), and that a Lunch block shown as Out of Office
+  said OUT OF OFFICE (your own lunch is now LUNCH, counting down to when
+  you're back).
 
-**Not yet run on a real Mac:** 2.3's places and in person — whether
-EventKit marks a room booked on an Outlook invite as a room (if not, the
-location words and room codes still catch it), whether the Mac's idle time
-reads right for LATE FOR MTG, and the Status key's press during LATE. And
+**Not yet run on a real Mac:** the rest of 2.4's places and in person —
+whether EventKit marks a room booked on an Outlook invite as a room (if
+not, the location words and room codes still catch it), whether the Mac's
+idle time reads right for LATE FOR MTG, and the Status key's press during
+LATE. And
 the away keys and the screen saver, new in
 2.2 — whether `Away.swift` sees the Mac lock and unlock and starts the screen
 saver (`ScreenSaverEngine`), whether `SaverInstaller.swift` puts it in place,
@@ -854,6 +889,12 @@ menu-bar menu has **Check for Updates** too.
   asks. Missed it? **Update…** in Settings ▸ Status, or the menu's **Update
   the Stream Deck Plugin…**, opens it again. Settings ▸ Status shows the
   plugin's version.
+- An install can stop part way, leaving the new version's number over the
+  old plugin's code: the keys then do what the old one did, though the
+  version looks right. The plugin's code says its own version on its first
+  line (from 1.4.1), and the app checks the two agree: if they don't,
+  Settings says **not fully installed** with a **Reinstall…** button, and
+  the menu offers **Reinstall the Stream Deck Plugin…**.
 
 ## Signing
 

@@ -32,7 +32,7 @@ enum BarState: String, CaseIterable {
     case callTbc, busyTbc        // tentative: a countdown to the start, then TILL the end
     case away, lunch, ooo        // not here (ooo: OUT OF + OFFICE on the right)
     case onSite                  // with a client: OUT ON + SITE on the right
-    case nearby                  // you said so: in the building, not at your desk
+    case nearby                  // you said so: in the building, not at your desk (or your word: setNearbyWord)
     case backIn                  // you said so: a countdown on the right to when you're back
 
     var word: String {
@@ -51,7 +51,7 @@ enum BarState: String, CaseIterable {
         case .lunch: return "LUNCH"
         case .ooo: return "OUT OF"
         case .onSite: return "OUT ON"
-        case .nearby: return "NEARBY"
+        case .nearby: return BarEngine.nearbyWord
         case .backIn: return "BACK IN"
         }
     }
@@ -503,7 +503,7 @@ enum BarEngine {
         case .lunch: return Hero(word: "LUNCH", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         case .ooo: return Hero(word: "OUT OF OFFICE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
         case .onSite: return Hero(word: "OUT ON SITE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .nearby: return Hero(word: "NEARBY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .nearby: return nearbyHero
         case .backIn: return Hero(word: "BACK IN", font: "busy_regular_14", base: 14, depth: 2, space: 6)
         }
     }
@@ -993,7 +993,7 @@ enum BarEngine {
             case .lunch: return [Line("LUNCH")]
             case .ooo: return [Line("OUT OF"), Line("OFFICE")]
             case .onSite: return [Line("OUT ON"), Line("SITE")]
-            case .nearby: return [Line("NEARBY")]
+            case .nearby: return BarEngine.nearbyStackedHero
             case .backIn: return [Line("BACK"), Line("IN")]
             }
         }
@@ -1002,6 +1002,80 @@ enum BarEngine {
         static func lineFont(_ font: String) -> (h: Int, depth: Int, space: Int?) {
             font == "busy_bold_10" ? (10, 1, nil) : (14, 2, 6)
         }
+    }
+
+    // MARK: - The Nearby key's word
+
+    /*
+     * NEARBY, or a word of your own (W HOUSE) from Settings ▸ Status. The
+     * sign says it wherever it would say NEARBY. One for every view of the
+     * bar, set with setNearbyWord: the app sets it from its settings, the
+     * screen saver from the app's answer.
+     */
+    static let nearbyDefault = "NEARBY"
+    /// Room for it, in LEDs: beside the walker in the pill, as ON A CALL
+    /// has beside its mic, and beneath the walker on a Stream Deck key in
+    /// the 5-row face (streamdeck/src/key.js).
+    static let nearbyRoom = (pill: 76, key: 34)
+
+    private(set) static var nearbyWord = nearbyDefault
+    private(set) static var nearbyHero = Hero(word: nearbyDefault, font: "busy_regular_14", base: 14, depth: 2, space: 6)
+    private(set) static var nearbyStackedHero = [Stacked.Line(nearbyDefault)]
+
+    /// What a word won't go on: a character the fonts don't have, the sign, or the Stream Deck key.
+    enum NearbyProblem: String { case characters, sign, key }
+
+    /// A word as the sign sets it: capitals, single spaces.
+    static func signWord(_ word: String) -> String {
+        word.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").uppercased()
+    }
+
+    /// Why a word can't be the Nearby key's, or nil if it can.
+    static func nearbyProblem(_ word: String) -> NearbyProblem? {
+        let w = signWord(word)
+        // the fonts have plain ASCII only
+        guard w.unicodeScalars.allSatisfy({ (0x20...0x7E).contains($0.value) }) else { return .characters }
+        if iconWidth(.nearby) + textWidth(Layout.statusFont, w) > nearbyRoom.pill { return .sign }
+        if textWidth("busy_regular_5", w) > nearbyRoom.key { return .key }
+        return nil
+    }
+
+    /// The word the sign says for `word`: NEARBY for none, or for one that won't do.
+    static func nearbyWordOf(_ word: String?) -> String {
+        let w = signWord(word ?? "")
+        return !w.isEmpty && nearbyProblem(w) == nil ? w : nearbyDefault
+    }
+
+    /// Sets the word everywhere the bar says NEARBY, and says which it took.
+    /// Its announcement on the wide bar is in the 14-row face where it fits,
+    /// as BUSY SOON is, else the status face, as DO NOT DISTURB.
+    @discardableResult
+    static func setNearbyWord(_ word: String?) -> String {
+        let w = nearbyWordOf(word)
+        nearbyWord = w
+        nearbyHero = Double(textWidth("busy_regular_14", w, space: 6)) <= Layout.heroW - 6
+            ? Hero(word: w, font: "busy_regular_14", base: 14, depth: 2, space: 6)
+            : Hero(word: w, font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        nearbyStackedHero = nearbyStackedLines(w)
+        return w
+    }
+
+    /// Its announcement stacked: one line in the 14-row face, set a step
+    /// tighter if it needs it, as MEETING is; else two, broken at the space
+    /// that leaves the longer line shortest; else one in the 10-row face.
+    private static func nearbyStackedLines(_ word: String) -> [Stacked.Line] {
+        let room = Int(Stacked.pillW) - 2               // DISTURB's width
+        func wide(_ t: String, _ tracking: Int) -> Int { textWidth("busy_regular_14", t, tracking: tracking, space: 6) }
+        if wide(word, 0) <= room { return [Stacked.Line(word)] }
+        if wide(word, -1) <= room { return [Stacked.Line(word, tracking: -1)] }
+        var best: [Stacked.Line]?, longest = Int.max
+        let chars = Array(word)
+        for (i, ch) in chars.enumerated() where ch == " " {
+            let a = String(chars[..<i]), b = String(chars[(i + 1)...])
+            let l = max(wide(a, 0), wide(b, 0))
+            if l <= room && l < longest { best = [Stacked.Line(a), Stacked.Line(b)]; longest = l }
+        }
+        return best ?? [Stacked.Line(word, font: "busy_bold_10")]
     }
 
     static func renderStacked(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,

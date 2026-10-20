@@ -61,6 +61,32 @@ let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.lateMtg, .busyIn, 2.0, "late"), (.lateMtg, .busyIn, 9.3, "late"), (.onSite, .free, 2.0, nil), (.onSite, .free, 9.0, nil),
     (.lunch, .free, 9.0, "free")
 ]
+// the Nearby key's own word, through each way of fitting it: as it is; stacked a step
+// tighter; the announcement in the status face, stacked in it too; stacked on two lines
+// (keep in step with parity.js)
+let nearbyCases: [(String, stacked: Bool, Double)] = [
+    ("W HOUSE", false, 2.0), ("W HOUSE", false, 3.75), ("W HOUSE", false, 9.0),
+    ("W HOUSE", true, 2.0), ("W HOUSE", true, 3.8), ("W HOUSE", true, 9.0),
+    ("STUDIO 2", false, 2.0), ("STUDIO 2", true, 2.0),
+    ("1111111111", false, 2.0), ("1111111111", false, 3.75), ("1111111111", true, 2.0),
+    ("1111 1111", true, 2.0), ("1111 1111", true, 3.8)
+]
+// the words the sign takes for the Nearby key, as engine.js takes them (keep in step with parity.js)
+let nearbyWords: [(String?, String)] = [
+    (nil, "NEARBY"), ("", "NEARBY"), ("  w   house ", "W HOUSE"), ("Studio 2", "STUDIO 2"), ("kitchen", "KITCHEN"),
+    ("WAREHOUSE", "NEARBY"), ("UPSTAIRS", "NEARBY"), ("Café", "NEARBY"), ("✈ AWAY", "NEARBY"), ("1111111111..", "1111111111..")
+]
+for (word, takes) in nearbyWords where BarEngine.nearbyWordOf(word) != takes {
+    FileHandle.standardError.write(Data("the sign takes \(String(describing: word)) as \(BarEngine.nearbyWordOf(word)), not \(takes)\n".utf8))
+    exit(1)
+}
+let problems: [(String, BarEngine.NearbyProblem?)] = [
+    ("W HOUSE", nil), ("WAREHOUSE", .sign), ("UPSTAIRS", .key), ("café", .characters)
+]
+for (word, problem) in problems where BarEngine.nearbyProblem(word) != problem {
+    FileHandle.standardError.write(Data("\(word): \(String(describing: BarEngine.nearbyProblem(word))), not \(String(describing: problem))\n".utf8))
+    exit(1)
+}
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)
 var out = Data()
 for (state, prev, e) in cases {
@@ -89,5 +115,20 @@ for (state, prev, e, key) in stackedCalendarCases {
                             timer: key.flatMap { timers[$0] })
     f.px.withUnsafeBytes { out.append(contentsOf: $0) }
 }
+for (word, stacked, e) in nearbyCases {
+    BarEngine.setNearbyWord(word)
+    let since = 1000.0
+    var f: LEDFrame
+    if stacked {
+        f = LEDFrame(w: BarEngine.Stacked.cols, h: BarEngine.Stacked.rows)
+        BarEngine.renderStacked(into: &f, now: since + e, state: .nearby, prev: .free, since: since, clock: clock)
+    } else {
+        f = LEDFrame()
+        BarEngine.render(into: &f, now: since + e, state: .nearby, prev: .free, since: since, clock: clock)
+    }
+    f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+}
+BarEngine.setNearbyWord(nil)
 try! out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
-print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count, "bytes:", out.count)
+print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count + nearbyCases.count,
+      "bytes:", out.count)

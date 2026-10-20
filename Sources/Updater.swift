@@ -18,7 +18,9 @@ import Security
  * The Stream Deck plugin can't be installed quietly (Stream Deck always
  * asks), so a newer one is opened in Stream Deck, once per version, when
  * you're off calls and the app itself is up to date: Stream Deck asks to
- * install it. Or by hand, from the menu or Settings.
+ * install it. Or by hand, from the menu or Settings. A plugin whose code
+ * isn't the version its manifest says — an install that stopped part way —
+ * is offered again, from the menu and Settings, rather than called up to date.
  */
 @MainActor
 final class Updater: ObservableObject {
@@ -37,6 +39,8 @@ final class Updater: ObservableObject {
     @Published private(set) var lastChecked: Date?
     @Published private(set) var plugin: PluginUpdate?
     @Published private(set) var pluginInstalled: String?     // the plugin's version in Stream Deck, if it has it
+    /// Stream Deck has the plugin's manifest over other code: it needs installing again.
+    @Published private(set) var pluginIncomplete = false
     @Published var automatic: Bool {
         didSet { UserDefaults.standard.set(automatic, forKey: "installUpdatesAutomatically") }
     }
@@ -264,12 +268,24 @@ final class Updater: ObservableObject {
         return manifest["Version"] as? String
     }
 
+    /// The version the plugin's code in Stream Deck was built as, if it says.
+    private static func installedPluginCode() -> String? {
+        let code = pluginManifest.deletingLastPathComponent().appendingPathComponent("bin/plugin.js")
+        guard let file = try? FileHandle(forReadingFrom: code) else { return nil }
+        defer { try? file.close() }
+        guard let head = try? file.read(upToCount: 256) else { return nil }
+        return Updates.pluginCodeVersion(String(decoding: head, as: UTF8.self))
+    }
+
     /// Reads which plugin Stream Deck has now, against the releases last checked.
     func refreshPlugin() {
         let installed = Self.installedPlugin()
+        let incomplete = installed.map { Updates.pluginIncomplete(manifest: $0, code: Self.installedPluginCode()) } ?? false
         pluginInstalled = installed
+        if pluginIncomplete != incomplete { pluginIncomplete = incomplete }
         plugin = installed.flatMap { have in
-            Updates.newerPlugin(found, than: have, app: build).map { PluginUpdate(installed: have, available: $0) }
+            // half installed: whichever plugin the releases have is worth installing again
+            Updates.newerPlugin(found, than: incomplete ? "0" : have, app: build).map { PluginUpdate(installed: have, available: $0) }
         }
     }
 

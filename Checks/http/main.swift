@@ -107,6 +107,8 @@ expect(String(decoding: LocalAPI.encode(backIn), as: UTF8.self)
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "lunch", moment: nil, dnd: false,
                                                         away: LocalAPI.Status.Away(kind: "lunch", until: nil))), as: UTF8.self)
        == #"{"away":{"kind":"lunch"},"dnd":false,"state":"lunch"}"#, "the Lunch key on")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "nearby", moment: nil, dnd: false, nearbyWord: "W HOUSE")), as: UTF8.self)
+       == #"{"dnd":false,"nearbyWord":"W HOUSE","state":"nearby"}"#, "the Nearby key with a word of its own")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")

@@ -70,12 +70,35 @@ const STACKED_CALENDAR_CASES = [
   ['lateMtg', 'busyIn', 2.0, 'late'], ['lateMtg', 'busyIn', 9.3, 'late'], ['onSite', 'free', 2.0, null], ['onSite', 'free', 9.0, null],
   ['lunch', 'free', 9.0, 'free']
 ];
+// the Nearby key's own word, through each way of fitting it: as it is; stacked a step
+// tighter; the announcement in the status face, stacked in it too; stacked on two lines
+// (keep in step with main.swift)
+const NEARBY_CASES = [
+  ['W HOUSE', 'wide', 2.0], ['W HOUSE', 'wide', 3.75], ['W HOUSE', 'wide', 9.0],
+  ['W HOUSE', 'stacked', 2.0], ['W HOUSE', 'stacked', 3.8], ['W HOUSE', 'stacked', 9.0],
+  ['STUDIO 2', 'wide', 2.0], ['STUDIO 2', 'stacked', 2.0],
+  ['1111111111', 'wide', 2.0], ['1111111111', 'wide', 3.75], ['1111111111', 'stacked', 2.0],
+  ['1111 1111', 'stacked', 2.0], ['1111 1111', 'stacked', 3.8]
+];
+// the words the sign takes for the Nearby key, as BarEngine takes them (keep in step with main.swift)
+const NEARBY_WORDS = [
+  [null, 'NEARBY'], ['', 'NEARBY'], ['  w   house ', 'W HOUSE'], ['Studio 2', 'STUDIO 2'], ['kitchen', 'KITCHEN'],
+  ['WAREHOUSE', 'NEARBY'], ['UPSTAIRS', 'NEARBY'], ['Café', 'NEARBY'], ['✈ AWAY', 'NEARBY'], ['1111111111..', '1111111111..']
+];
+const PROBLEMS = [['W HOUSE', null], ['WAREHOUSE', 'sign'], ['UPSTAIRS', 'key'], ['café', 'characters']];
+for (const [word, takes] of NEARBY_WORDS) {
+  if (E.nearbyWordOf(word) !== takes) { console.error(`the sign takes ${word} as ${E.nearbyWordOf(word)}, not ${takes}`); process.exit(2); }
+}
+for (const [word, problem] of PROBLEMS) {
+  if (E.nearbyProblem(word) !== problem) { console.error(`${word}: ${E.nearbyProblem(word)}, not ${problem}`); process.exit(2); }
+}
 const clock = { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 };
 
 const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(STACKED_CASES.map((c) => ['stacked', ...c, timer]))
   .concat(CALENDAR_CASES.map(([s, p, e, k]) => ['wide', s, p, e, k ? TIMERS[k] : undefined]))
-  .concat(STACKED_CALENDAR_CASES.map(([s, p, e, k]) => ['stacked', s, p, e, k ? TIMERS[k] : undefined]));
+  .concat(STACKED_CALENDAR_CASES.map(([s, p, e, k]) => ['stacked', s, p, e, k ? TIMERS[k] : undefined]))
+  .concat(NEARBY_CASES.map(([word, layout, e]) => [layout, 'nearby', 'free', e, undefined, word]));
 const size = (layout) => (layout === 'wide' ? E.COLS * E.ROWS : E.STACKED.cols * E.STACKED.rows) * 3;
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -83,9 +106,11 @@ const total = JOBS.reduce((sum, [layout]) => sum + size(layout), 0);
 if (buf.length !== total * 8) { console.error('size mismatch', buf.length, 'expected', total * 8); process.exit(2); }
 
 let worst = 0, failed = 0, offset = 0;
-JOBS.forEach(([layout, state, prev, e, tm]) => {
+JOBS.forEach(([layout, state, prev, e, tm, word]) => {
   const stacked = layout === 'stacked';
   const f = stacked ? new E.Frame(E.STACKED.cols, E.STACKED.rows) : new E.Frame();
+  // a word of its own must be the one drawn, not NEARBY in its place
+  if (E.setNearbyWord(word) !== (word || E.NEARBY)) { console.error('the sign won\'t take', word); process.exit(2); }
   (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm);
   const n = size(layout);
   let maxd = 0, at = -1, bad = 0;
@@ -98,7 +123,7 @@ JOBS.forEach(([layout, state, prev, e, tm]) => {
   offset += n;
   worst = Math.max(worst, maxd);
   const led = at >= 0 ? `x${Math.floor(at / 3) % f.w} y${Math.floor(at / 3 / f.w)}` : '';
-  console.log(`${layout.padEnd(8)} ${(state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
+  console.log(`${layout.padEnd(8)} ${((word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
   if (bad) failed++;
 });
 console.log(failed ? `\n${failed} of ${JOBS.length} frames differ` : `\nall ${JOBS.length} frames match (worst ${(worst * 255).toFixed(5)}/255)`);

@@ -6,7 +6,8 @@
  * The lit pill holds the status in a word or two, cut to fit; beneath it,
  * white on black, what the right of the bar shows — the countdown, or the
  * time with its colon blinking. The Mute, Leave, Nearby and Lunch keys are
- * drawn the same way: an icon in the pill, its word beneath.
+ * drawn the same way: an icon in the pill, its word beneath. The Nearby
+ * key's word is the app's: NEARBY, or the one it's been given in Settings.
  */
 import '../../simulator/fonts.js';
 import '../../simulator/engine.js';
@@ -48,26 +49,48 @@ export function timerOf(moment, now) {
   return { left: left, h: at.getHours(), m: at.getMinutes() };
 }
 
+/* The Nearby key's word as the app says it (view.nearbyWord): NEARBY
+   unless it's been given another, or one too wide to draw. */
+export const nearbyWordOf = (view) => E.nearbyWordOf(view && view.nearbyWord);
+
+/* A Nearby word's lines in the pill: NEARBY as NEAR-/BY; a word that fits
+   the 7-row face, on one line; else two, broken at the space that leaves
+   the longer line shortest; else one, in the 5-row face (drawLines). */
+export function nearbyLines(word) {
+  if (word === E.NEARBY) return WORDS.nearby;
+  const fits = (l) => E.textWidth('busy_regular_7', l) <= N - 2;
+  if (fits(word)) return [word];
+  let best = [word], longest = Infinity;
+  for (let i = word.indexOf(' '); i >= 0; i = word.indexOf(' ', i + 1)) {
+    const a = word.slice(0, i), b = word.slice(i + 1);
+    const l = Math.max(E.textWidth('busy_regular_7', a), E.textWidth('busy_regular_7', b));
+    if (fits(a) && fits(b) && l < longest) { best = [a, b]; longest = l; }
+  }
+  return best;
+}
+
 /* What the key says: the pill's lines, and the line beneath them — the
-   bar's right-hand top line, except where the pill can't carry the rest. */
-export function keyText(state, clock, timer) {
+   bar's right-hand top line, except where the pill can't carry the rest.
+   `nearby` is the Nearby key's word. */
+export function keyText(state, clock, timer, nearby = E.NEARBY) {
   const right = E.rightText(state, clock, timer);
   if ((state === 'late' || state === 'lateMtg') && timer) return { lines: WORDS[state], detail: right.bottom, blink: false };   // +01:20
   if ((state === 'callTbc' || state === 'busyTbc') && timer && timer.left <= 0) {
     return { lines: ['TBC', 'TILL'], detail: pad2(timer.h) + ':' + pad2(timer.m), blink: false };   // on now: till when
   }
-  return { lines: WORDS[state], detail: right.top, blink: right.blink };
+  return { lines: state === 'nearby' ? nearbyLines(nearby) : WORDS[state], detail: right.top, blink: right.blink };
 }
 
-/* Lines centred in the pill: the 7-row bold face, or the regular one where a line won't fit. */
+/* Lines centred in the pill: the 7-row bold face, or the regular one where
+   a line won't fit, or the 5-row one where it still won't (a Nearby word). */
 function drawLines(f, lines, pal, alpha) {
-  const font = lines.every((l) => E.textWidth('busy_bold_7', l) <= N - 2) ? 'busy_bold_7' : 'busy_regular_7';
-  const gap = 3;
-  let base = Math.round((PILL_H - (lines.length * 7 + (lines.length - 1) * gap)) / 2) + 6;
+  const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => lines.every((l) => E.textWidth(fn, l) <= N - 2)) || 'busy_regular_5';
+  const h = font === 'busy_regular_5' ? 5 : 7, gap = 3;
+  let base = Math.round((PILL_H - (lines.length * h + (lines.length - 1) * gap)) / 2) + h - 1;
   for (const line of lines) {
     E.drawText(f, font, line, Math.round((N - E.textWidth(font, line)) / 2), base, WHITE,
       { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha });
-    base += 7 + gap;
+    base += h + gap;
   }
 }
 
@@ -83,7 +106,7 @@ export function drawKey(view, date) {
     return f;
   }
   const clock = clockOf(date);
-  const text = keyText(view.state, clock, timerOf(view.moment, date.getTime()));
+  const text = keyText(view.state, clock, timerOf(view.moment, date.getTime()), nearbyWordOf(view));
   const pal = E.palOf(view.state);
   // LATE breathes on the bar; at one picture a second, it blinks. Muted on a call, it glows, as the bar does.
   const late = view.state === 'late' || view.state === 'lateMtg';
@@ -223,7 +246,8 @@ function drawIcon(f, rows, top, shadow, alpha) {
 }
 
 /* A key with a picture: the icon in the lit pill and its word beneath, in
-   the 7-row face — or the 5-row one, for a word too wide for it (NEARBY).
+   the 7-row face — or the 5-row one, for a word too wide for it (NEARBY;
+   a Nearby word of your own always fits that, E.nearbyProblem).
    Dimmed — pill, icon and word — while it's not in use. */
 function drawIconKey(f, rows, state, word, dimmed, wordDimmed = dimmed) {
   const pal = E.palOf(state);
@@ -248,7 +272,8 @@ export function drawMeetingKey(kind, face, hold) {
 }
 
 /* The away keys, lit while that key's on and dimmed while it isn't. Nearby
-   and Lunch are pictures with their word beneath, as Mute and Leave are;
+   and Lunch are pictures with their word beneath, as Mute and Leave are —
+   Nearby's the app's word for it;
    Back In keeps its words in the pill, and beneath them counts down to when
    you're back, or says +10 (a press is ten minutes more). */
 export const AWAY_KINDS = ['nearby', 'lunch', 'backIn'];
@@ -271,7 +296,7 @@ export function drawAwayKey(kind, view, date) {
   const on = face === 'on';
   const picture = AWAY_PICTURES[kind];
   if (picture) {
-    drawIconKey(f, KEY_ICONS[picture.icon], kind, picture.word, !on);
+    drawIconKey(f, KEY_ICONS[picture.icon], kind, kind === 'nearby' ? nearbyWordOf(view) : picture.word, !on);
     return f;
   }
   const pal = E.palOf(kind);

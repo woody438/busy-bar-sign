@@ -14,6 +14,9 @@ expect(SaverStatus.read(answer(back)) == SaverStatus(state: "backIn", moment: .i
        "BACK IN, its countdown and the wall")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "nearby", moment: nil, dnd: false))) == SaverStatus(state: "nearby"),
        "NEARBY, with no wall up")
+expect(SaverStatus.read(answer(LocalAPI.Status(state: "nearby", moment: nil, dnd: false, nearbyWord: "W HOUSE")))
+       == SaverStatus(state: "nearby", nearbyWord: "W HOUSE"),
+       "the Nearby key's own word")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)))?.state == "callMuted",
        "muted on a call reads as the bar draws it")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false)))?.state == "call", "on a call")

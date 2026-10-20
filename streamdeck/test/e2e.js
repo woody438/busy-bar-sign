@@ -15,13 +15,14 @@ import http from 'node:http';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { WebSocketServer } from 'ws';
+import { awayKeyImage } from '../src/key.js';
 
 const plugin = path.join(import.meta.dirname, '..', 'com.woodall.busybarsign.sdPlugin');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out: ${what}`)), ms));
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
-const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, pressWorks: true, requests: [] };
+const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, nearbyWord: null, pressWorks: true, requests: [] };
 const AWAY_KEYS = { '/away/nearby': 'nearby', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
@@ -49,7 +50,8 @@ function appHandler(req, res) {
     return;
   }
   const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {},
-    app.meeting ? { meeting: app.meeting } : {}, app.away ? { away: app.away } : {}, pressed ? { pressed } : {}));
+    app.meeting ? { meeting: app.meeting } : {}, app.away ? { away: app.away } : {}, pressed ? { pressed } : {},
+    app.nearbyWord ? { nearbyWord: app.nearbyWord } : {}));
   res.writeHead(200, { 'Content-Type': 'application/json', Connection: 'close' }).end(body);
 }
 let appServer = http.createServer(appHandler);
@@ -267,10 +269,16 @@ try {
   await tap(nearby);
   await imageOn('n1', 'grey', 1500, 'Nearby lit', swap);
   await imageOn('u1', 'dark', 1500, 'Lunch dimmed once Nearby is on', swap);
+  // given a word of its own in the app's settings, the Nearby key says it
+  const renamed = sent.length, ownWord = awayKeyImage('nearby', { away: { kind: 'nearby' }, nearbyWord: 'W HOUSE' }, new Date());
+  app.nearbyWord = 'W HOUSE';
+  await next((m) => m.event === 'setImage' && m.context === 'n1' && m.payload.image === ownWord, 2500, 'Nearby saying W HOUSE');
+  assert.ok(sent.slice(renamed).every((m) => m.event !== 'setImage' || m.context !== 'n1' || m.payload.image === ownWord));
+  app.nearbyWord = null;
   await tap(nearby);
   assert.equal(app.away, null, 'a second press ends it');
   for (const key of [backIn, lunch, nearby]) toPlugin(Object.assign({ event: 'willDisappear' }, key));
-  console.log('ok  Lunch and Nearby go on and off, one at a time');
+  console.log('ok  Lunch and Nearby go on and off, one at a time; Nearby says the word the app gives it');
 
   // the app quits: APP OFF; a press warns; it comes back
   await new Promise((r) => { appServer.close(r); appServer.closeAllConnections(); });

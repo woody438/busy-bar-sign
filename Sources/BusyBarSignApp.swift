@@ -136,7 +136,7 @@ private struct MenuContent: View {
         if detector.dndUntil != nil, status.state == .dnd {
             Text(detector.dndStatus() ?? "Do Not Disturb")
         } else {
-            Text(status.state.name)
+            Text(status.stateName)
         }
         Text(status.decision.why)
         Text(detector.detection.sourceLine)
@@ -174,7 +174,7 @@ private struct MenuContent: View {
         Divider()
 
         // the away keys, as on the Stream Deck
-        Toggle("Nearby", isOn: Binding(get: { away.kind == .nearby }, set: { _ in away.press(.nearby) }))
+        Toggle(away.nearbyName, isOn: Binding(get: { away.kind == .nearby }, set: { _ in away.press(.nearby) }))
         Toggle("Lunch", isOn: Binding(get: { away.kind == .lunch }, set: { _ in away.press(.lunch) }))
         Button(away.kind == .backIn ? "Back In: 10 More Minutes" : "Back In 10 Minutes") { away.press(.backIn) }
         if away.kind != nil {
@@ -209,7 +209,7 @@ private struct MenuContent: View {
             Button("Install Update (Build \(next.build)) and Reopen") { updater.install() }
         }
         if updater.plugin != nil {
-            Button("Update the Stream Deck Plugin…") { updater.updatePlugin() }
+            Button(updater.pluginIncomplete ? "Reinstall the Stream Deck Plugin…" : "Update the Stream Deck Plugin…") { updater.updatePlugin() }
         }
         Button("Check for Updates") { updater.check() }
         Button("Settings…") { openControls() }

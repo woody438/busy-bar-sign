@@ -30,7 +30,9 @@ import Foundation
  * {"app":"teams","canLeave":true,"muted":false}, `muted` left out when the
  * meeting's mute can't be read. `away` appears while an away key is on:
  * {"kind":"backIn","until":1760000000000} — nearby, lunch or backIn,
- * `until` (ms) for backIn only. `wall` appears while the full-screen display
+ * `until` (ms) for backIn only. `nearbyWord` appears once the Nearby key's
+ * been given a word of its own in Settings: "W HOUSE", in capitals, what the
+ * sign says in place of NEARBY. `wall` appears while the full-screen display
  * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
  * layout, for the screen saver to draw the wall as the wall is drawn.
  *
@@ -176,6 +178,8 @@ enum LocalAPI {
         var pressed: Pressed? = nil
         var away: Away? = nil
         var wall: Wall? = nil
+        /// The Nearby key's own word, if it's been given one.
+        var nearbyWord: String? = nil
     }
 
     static func encode(_ status: Status) -> Data {

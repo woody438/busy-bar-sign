@@ -26,6 +26,22 @@ final class Away: ObservableObject {
     }
     /// Why the screen saver didn't start, or nil.
     @Published private(set) var problem: String?
+    /// The Nearby key's word as you typed it in Settings ▸ Status ("W House"),
+    /// or "" for NEARBY. The sign says it in capitals wherever it would say
+    /// NEARBY, the Stream Deck and the screen saver too; the menus as typed.
+    /// Settings only sets one the sign can show (BarEngine.nearbyProblem).
+    @Published var nearbyWord = UserDefaults.standard.string(forKey: "nearbyWord") ?? "" {
+        didSet {
+            UserDefaults.standard.set(nearbyWord, forKey: "nearbyWord")
+            BarEngine.setNearbyWord(nearbyWord)
+        }
+    }
+
+    /// "Nearby", or the word the key's been given, for the menus and the controls.
+    var nearbyName: String {
+        BarEngine.nearbyWord == BarEngine.nearbyDefault ? "Nearby"
+            : nearbyWord.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
 
     var kind: AwayState.Kind? { state.kind }
     var until: Date? { state.until }
@@ -43,6 +59,10 @@ final class Away: ObservableObject {
     private var pendingSaver: DispatchWorkItem?
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
+
+    init() {
+        BarEngine.setNearbyWord(nearbyWord)
+    }
 
     func start() {
         guard timer == nil else { return }
@@ -81,7 +101,7 @@ final class Away: ObservableObject {
     /// "Lunch", "Back at 14:30 · 23 min", for the menus and the controls; nil when no key's on.
     func statusLine(at now: Date = Date()) -> String? {
         switch state.kind {
-        case .nearby: return "Nearby"
+        case .nearby: return nearbyName
         case .lunch: return "Lunch"
         case .backIn:
             guard let until = state.until else { return nil }

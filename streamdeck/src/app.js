@@ -3,7 +3,8 @@
  * (Sources/LocalAPI.swift has the details).
  *
  *   getStatus()   {"state":"call","moment":{"at":1760000000000,"kind":"countdown"},"dnd":false,
- *                  "meeting":{"app":"teams","muted":true,"canLeave":true}}
+ *                  "meeting":{"app":"teams","muted":true,"canLeave":true}}; "nearbyWord":"W HOUSE"
+ *                  once the Nearby key's been given a word of its own
  *   toggleDND()   as a double-click on the bar; resolves to the new status
  *   pressMute()   mutes or unmutes the Teams or Zoom meeting;
  *   pressLeave()  leaves it;
@@ -28,7 +29,9 @@ export function viewOf(status) {
     : null;
   const a = status.away;
   const away = a && typeof a.kind === 'string' ? { kind: a.kind, until: typeof a.until === 'number' ? a.until : null } : null;
-  return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting, away: away };
+  // the Nearby key's own word, if it's been given one: what the sign says in place of NEARBY
+  const nearbyWord = typeof status.nearbyWord === 'string' ? status.nearbyWord : null;
+  return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting, away: away, nearbyWord: nearbyWord };
 }
 
 function ask(method, path, timeout) {

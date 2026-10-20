@@ -20,6 +20,9 @@ final class StatusModel: ObservableObject {
     /// The calendar events you've said you're at in person (In Person, or the
     /// Status key during LATE): a call there shows MEETING, and never LATE.
     @Published private(set) var inPerson: Set<String> = []
+    /// What the sign says, in words, for the menus and the controls: the
+    /// Nearby key's own word for .nearby.
+    var stateName: String { state == .nearby ? away.nearbyName : state.name }
 
     let detector: CallDetector
     let calendar: CalendarSource
