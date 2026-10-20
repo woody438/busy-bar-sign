@@ -197,8 +197,8 @@ private struct StatusTab: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
-    /// The Nearby key's word as it's being typed: set on Return, or on leaving the field, once it fits;
-    /// emptied, NEARBY at once.
+    /// The Nearby key's word as it's being typed: set on Return, on leaving the field, or on closing
+    /// Settings or quitting, once it fits; emptied, NEARBY at once.
     @State private var nearbyDraft = ""
     @FocusState private var nearbyFocused: Bool
 
@@ -266,6 +266,11 @@ private struct StatusTab: View {
                     .onChange(of: nearbyDraft) { _, draft in if BarEngine.signWord(draft).isEmpty { setNearbyWord() } }
                     .onAppear { nearbyDraft = away.nearbyWord }
                     .onDisappear(perform: setNearbyWord)
+                    // Settings closed, or the app quit, before Return: keep the word typed
+                    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
+                        if (note.object as? NSWindow)?.contentViewController is NSHostingController<ControlsView> { setNearbyWord() }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in setNearbyWord() }
             }
             Row(label: "Start the screen saver (and lock the Mac)") {
                 Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
@@ -274,7 +279,7 @@ private struct StatusTab: View {
         if let warning = nearbyWarning { Warning(text: warning) }
         if let problem = away.problem { Warning(text: problem) }
         Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
-        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
+        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return, or close Settings, and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
 
         Card {
             Row(label: "Microphone", divider: false) {

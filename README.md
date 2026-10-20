@@ -209,11 +209,12 @@ menu and in Settings ▸ Status.
 ### Your own word for Nearby
 
 Settings ▸ Status ▸ **The Nearby key says**: type a word — *W House*,
-*Studio 2*, *On site* — and press Return. The sign says it in capitals
-wherever it would say NEARBY: for the Nearby key, for a locked Mac with
-no key on, on the wall, on the Stream Deck's Nearby and Status keys and in
-the screen saver. The menus and Settings say it as you typed it. Empty
-the field for NEARBY: that takes at once, everywhere, with no Return.
+*Studio 2*, *On site* — and press Return, or just close Settings (quitting
+keeps it too). The sign says it in capitals wherever it would say NEARBY:
+for the Nearby key, for a locked Mac with no key on, on the wall, on the
+Stream Deck's Nearby and Status keys and in the screen saver. The menus
+and Settings say it as you typed it. Empty the field for NEARBY: that
+takes at once, everywhere, with no Return.
 
 - **About seven letters**: as many as a Stream Deck key can show beneath
   the walker in its 5-row face (W HOUSE just fits; WAREHOUSE and UPSTAIRS
