@@ -332,17 +332,23 @@ private struct UpdatesCard: View {
             }
             if let plugin = updater.plugin {
                 Row(label: "Stream Deck plugin") {
-                    Text("\(plugin.installed) installed · \(plugin.available) ready to install").foregroundStyle(.secondary)
-                    Button("Update…") { updater.updatePlugin() }
+                    Text(updater.pluginIncomplete ? "\(plugin.installed) not fully installed"
+                                                  : "\(plugin.installed) installed · \(plugin.available) ready to install")
+                        .foregroundStyle(.secondary)
+                    Button(updater.pluginIncomplete ? "Reinstall…" : "Update…") { updater.updatePlugin() }
                 }
             } else if let installed = updater.pluginInstalled {
                 Row(label: "Stream Deck plugin") {
                     // up to date only once checked, with the app up to date too
-                    Text(updater.phase == .upToDate ? "\(installed) · up to date" : installed).foregroundStyle(.secondary)
+                    Text(updater.pluginIncomplete ? "\(installed) not fully installed"
+                         : updater.phase == .upToDate ? "\(installed) · up to date" : installed).foregroundStyle(.secondary)
                 }
             }
         }
         .onAppear { updater.refreshPlugin() }
+        if updater.pluginIncomplete {
+            Warning(text: "Stream Deck has the plugin's new version number but older code: an install stopped part way, so the keys may not do what this version does. Reinstall it; if the keys don't change, quit Stream Deck and open it again.")
+        }
         if let problem = updater.installProblem { Warning(text: problem) }
         Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")
     }

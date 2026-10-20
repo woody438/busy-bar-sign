@@ -5,6 +5,7 @@
  * inside the panel, and the app's answer read as the keys use it.
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { AWAY_KINDS, awayFace, awayKeyImage, drawAwayKey, N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText,
   leaveFace, MEETING_FACES, meetingKeyImage, muteFace, nearbyLines, nearbyWordOf, timerOf } from '../src/key.js';
@@ -162,5 +163,12 @@ for (const face of [...MEETING_FACES.map((f) => f.split(':')), ['leave', 'active
 check(() => assert.equal(meetingKeyImage('mute', 'live'), meetingKeyImage('mute', 'live')));
 check(() => assert.notEqual(meetingKeyImage('mute', 'live'), meetingKeyImage('mute', 'muted')));
 check(() => assert.notEqual(meetingKeyImage('leave', 'active'), meetingKeyImage('leave', 'active', true)));
+
+// the built code says the version it was built as on its first line, as the app reads it
+// (Updates.pluginCodeVersion): how the app tells a manifest over older code
+const sdPlugin = new URL('../com.woodall.busybarsign.sdPlugin/', import.meta.url);
+const manifest = JSON.parse(fs.readFileSync(new URL('manifest.json', sdPlugin), 'utf8'));
+check(() => assert.equal(fs.readFileSync(new URL('bin/plugin.js', sdPlugin), 'utf8').split('\n')[0],
+  `/* com.woodall.busybarsign ${manifest.Version} */`));
 
 console.log(`key drawing: ${checks} checks passed`);

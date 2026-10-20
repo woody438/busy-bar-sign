@@ -42,6 +42,18 @@ let main40 = Updates.Release(build: 40, version: "2.1", commit: "e", channel: "l
 expect(Updates.newerPlugin([main40], than: "1.2.0.0", app: 37) == nil, "no plugin while the app is behind")
 expect(Updates.newerPlugin([main40], than: "1.2.0.0", app: 40) == "1.2.1.0", "the plugin once the app is up to date")
 
+// the plugin's code against its manifest: an install that stopped part way
+expect(Updates.pluginCodeVersion("/* com.woodall.busybarsign 1.4.1.0 */\nimport x;") == "1.4.1.0", "reads the code's version")
+expect(Updates.pluginCodeVersion("/* com.woodall.busybarsign 1.4.1.0 */\r\n") == "1.4.1.0", "whatever the line ending")
+expect(Updates.pluginCodeVersion("import { createRequire } from 'node:module';\n") == nil, "code from before it said")
+expect(Updates.pluginCodeVersion("/* com.example.other 1.4.1.0 */") == nil, "another plugin's")
+expect(Updates.pluginCodeVersion("") == nil, "no code at all")
+expect(!Updates.pluginIncomplete(manifest: "1.4.1.0", code: "1.4.1.0"), "code and manifest agree")
+expect(!Updates.pluginIncomplete(manifest: "1.4.1", code: "1.4.1.0"), "the same version, written shorter")
+expect(Updates.pluginIncomplete(manifest: "1.5.0.0", code: "1.4.1.0"), "a new manifest over older code")
+expect(Updates.pluginIncomplete(manifest: "1.4.1.0", code: nil), "a manifest that should say, over code that doesn't")
+expect(!Updates.pluginIncomplete(manifest: "1.4.0.0", code: nil), "a plugin from before it said: can't tell")
+
 for f in failures { print("FAIL", f) }
 print(failures.isEmpty ? "updates: releases read and compared as designed" : "\(failures.count) update checks failed")
 exit(failures.isEmpty ? 0 : 1)

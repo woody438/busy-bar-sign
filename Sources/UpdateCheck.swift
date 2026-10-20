@@ -52,6 +52,28 @@ enum Updates {
         return best
     }
 
+    /// The version the plugin's code was built as, from the first line of its
+    /// bin/plugin.js: "/* com.woodall.busybarsign 1.4.1.0 */"
+    /// (streamdeck/rollup.config.mjs). Nil for code that doesn't say: before 1.4.1.
+    static func pluginCodeVersion(_ head: String) -> String? {
+        let line = head.prefix { !$0.isNewline }
+        let parts = line.split(separator: " ")
+        guard parts.count == 4, parts[0] == "/*", parts[1] == "com.woodall.busybarsign", parts[3] == "*/" else { return nil }
+        return String(parts[2])
+    }
+
+    /// The first plugin whose code says its version.
+    static let firstStampedPlugin = "1.4.1.0"
+
+    /// Whether Stream Deck has a plugin's manifest over other code: an install
+    /// that stopped part way, so the keys run an older plugin than Settings
+    /// would say. Code too old to say its version is only caught under a
+    /// manifest that's new enough to have said it.
+    static func pluginIncomplete(manifest: String, code: String?) -> Bool {
+        guard let code else { return !isNewer(firstStampedPlugin, than: manifest) }
+        return isNewer(code, than: manifest) || isNewer(manifest, than: code)
+    }
+
     /// Whether dotted version `a` is newer than `b`: "1.2.0.0" over "1.1.0.0".
     static func isNewer(_ a: String, than b: String) -> Bool {
         let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }

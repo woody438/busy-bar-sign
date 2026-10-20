@@ -833,6 +833,12 @@ menu-bar menu has **Check for Updates** too.
   asks. Missed it? **Update…** in Settings ▸ Status, or the menu's **Update
   the Stream Deck Plugin…**, opens it again. Settings ▸ Status shows the
   plugin's version.
+- An install can stop part way, leaving the new version's number over the
+  old plugin's code: the keys then do what the old one did, though the
+  version looks right. The plugin's code says its own version on its first
+  line (from 1.4.1), and the app checks the two agree: if they don't,
+  Settings says **not fully installed** with a **Reinstall…** button, and
+  the menu offers **Reinstall the Stream Deck Plugin…**.
 
 ## Signing
 
