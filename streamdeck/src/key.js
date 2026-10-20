@@ -26,8 +26,8 @@ const WHITE = E.PALETTE.white;
 /* The bar's words, cut to fit the pill in the 7-row face. */
 const WORDS = {
   call: ['ON A', 'CALL'], callMuted: ['ON A', 'CALL'], meeting: ['IN A', 'MTG'], free: ['FREE'], dnd: ['DND'],
-  callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], freeTil: ['FREE', 'TILL'],
-  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO'],
+  callIn: ['CALL', 'IN'], busyIn: ['BUSY', 'IN'], late: ['LATE'], lateMtg: ['LATE', 'MTG'], freeTil: ['FREE', 'TILL'],
+  callTbc: ['CALL', 'TBC'], busyTbc: ['BUSY', 'TBC'], away: ['AWAY'], lunch: ['LUNCH'], ooo: ['OOO'], onSite: ['ON', 'SITE'],
   nearby: ['NEAR-', 'BY'], backIn: ['BACK', 'IN']
 };
 export const STATES = Object.keys(WORDS);
@@ -74,7 +74,7 @@ export function nearbyLines(word) {
    `nearby` is the Nearby key's word. */
 export function keyText(state, clock, timer, nearby = E.NEARBY) {
   const right = E.rightText(state, clock, timer);
-  if (state === 'late' && timer) return { lines: WORDS.late, detail: right.bottom, blink: false };        // +01:20
+  if ((state === 'late' || state === 'lateMtg') && timer) return { lines: WORDS[state], detail: right.bottom, blink: false };   // +01:20
   if ((state === 'callTbc' || state === 'busyTbc') && timer && timer.left <= 0) {
     return { lines: ['TBC', 'TILL'], detail: pad2(timer.h) + ':' + pad2(timer.m), blink: false };   // on now: till when
   }
@@ -109,7 +109,8 @@ export function drawKey(view, date) {
   const text = keyText(view.state, clock, timerOf(view.moment, date.getTime()), nearbyWordOf(view));
   const pal = E.palOf(view.state);
   // LATE breathes on the bar; at one picture a second, it blinks. Muted on a call, it glows, as the bar does.
-  const dim = view.state === 'callMuted' ? 0.55 : view.state === 'late' && clock.s % 2 === 1 ? 0.34 : 0;
+  const late = view.state === 'late' || view.state === 'lateMtg';
+  const dim = view.state === 'callMuted' ? 0.55 : late && clock.s % 2 === 1 ? 0.34 : 0;
   E.drawPill(f, 0, N, pal, { h: PILL_H, dim: dim });
   drawLines(f, text.lines, pal, 1);
   const font = ['busy_bold_7', 'busy_regular_7'].find((fn) => E.clockTextWidth(fn, text.detail) <= N - 2) || 'busy_regular_5';

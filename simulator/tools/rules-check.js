@@ -27,7 +27,8 @@ expect('08:20 counts down 10:00', sAt('08:20').left, 600);
 expect('09:46 is 60 s late', sAt('09:46').left, 60);
 expect('14:47 free till 14:55', sAt('14:47').at, D.at(base, '14:55'));
 expect('14:09:59 still late', sAt('14:09:59').state, 'late');
-expect('14:10:00 gives up', sAt('14:10:00').state, 'free');
+expect('14:10:00 never joined: in person', sAt('14:10:00').state, 'meeting');
+expect('…counting down to the end', sAt('14:10:00').at, D.at(base, '15:30'));
 expect('09:35:00 warns exactly 10 min out', sAt('09:35:00').state, 'callIn');
 expect('09:34:59 too early to warn', sAt('09:34:59').state, 'free');
 
@@ -44,7 +45,7 @@ const kind = (o) => R.classify(ev(o)).kind;
 expect('teams via safelinks', kind({ attendees: 3, notes: 'https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fteams.microsoft.com%2Fl%2F' }), 'call');
 expect('teams by location', kind({ attendees: 3, location: 'Microsoft Teams Meeting' }), 'call');
 expect('french teams location', kind({ attendees: 3, location: 'Réunion Microsoft Teams' }), 'call');
-expect('teams + a room', kind({ attendees: 3, location: 'Microsoft Teams Meeting; UK Birmingham Room' }), 'call');
+expect('teams + a room', kind({ attendees: 3, location: 'Microsoft Teams Meeting; UK Birmingham Room' }), 'inPerson');
 expect('meet via checkpoint wrap', kind({ attendees: 2, notes: 'Join: https://protect.checkpoint.com/v2/r02/___https://meet.google.com/sbb-mnif-nvn___' }), 'call');
 expect('zoom', kind({ attendees: 2, notes: 'https://us02web.zoom.us/j/123' }), 'call');
 expect('own block with a link is a call', kind({ notes: 'https://teams.microsoft.com/l/meetup-join/x' }), 'call');
@@ -63,10 +64,58 @@ expect('cancelled', kind({ attendees: 9, cancelled: true }), 'ignore');
 expect('"Canceled:" title', kind({ title: 'Canceled: Supplier sync', attendees: 5, location: 'Microsoft Teams Meeting' }), 'ignore');
 expect('"Cancelled:" title', kind({ title: 'Cancelled: Lunch' }), 'ignore');
 expect('show as out of office', kind({ title: 'Paris', availability: 'ooo' }), 'ooo');
+expect('your lunch shown as out of office is lunch', kind({ title: 'Lunch', availability: 'ooo' }), 'lunch');
+expect('…an invited one stays out of office', kind({ title: 'Lunch with Paul', attendees: 1, availability: 'ooo' }), 'ooo');
+expect('…on site beats it', kind({ title: 'Lunch on site', availability: 'ooo' }), 'onSite');
+expect('…an all-day one stays out of office', kind({ title: 'Lunch', allDay: true, availability: 'ooo' }), 'ooo');
 expect('all-day busy', kind({ title: 'PARIS', allDay: true }), 'ooo');
 expect('all-day tentative', kind({ title: 'Maybe', allDay: true, availability: 'tentative' }), 'ignore');
 expect('tentative call', R.classify(ev({ attendees: 2, availability: 'tentative', location: 'Microsoft Teams Meeting' })).tentative, true);
 expect('tentative own block is not "tentative"', R.classify(ev({ title: 'Lunch', availability: 'tentative' })).tentative, false);
+
+// where a meeting is: the location says where you'll be, a link only that others can dial in
+const teams = 'https://teams.microsoft.com/l/meetup-join/x';
+const room = (o) => R.classify(ev(o)).room;
+expect('teams + a room is in a room', room({ attendees: 3, location: 'Microsoft Teams Meeting; UK Birmingham Room' }), true);
+expect('in person in a room', room({ attendees: 4, location: 'Teal Meeting Room (GB)' }), true);
+expect('a booked room, any name', kind({ attendees: 3, notes: teams, rooms: ['Arc'], location: 'Arc' }), 'inPerson');
+expect('…is a room', room({ attendees: 3, notes: teams, rooms: ['Arc'], location: 'Arc' }), true);
+expect('a huddle', room({ attendees: 3, location: 'LP Huddle' }), true);
+expect('the boardroom', room({ attendees: 3, notes: teams, location: 'Boardroom' }), true);
+expect('a room code', room({ attendees: 3, notes: teams, location: 'MTL-210' }), true);
+expect('teams + your office', kind({ attendees: 2, notes: teams, location: "Woody's office" }), 'inPerson');
+expect('…is not a room', room({ attendees: 2, notes: teams, location: "Woody's office" }), false);
+expect('your office, curly', kind({ attendees: 2, notes: teams, location: 'Woody’s Office' }), 'inPerson');
+expect('my office', kind({ attendees: 2, location: 'My office' }), 'inPerson');
+expect('no location', room({ attendees: 2 }), false);
+expect('a Solotech site', kind({ attendees: 7, location: 'Solotech - Nashville' }), 'inPerson');
+expect('…with a teams link', kind({ attendees: 7, notes: teams, location: 'Solotech - Nashville' }), 'inPerson');
+expect('…is not a room', room({ attendees: 7, location: 'Solotech - Nashville' }), false);
+expect('…but a room there is', room({ attendees: 7, location: 'Solotech - Nashville; MTL-210' }), true);
+expect('Solotech’s, curly', kind({ attendees: 3, location: 'Solotech’s warehouse' }), 'inPerson');
+expect('a client named like it is not', kind({ attendees: 3, location: 'Solotechnics Ltd, 4 High St' }), 'onSite');
+expect('a venue', kind({ attendees: 3, location: 'OVO Arena Wembley, Arena Square, London HA9 0AA' }), 'onSite');
+expect('a venue with a teams link', kind({ attendees: 3, notes: teams, location: 'Live Nation, 9348 Civic Center Dr, Beverly Hills' }), 'onSite');
+expect('a restaurant', kind({ title: 'Lunch with Paul', attendees: 1, location: 'The Ivy' }), 'onSite');
+expect('a venue and a room', kind({ attendees: 3, location: 'LP Huddle; The Ivy' }), 'inPerson');
+expect('tentative at a venue', R.classify(ev({ attendees: 3, availability: 'tentative', location: 'The Ivy' })).kind, 'inPerson');
+expect('…is tentative', R.classify(ev({ attendees: 3, availability: 'tentative', location: 'The Ivy' })).tentative, true);
+expect('TBC is nowhere', kind({ attendees: 2, location: 'TBC' }), 'inPerson');
+expect('a call app is nowhere', kind({ attendees: 2, location: 'Teams' }), 'inPerson');
+expect('a dial-in is nowhere', kind({ attendees: 2, location: '+44 20 7946 0000' }), 'inPerson');
+expect('a dial-in with words is nowhere', kind({ attendees: 2, location: 'Tel +44 (0)20 7946 0000' }), 'inPerson');
+expect('a link is nowhere', kind({ attendees: 2, location: 'https://bluejeans.com/123' }), 'inPerson');
+expect('…and a link with teams in it a call', kind({ attendees: 2, location: 'https://teams.microsoft.com/l/x' }), 'call');
+expect('a dash is nowhere', kind({ attendees: 2, location: '-' }), 'inPerson');
+expect('your own block somewhere is still away', kind({ title: 'Dentist', location: '12 High St' }), 'away');
+expect('on site', kind({ title: 'On site - Live Nation' }), 'onSite');
+expect('onsite', kind({ title: 'Wembley onsite' }), 'onSite');
+expect('on-site', kind({ title: 'On-site: Glastonbury' }), 'onSite');
+expect('"onsite" inside a word is not', kind({ title: 'Nonsite' }), 'away');
+expect('on site all day', kind({ title: 'ON SITE', allDay: true }), 'onSite');
+expect('on site, show as out of office', kind({ title: 'On site Coldplay', availability: 'ooo' }), 'onSite');
+expect('on site beats ✈', kind({ title: '✈ LHR→LAX on site' }), 'onSite');
+expect('an invite titled on site goes by its location', kind({ title: 'On site prep', attendees: 3, notes: teams }), 'call');
 
 // --- edge cases -----------------------------------------------------------------
 const M = 60000;
@@ -124,6 +173,9 @@ expect('joined a minute early: counts to its end', sAt('08:29:30').at, D.at(base
 expect('quoting call from lunch: free at 13:15', sAt('13:05').at, D.at(base, '13:15'));
 expect('calendar phone call counts down', sAt('15:10').left, 1200);
 expect('in-person meeting counts down', sAt('11:10').at, D.at(base, '11:30'));
+expect('lunch counts down to when you\'re back', sAt('12:40').at, D.at(base, '13:25'));
+expect('…45 minutes to go', sAt('12:40').left, 2700);
+expect('the lunch key alone has no time', R.decide({ now: 600 * M, events: [], away: 'lunch' }).left, undefined);
 const chain = [call('a', 600, 660), call('b', 660, 690), ev({ title: 'm', start: 695 * M, end: 720 * M, attendees: 2 }), call('d', 730, 760)];
 expect('back to back: through b and the 5-min gap to m', decide(630, chain, [[600, null]]).at, 720 * M);
 expect('…not across a 10-min gap', decide(630, chain, [[600, null]]).state, 'call');
@@ -160,7 +212,68 @@ expect('locked beats a no-meetings block', decideWith(600, [own('NO MEETINGS', 5
 expect('locked beats free till', decideWith(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]], { locked: true }).state, 'nearby');
 expect('locked on a call: on a call', decideWith(605, [], [[600, null]], { locked: true }).state, 'call');
 
-// custom keywords
+// out on site, a call never joined, and in person
+const venue = ev({ id: 'v', title: 'v', start: 600 * M, end: 660 * M, attendees: 3, location: 'The Ivy' });
+expect('at a venue: out on site', decide(610, [venue]).state, 'onSite');
+expect('…till it ends', decide(610, [venue]).at, 660 * M);
+expect('…no warning before', decide(595, [venue]).state, 'free');
+expect('…beats a call warning', decide(610, [venue, call('c', 615, 640)]).state, 'onSite');
+expect('…and a meeting', decide(610, [venue, meeting]).state, 'onSite');
+expect('…the mic beats it', decide(610, [venue], [[605, null]]).state, 'call');
+expect('out of office beats it', decide(610, [venue, own('Paris', 590, 700, { availability: 'ooo' })]).state, 'ooo');
+expect('on site all day', decide(610, [own('ON SITE', 0, 1440, { allDay: true }), call('c', 600, 630)]).state, 'onSite');
+const hybrid = call('h', 600, 660, { location: 'Microsoft Teams Meeting; LP Huddle' });
+expect('teams + a room: busy soon', decide(595, [hybrid]).state, 'busyIn');
+expect('…then in a meeting, not late', decide(601, [hybrid]).state, 'meeting');
+expect('…counting down', decide(601, [hybrid]).at, 660 * M);
+expect('never joined: late', decide(609.9, [call('a', 600, 660)]).state, 'late');
+expect('…then in person', decide(610, [call('a', 600, 660)]).state, 'meeting');
+expect('…counting down to its end', decide(610, [call('a', 600, 660)]).at, 660 * M);
+expect('…locked too', decideWith(620, [call('a', 600, 660)], [], { locked: true }).state, 'meeting');
+expect('…but joined and left: free', decide(640, [call('a', 600, 660)], [[600, 630]]).state, 'free');
+expect('…a tentative one still TBC', decide(620, [call('t', 600, 660, { availability: 'tentative' })]).state, 'callTbc');
+expect('…beats a warning', decide(625, [call('a', 600, 660), call('b', 630, 690)]).state, 'meeting');
+expect('…but not the next call starting late', decide(632, [call('a', 600, 660), call('b', 630, 690)]).state, 'late');
+expect('…and a no-meetings block', decide(620, [own('NO MEETINGS', 540, 720), call('a', 600, 660)]).state, 'meeting');
+expect('in person, said so: a meeting at once', decideWith(603, [call('a', 600, 660)], [], { inPerson: ['a'] }).state, 'meeting');
+expect('…till it ends', decideWith(603, [call('a', 600, 660)], [], { inPerson: ['a'] }).at, 660 * M);
+expect('…and busy soon before it', decideWith(595, [call('a', 600, 660)], [], { inPerson: ['a'] }).state, 'busyIn');
+expect('…joining on the Mac is still on a call', decideWith(605, [call('a', 600, 660)], [[604, null]], { inPerson: ['a'] }).state, 'call');
+expect('…only that call', decideWith(603, [call('a', 600, 660)], [], { inPerson: ['b'] }).state, 'late');
+const huddle = ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3, location: 'LP Huddle' });
+expect('a room meeting, still at the Mac: late for it', decideWith(603, [huddle], [], { active: true }).state, 'lateMtg');
+expect('…counting up', decideWith(603, [huddle], [], { active: true }).left, 180);
+expect('…from its start', decideWith(603, [huddle], [], { active: true }).at, 600 * M);
+expect('…not at the Mac: in the meeting', decideWith(603, [huddle], []).state, 'meeting');
+expect('…locked: in the meeting', decideWith(603, [huddle], [], { active: true, locked: true }).state, 'meeting');
+expect('…after ten minutes: in the meeting', decideWith(610, [huddle], [], { active: true }).state, 'meeting');
+expect('…said so: in the meeting', decideWith(603, [huddle], [], { active: true, inPerson: ['r'] }).state, 'meeting');
+expect('…on the mic: on a call', decideWith(603, [huddle], [[601, null]], { active: true }).state, 'call');
+expect('…joined, then off it: in the meeting', decideWith(608, [huddle], [[601, 605]], { active: true }).state, 'meeting');
+expect('…tentative: busy tbc', decideWith(603, [ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3,
+  location: 'LP Huddle', availability: 'tentative' })], [], { active: true }).state, 'busyTbc');
+expect('in your office, at the Mac: in the meeting', decideWith(603, [meeting], [], { active: true }).state, 'meeting');
+const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Solotech - Nashville' });
+expect('at a Solotech site: a meeting, not out on site', decide(610, [nashville]).state, 'meeting');
+expect('…and at the Mac, not late for it', decideWith(603, [nashville], [], { active: true }).state, 'meeting');
+expect('…busy soon before it', decide(595, [nashville]).state, 'busyIn');
+
+// your lunch, shown as Out of Office: LUNCH, as you're coming back
+const oofLunch = own('Lunch', 750, 805, { availability: 'ooo' });
+expect('lunch shown as out of office: lunch', decide(760, [oofLunch]).state, 'lunch');
+expect('…back at its end', decide(760, [oofLunch]).at, 805 * M);
+expect('…beats a call warning', decide(760, [oofLunch, call('c', 800, 815)]).state, 'lunch');
+expect('…a real out of office still beats it', decide(760, [oofLunch, own('Paris', 700, 900, { availability: 'ooo' })]).state, 'ooo');
+
+// custom words
+expect('custom office word', R.decide({ now: 610 * M, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'The Den' })],
+  config: { places: { office: ['the den'] } } }).state, 'meeting');
+expect('custom site word', R.decide({ now: 610 * M, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2,
+  location: 'Production Resource Group' })], config: { places: { sites: ['production resource group'] } } }).state, 'meeting');
+expect('custom room word', R.decide({ now: 603 * M, active: true, events: [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 2,
+  location: 'Studio 3' })], config: { places: { rooms: ['studio'] } } }).state, 'lateMtg');
+expect('custom on-site word', R.decide({ now: 610 * M, events: [own('Client day', 600, 660)],
+  config: { keywords: { onSite: ['client day'] } } }).state, 'onSite');
 expect('custom lunch word', R.decide({ now: 600 * M, events: [ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })],
   config: { keywords: { lunch: ['déjeuner'] } } }).state, 'lunch');
 

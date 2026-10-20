@@ -5,8 +5,8 @@
  * The events cover every rule: a call joined late and left early with
  * nothing after it, one left early with a call straight after, one never
  * joined, an in-person meeting, a tentative one, lunch with a call inside
- * it, a no-meetings block, your own blocks, a cancelled and a show-as-free
- * meeting, and a flight.
+ * it, a no-meetings block, your own blocks, a meeting at a venue, a
+ * cancelled and a show-as-free meeting, and a flight.
  */
 (function (root) {
   'use strict';
@@ -31,7 +31,8 @@
     { id: 'pricing', title: 'Pricing check', start: '14:30', end: '14:55', attendees: 3,
       location: 'Microsoft Teams Meeting', notes: TEAMS_NOTES },
     { id: 'phone', title: 'Call - mortgage advisor', start: '15:00', end: '15:30', notes: 'She will call your mobile.' },
-    { id: 'drive', title: 'Drive home', start: '15:30', end: '15:55' },
+    { id: 'venue', title: 'Venue walkthrough', start: '15:30', end: '15:55', attendees: 3, notes: TEAMS_NOTES,
+      location: 'OVO Arena Wembley, Arena Square, London HA9 0AA' },
     { id: 'cancelled', title: 'Canceled: Supplier sync', start: '16:00', end: '16:30', attendees: 5, cancelled: true,
       notes: TEAMS_NOTES },
     { id: 'showfree', title: 'Optional town hall', start: '16:40', end: '17:10', attendees: 300, availability: 'free',
@@ -86,11 +87,11 @@
     ['13:20', 'lunch', 'Back to lunch'],
     ['13:52', 'callIn', '1:1 at 14:00'],
     ['14:05', 'late', 'Not joined'],
-    ['14:11', 'free', 'Gave up after 10 min'],
+    ['14:11', 'meeting', 'Never joined after 10 min: in person'],
     ['14:40', 'call', 'On the pricing check'],
     ['14:47', 'freeTil', 'Left early; the mortgage call is straight after'],
     ['15:10', 'call', '“Call - …” block: phone call'],
-    ['15:40', 'away', 'Drive home'],
+    ['15:40', 'onSite', 'At the venue: OUT ON SITE'],
     ['16:10', 'free', 'Cancelled meeting: ignored'],
     ['16:45', 'free', 'Show As Free: ignored'],
     ['17:40', 'ooo', 'Flight']

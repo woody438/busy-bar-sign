@@ -102,7 +102,7 @@ final class LocalServer: ObservableObject {
             // the screen saver says which monitor it's on
             if let report = LocalAPI.saverReport(request) { saver.heard(report) }
         case .toggleDND:
-            detector.toggleDND()
+            status.pressStatus()                // Do Not Disturb, or in person during LATE
             status.evaluate()                   // decide now, so the answer has the new state
         case .meetingMute:
             return press(.mute, on: connection)

@@ -1,6 +1,6 @@
 {
 	"Name": "Busy Bar Sign",
-	"Version": "1.4.1.0",
+	"Version": "1.5.0.0",
 	"Author": "Ian Woodall",
 	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it. Mute and Leave keys for your Teams or Zoom meeting. Nearby, Lunch and Back In keys for when you leave your desk.",
 	"URL": "https://github.com/woody438/busy-bar-sign",

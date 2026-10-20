@@ -123,7 +123,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
             container.addSubview(hosting)
             let surface = BarSurface(frame: container.bounds)
             surface.autoresizingMask = [.width, .height]
-            surface.onDoubleClick = { [weak self] in self?.detector.toggleDND() }
+            surface.onDoubleClick = { [weak self] in self?.status.pressStatus() }
             container.addSubview(surface)
             w.contentView = container
             w.backgroundColor = .black

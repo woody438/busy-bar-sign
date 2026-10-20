@@ -11,6 +11,7 @@
  *   { id, title, start, end, allDay,
  *     availability: 'busy' | 'free' | 'tentative' | 'ooo',   // Outlook's Show As
  *     attendees: number,                                     // invitees, 0 for your own blocks
+ *     rooms: [string],                                       // the rooms booked on it, by name
  *     notes, location, url, cancelled }
  */
 (function (root) {
@@ -20,16 +21,25 @@
 
   const DEFAULTS = {
     leadMinutes: 10,      // CALL IN / BUSY IN / MAYBE IN this long before
-    lateMinutes: 10,      // LATE FOR CALL for at most this long, then FREE
+    lateMinutes: 10,      // LATE FOR CALL / MTG for at most this long, then MEETING
     joinEarlyMinutes: 5,  // a mic opened this long before a call counts as joining it
     chainGapMinutes: 5,   // meetings this close together count as back to back
     // Words in the titles of your own events (ones with no invitees).
     // Matched as whole words, any case; the first list that matches wins.
     keywords: {
+      onSite: ['on site', 'onsite', 'on-site'],
       ooo: ['✈', 'out of office', 'ooo'],
       lunch: ['lunch'],
       dnd: ['no meetings', 'focus', 'do not disturb'],
       call: ['call']
+    },
+    // Words in a meeting's location, matched the same way: your own office,
+    // Solotech's rooms (a room booked on the invite counts whatever its name),
+    // and Solotech's sites — somewhere at Solotech, not saying which room.
+    places: {
+      office: ['my office', "woody's office"],
+      rooms: ['room', 'huddle', 'boardroom'],
+      sites: ['solotech']
     }
   };
 
@@ -49,11 +59,13 @@
   }
 
   /* Whole-word, any-case match; a keyword that doesn't start with a letter
-     or digit (✈) matches anywhere. */
+     or digit (✈) matches anywhere. Curly apostrophes count as straight ones
+     (Outlook types "Woody’s office"). */
+  const fold = (s) => s.toLowerCase().replace(/[‘’]/g, "'");
   function matches(title, words) {
-    const t = (title || '').toLowerCase();
+    const t = fold(title || '');
     return words.some((w) => {
-      const k = w.toLowerCase().trim();
+      const k = fold(w).trim();
       if (!k) return false;
       if (!/^[a-z0-9]/.test(k)) return t.indexOf(k) >= 0;
       const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -61,23 +73,71 @@
     });
   }
 
+  /* Locations that say nothing about where: a link, a dial-in number, a call app, "TBC". */
+  const NOWHERE = ['tbc', 'tbd', 'tba', 'n/a', 'online', 'virtual', 'remote', 'phone', 'mobile', 'call', 'dial-in', 'dial in',
+    'teams', 'zoom', 'facetime', 'whatsapp', 'slack', 'skype', 'webex'];
+  const PHONE = /\+?\d[\d ().-]{7,}\d/;
+  const ROOM_CODE = /(^|[^a-z0-9])[a-z]{2,5}-\d{2,4}($|[^a-z0-9])/i;     // MTL-210
+
+  /*
+   * Where a meeting is, from its location:
+   *   office — yours (places.office)
+   *   room   — a Solotech room: booked on the invite, named with a word in
+   *            places.rooms, or a code like MTL-210
+   *   site   — somewhere at Solotech, not saying where (places.sites): "Solotech - Nashville"
+   *   away   — anywhere else: a client, a venue, a restaurant
+   *   null   — no location, or one that says nothing about where
+   * Outlook joins several locations with "; ".
+   */
+  function placeOf(ev, cfg) {
+    const places = (cfg || DEFAULTS).places;
+    let office = false, room = (ev.rooms || []).length > 0, site = false, away = false;
+    for (const raw of (ev.location || '').split(';')) {
+      const part = raw.trim();
+      if (!part || JOIN_PLACES.test(part) || JOIN_HOSTS.test(part) || /https?:\/\/|www\./i.test(part)) continue;
+      if (matches(part, places.office)) office = true;
+      else if (matches(part, places.rooms) || ROOM_CODE.test(part)) room = true;
+      else if (matches(part, places.sites)) site = true;
+      else if (/\p{L}/u.test(part) && !PHONE.test(part) && !matches(part, NOWHERE)) away = true;
+    }
+    return office ? 'office' : room ? 'room' : site ? 'site' : away ? 'away' : null;
+  }
+
   /*
    * What an event means for the sign:
    *   ignore   — cancelled (or titled "Canceled: …"), Show As Free, or an all-day event that isn't busy
-   *   ooo      — Show As Out of Office, an all-day busy event, or ✈ in your own block's title
-   *   call     — has a Teams / Zoom / Meet link
-   *   inPerson — has invitees but no link
+   *   ooo      — Show As Out of Office (but not your own lunch), an all-day busy event, or ✈ in
+   *              your own block's title
+   *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
+   *   call     — has a Teams / Zoom / Meet link, and no location that says where
+   *   inPerson — has invitees and no link, or a link and your office, a room or a Solotech site
+   *              as the location; `room` when it's in one of Solotech's rooms (LATE FOR MTG)
    *   lunch / dndBlock / phone / away — your own blocks, by title
-   * `tentative` is Show As Tentative, for calls and meetings: CALL TBC / BUSY TBC.
+   * Where beats how: a meeting's location says where you'll be, and a link
+   * only that others can dial in. `tentative` is Show As Tentative, for calls
+   * and meetings: CALL TBC / BUSY TBC (an off-site one too: you may not go).
    */
   function classify(ev, cfg) {
-    const kw = (cfg || DEFAULTS).keywords;
-    const out = (kind) => ({ kind: kind, tentative: ev.availability === 'tentative' && (kind === 'call' || kind === 'inPerson') });
+    const c = cfg || DEFAULTS, kw = c.keywords;
+    const out = (kind, room) => ({ kind: kind, room: !!room,
+      tentative: ev.availability === 'tentative' && (kind === 'call' || kind === 'inPerson') });
     if (ev.cancelled || /^cancell?ed:/i.test(ev.title || '') || ev.availability === 'free') return out('ignore');
-    if (ev.allDay) return out(ev.availability === 'busy' || ev.availability === 'ooo' ? 'ooo' : 'ignore');
-    if (ev.availability === 'ooo') return out('ooo');
-    if (hasJoinLink(ev)) return out('call');
-    if (ev.attendees > 0) return out('inPerson');
+    const gone = matches(ev.title, kw.onSite) ? 'onSite' : 'ooo';
+    if (ev.allDay) return out(ev.availability === 'busy' || ev.availability === 'ooo' ? gone : 'ignore');
+    if (ev.availability === 'ooo') {
+      // your own lunch, shown as Out of Office so no one books over it: you're coming back, so LUNCH
+      if (gone === 'ooo' && !(ev.attendees > 0) && matches(ev.title, kw.lunch)) return out('lunch');
+      return out(gone);
+    }
+    const link = hasJoinLink(ev);
+    if (ev.attendees > 0) {
+      const place = placeOf(ev, c);
+      if (place === 'away') return out(ev.availability === 'tentative' ? 'inPerson' : 'onSite');
+      if (link && place === null) return out('call');
+      return out('inPerson', place === 'room');
+    }
+    if (link) return out('call');
+    if (matches(ev.title, kw.onSite)) return out('onSite');
     if (matches(ev.title, kw.ooo)) return out('ooo');
     if (matches(ev.title, kw.lunch)) return out('lunch');
     if (matches(ev.title, kw.dnd)) return out('dndBlock');
@@ -130,6 +190,8 @@
    *             away: 'nearby' | 'lunch' | 'backIn' | null  — the away keys,
    *             awayUntil (ms or null)  — when you'll be back, for 'backIn',
    *             locked  — the Mac is locked, or its screen saver is on,
+   *             active  — someone's used the Mac in the last couple of minutes,
+   *             inPerson: [event ids]  — calls you said you're at in person,
    *             micSessions: [{ start, end }]  — debounced, end null while on,
    *             events: [...], config }
    * Returns { state, left, at, event, why }:
@@ -141,11 +203,19 @@
   function decide(input) {
     const cfg = Object.assign({}, DEFAULTS, input.config || {});
     cfg.keywords = Object.assign({}, DEFAULTS.keywords, (input.config || {}).keywords || {});
+    cfg.places = Object.assign({}, DEFAULTS.places, (input.config || {}).places || {});
     const now = input.now;
     const sessions = input.micSessions || [];
+    const marked = input.inPerson || [];
     const sign = (state, why, extra) => Object.assign({ state: state, why: why, event: null }, extra || {});
 
-    const evs = (input.events || []).map((e) => Object.assign({}, e, classify(e, cfg)))
+    const evs = (input.events || []).map((e) => {
+      const c = classify(e, cfg);
+      // you said you're there in person: a call becomes a meeting, and a room never says LATE
+      c.here = marked.indexOf(e.id) >= 0;
+      if (c.here && c.kind === 'call') c.kind = 'inPerson';
+      return Object.assign({}, e, c);
+    })
       .filter((e) => e.kind !== 'ignore')
       .sort((a, b) => a.start - b.start || a.end - b.end);
     const current = evs.filter((e) => e.start <= now && now < e.end);
@@ -182,18 +252,28 @@
 
     // 5. the calendar
 
-    // not here, by your own blocks — these outrank meetings, warnings included
+    // not here: out of office, out on site, your own blocks — these outrank meetings, warnings included
     if ((e = first((x) => x.kind === 'ooo'))) return sign('ooo', 'Out of office: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch: ' + quote(e), { event: e, at: e.end });
+    if ((e = first((x) => x.kind === 'onSite'))) return sign('onSite', 'Out on site: ' + quote(e), { event: e, at: e.end });
+    // lunch: you're coming back — a countdown to when
+    if ((e = first((x) => x.kind === 'lunch'))) return sign('lunch', 'Lunch: ' + quote(e), { event: e, left: (e.end - now) / 1000, at: e.end });
     if ((e = first((x) => x.kind === 'away'))) return sign('away', 'Away: ' + quote(e), { event: e, at: e.end });
     if ((e = first((x) => x.kind === 'phone'))) return sign('call', 'Call in your calendar: ' + quote(e), until(e));
 
-    // in a meeting, or should be on a call
-    if ((e = first((x) => x.kind === 'inPerson' && !x.tentative))) {
-      return sign('meeting', 'In a meeting: ' + quote(e), until(e));
+    // in a meeting, or should be: a meeting in a room that's started with you still at the Mac
+    if ((e = first((x) => x.kind === 'inPerson' && x.room && !x.tentative && !x.here && now - x.start < late &&
+      input.active && !input.locked && !joined(x, sessions, now, cfg)))) {
+      return sign('lateMtg', 'Late for ' + quote(e), { event: e, left: (now - e.start) / 1000, at: e.start });
     }
+    if ((e = first((x) => x.kind === 'inPerson' && !x.tentative))) {
+      return sign('meeting', (e.here ? 'In person: ' : e.room ? 'In a meeting, in a room: ' : 'In a meeting: ') + quote(e), until(e));
+    }
+    // or on a call: late for it, then — never joined — in it in person
     if ((e = first((x) => x.kind === 'call' && !x.tentative && now - x.start < late && !joined(x, sessions, now, cfg)))) {
       return sign('late', 'Late for ' + quote(e), { event: e, left: (now - e.start) / 1000, at: e.start });
+    }
+    if ((e = first((x) => x.kind === 'call' && !x.tentative && !joined(x, sessions, now, cfg)))) {
+      return sign('meeting', 'Never joined ' + quote(e) + ': in person', until(e));
     }
 
     // about to be busy
@@ -223,5 +303,5 @@
     return sign('free', 'Free');
   }
 
-  root.BusyRules = { DEFAULTS: DEFAULTS, classify: classify, decide: decide, hasJoinLink: hasJoinLink, matches: matches };
+  root.BusyRules = { DEFAULTS: DEFAULTS, classify: classify, decide: decide, hasJoinLink: hasJoinLink, matches: matches, placeOf: placeOf };
 })(typeof window !== 'undefined' ? window : globalThis);

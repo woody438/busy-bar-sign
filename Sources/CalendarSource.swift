@@ -45,6 +45,11 @@ final class CalendarSource: ObservableObject {
     @Published var dndWords: String { didSet { save(dndWords, "dndWords") } }
     @Published var callWords: String { didSet { save(callWords, "callWords") } }
     @Published var oooWords: String { didSet { save(oooWords, "oooWords") } }
+    @Published var onSiteWords: String { didSet { save(onSiteWords, "onSiteWords") } }
+    /// Comma-separated location words: your office, Solotech's rooms and its sites.
+    @Published var officeWords: String { didSet { save(officeWords, "officeWords") } }
+    @Published var roomWords: String { didSet { save(roomWords, "roomWords") } }
+    @Published var siteWords: String { didSet { save(siteWords, "siteWords") } }
 
     private let store = EKEventStore()
     private var timer: Timer?
@@ -53,6 +58,7 @@ final class CalendarSource: ObservableObject {
     init() {
         let d = UserDefaults.standard
         let kw = StatusConfig.Keywords()
+        let places = StatusConfig.Places()
         enabled = d.object(forKey: "calendarEnabled") as? Bool ?? true
         calendarID = d.string(forKey: "calendarID")
         leadMinutes = d.object(forKey: "warnMinutes") as? Int ?? 10
@@ -61,6 +67,10 @@ final class CalendarSource: ObservableObject {
         dndWords = d.string(forKey: "dndWords") ?? kw.dnd.joined(separator: ", ")
         callWords = d.string(forKey: "callWords") ?? kw.call.joined(separator: ", ")
         oooWords = d.string(forKey: "oooWords") ?? kw.ooo.joined(separator: ", ")
+        onSiteWords = d.string(forKey: "onSiteWords") ?? kw.onSite.joined(separator: ", ")
+        officeWords = d.string(forKey: "officeWords") ?? places.office.joined(separator: ", ")
+        roomWords = d.string(forKey: "roomWords") ?? places.rooms.joined(separator: ", ")
+        siteWords = d.string(forKey: "siteWords") ?? places.sites.joined(separator: ", ")
     }
 
     /// The rules' settings, from the controls.
@@ -73,6 +83,10 @@ final class CalendarSource: ObservableObject {
         c.keywords.dnd = words(dndWords)
         c.keywords.call = words(callWords)
         c.keywords.ooo = words(oooWords)
+        c.keywords.onSite = words(onSiteWords)
+        c.places.office = words(officeWords)
+        c.places.rooms = words(roomWords)
+        c.places.sites = words(siteWords)
         return c
     }
 
@@ -212,9 +226,11 @@ final class CalendarSource: ObservableObject {
         // one key per occurrence: every instance of a series shares an external ID
         let base = e.calendarItemExternalIdentifier ?? e.eventIdentifier ?? UUID().uuidString
         let occurrence = (e.occurrenceDate ?? start).timeIntervalSince1970
+        // a room booked on the invite: one of Solotech's, whatever it's called
+        let rooms = (e.attendees ?? []).filter { $0.participantType == .room }.map { $0.name ?? "" }
         return CalEvent(id: "\(base)#\(Int(occurrence))", title: e.title ?? "",
                         start: start.timeIntervalSince1970 * 1000, end: end.timeIntervalSince1970 * 1000,
-                        allDay: e.isAllDay, availability: availability, attendees: e.attendees?.count ?? 0,
+                        allDay: e.isAllDay, availability: availability, attendees: e.attendees?.count ?? 0, rooms: rooms,
                         notes: e.notes ?? "", location: e.location ?? "", url: e.url?.absoluteString ?? "",
                         cancelled: e.status == .canceled)
     }

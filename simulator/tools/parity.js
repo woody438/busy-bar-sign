@@ -51,7 +51,13 @@ const CALENDAR_CASES = [
   // the away keys: NEARBY alone in its pill, BACK IN counting down (an hour and more: 1H15)
   ['nearby', 'free', 2.0, null], ['nearby', 'free', 3.75, null], ['nearby', null, 9.0, null],
   ['backIn', 'nearby', 2.0, 'soon'], ['backIn', 'nearby', 3.75, 'soon'], ['backIn', 'free', 9.0, 'soon'],
-  ['backIn', 'lunch', 9.0, 'free'], ['call', 'backIn', 0.05, 'free']
+  ['backIn', 'lunch', 9.0, 'free'], ['call', 'backIn', 0.05, 'free'],
+  // a meeting in a room started without you, breathing as LATE does; out on site with a client
+  ['lateMtg', 'busyIn', 2.0, 'late'], ['lateMtg', 'busyIn', 3.75, 'late'], ['lateMtg', 'busyIn', 9.0, 'late'],
+  ['lateMtg', 'busyIn', 9.4, 'late'], ['meeting', 'lateMtg', 0.05, 'free'],
+  ['onSite', 'free', 2.0, null], ['onSite', 'free', 3.8, null], ['onSite', 'free', 9.0, null],
+  // lunch from the calendar: a countdown to when you're back
+  ['lunch', 'free', 3.75, 'free'], ['lunch', 'meeting', 9.0, 'soon']
 ];
 const STACKED_CALENDAR_CASES = [
   ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 9.0, 'free'], ['callIn', 'free', 2.0, 'soon'], ['callIn', 'free', 3.8, 'soon'],
@@ -60,7 +66,9 @@ const STACKED_CALENDAR_CASES = [
   ['ooo', 'free', 9.0, null], ['away', 'free', 2.0, null], ['callMuted', 'free', 2.0, 'free'], ['callMuted', 'call', 9.0, 'free'],
   ['callMuted', 'call', 9.5, 'free'],
   ['nearby', 'free', 2.0, null], ['nearby', 'free', 3.8, null], ['nearby', 'free', 9.0, null],
-  ['backIn', 'free', 2.0, 'soon'], ['backIn', 'free', 9.0, 'soon']
+  ['backIn', 'free', 2.0, 'soon'], ['backIn', 'free', 9.0, 'soon'],
+  ['lateMtg', 'busyIn', 2.0, 'late'], ['lateMtg', 'busyIn', 9.3, 'late'], ['onSite', 'free', 2.0, null], ['onSite', 'free', 9.0, null],
+  ['lunch', 'free', 9.0, 'free']
 ];
 // the Nearby key's own word, through each way of fitting it: as it is; stacked a step
 // tighter; the announcement in the status face, stacked in it too; stacked on two lines

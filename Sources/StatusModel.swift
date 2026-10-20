@@ -4,7 +4,8 @@ import SwiftUI
 /*
  * What the sign says, all things considered: the manual controls and the
  * microphone (CallDetector), Do Not Disturb, the away keys and whether the
- * Mac is locked (Away), and the calendar (CalendarSource), decided by
+ * Mac is locked or in use (Away), the calls you've said you're at in person,
+ * and the calendar (CalendarSource), decided by
  * StatusRules once a second and whenever one of them changes. On a call, the call app's own mute button
  * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
  * its muted look. Every view of the bar, the menus and the controls read
@@ -16,6 +17,9 @@ final class StatusModel: ObservableObject {
     @Published private(set) var decision = StatusDecision(state: "free", why: "Free")
     /// The moment the bar's right-hand side is about, or nil for the clock.
     @Published private(set) var moment: BarMoment?
+    /// The calendar events you've said you're at in person (In Person, or the
+    /// Status key during LATE): a call there shows MEETING, and never LATE.
+    @Published private(set) var inPerson: Set<String> = []
     /// What the sign says, in words, for the menus and the controls: the
     /// Nearby key's own word for .nearby.
     var stateName: String { state == .nearby ? away.nearbyName : state.name }
@@ -65,6 +69,27 @@ final class StatusModel: ObservableObject {
         evaluate()
     }
 
+    /// The call or meeting In Person would apply to: the one the sign is
+    /// warning about, or says you're late for. Nil when there's none.
+    var inPersonEvent: (id: String, title: String)? {
+        guard [.callIn, .late, .lateMtg].contains(state), let id = decision.eventID else { return nil }
+        return (id, decision.eventTitle ?? "")
+    }
+
+    /// "I'm here in person": the call or meeting on the sign shows MEETING till
+    /// it ends. Joining it on the Mac still shows ON A CALL.
+    func markInPerson() {
+        guard let event = inPersonEvent else { return }
+        inPerson.insert(event.id)
+        evaluate()
+    }
+
+    /// The Stream Deck's Status key, or a double-click on the bar: during LATE
+    /// FOR CALL or MTG you're there in person; otherwise Do Not Disturb on or off.
+    func pressStatus() {
+        if [.late, .lateMtg].contains(state), inPersonEvent != nil { markInPerson() } else { detector.toggleDND() }
+    }
+
     func evaluate() {
         let now = Date()
         var input = StatusInput(now: now.timeIntervalSince1970 * 1000)
@@ -73,9 +98,14 @@ final class StatusModel: ObservableObject {
         input.away = away.kind?.rawValue
         input.awayUntil = away.until.map { $0.timeIntervalSince1970 * 1000 }
         input.locked = away.locked
+        input.active = away.atMac
         input.micSessions = detector.micSessions
         input.events = calendar.isActive ? calendar.events : []
         input.config = calendar.config
+        // in person: only for events still in the calendar
+        let known = inPerson.filter { id in input.events.contains { $0.id == id } }
+        if known != inPerson { inPerson = known }
+        input.inPerson = Array(known)
         let d = StatusRules.decide(input)
         var next = BarState(rawValue: d.state) ?? .free
 
@@ -92,7 +122,7 @@ final class StatusModel: ObservableObject {
         // what the right of the pill counts to, or from
         var m: BarMoment?
         if let at = d.at.map({ Date(timeIntervalSince1970: $0 / 1000) }) {
-            if d.left != nil { m = BarMoment(at: at, kind: next == .late ? .countUp : .countdown) }
+            if d.left != nil { m = BarMoment(at: at, kind: next == .late || next == .lateMtg ? .countUp : .countdown) }
             else if [.freeTil, .callTbc, .busyTbc].contains(next) { m = BarMoment(at: at, kind: .fixed) }
         }
 
@@ -115,12 +145,14 @@ extension BarState {
         case .callIn: return "Call soon"
         case .busyIn: return "Meeting soon"
         case .late: return "Late for a call"
+        case .lateMtg: return "Late for a meeting"
         case .freeTil: return "Free till the slot ends"
         case .callTbc: return "Call to be confirmed"
         case .busyTbc: return "Meeting to be confirmed"
         case .away: return "Away"
         case .lunch: return "Lunch"
         case .ooo: return "Out of office"
+        case .onSite: return "Out on site"
         case .nearby: return "Nearby"
         case .backIn: return "Back in a few minutes"
         }
@@ -135,12 +167,13 @@ extension BarState {
         case .free: return "checkmark.circle"
         case .dnd: return "moon.circle.fill"
         case .callIn, .busyIn: return "bell.circle.fill"
-        case .late: return "exclamationmark.triangle.fill"
+        case .late, .lateMtg: return "exclamationmark.triangle.fill"
         case .freeTil: return "checkmark.circle.fill"
         case .callTbc, .busyTbc: return "pencil.circle"
         case .away: return "figure.walk.circle"
         case .lunch: return "fork.knife.circle"
         case .ooo: return "airplane.circle"
+        case .onSite: return "mappin.circle"
         case .nearby: return "figure.walk.motion"
         case .backIn: return "arrow.uturn.backward.circle"
         }
@@ -152,8 +185,8 @@ extension BarState {
         case .call, .callMuted, .meeting: return Color(red: 1, green: 0.114, blue: 0.208)
         case .dnd: return Color(red: 0.357, green: 0.271, blue: 1)
         case .free: return Color(red: 0.090, green: 0.922, blue: 0.475)
-        case .callIn, .busyIn, .late, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
-        case .away, .lunch, .ooo, .nearby, .backIn: return Color(red: 0.494, green: 0.518, blue: 0.573)
+        case .callIn, .busyIn, .late, .lateMtg, .freeTil, .callTbc, .busyTbc: return Color(red: 1, green: 0.635, blue: 0.102)
+        case .away, .lunch, .ooo, .onSite, .nearby, .backIn: return Color(red: 0.494, green: 0.518, blue: 0.573)
         }
     }
 }

@@ -93,7 +93,7 @@ final class FloatingWindow: NSObject, ObservableObject, NSMenuDelegate {
         let surface = BarSurface(frame: container.bounds)
         surface.autoresizingMask = [.width, .height]
         surface.draggable = true
-        surface.onDoubleClick = { [weak self] in self?.detector.toggleDND() }
+        surface.onDoubleClick = { [weak self] in self?.status.pressStatus() }
         surface.menu = contextMenu()
         container.addSubview(surface)
         p.contentView = container
