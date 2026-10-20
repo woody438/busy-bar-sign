@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
 import { AWAY_KINDS, awayFace, awayKeyImage, drawAwayKey, N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText,
-  leaveFace, MEETING_FACES, meetingKeyImage, muteFace, timerOf } from '../src/key.js';
+  leaveFace, MEETING_FACES, meetingKeyImage, muteFace, nearbyLines, nearbyWordOf, timerOf } from '../src/key.js';
 import { viewOf } from '../src/app.js';
 
 const E = globalThis.BusyEngine;
@@ -42,6 +42,18 @@ check(() => assert.equal(say('ooo', null).detail, '14:32'));
 check(() => assert.deepEqual(say('nearby', null), { lines: ['NEAR-', 'BY'], detail: '14:32', blink: true }));
 check(() => assert.deepEqual(say('backIn', { at: now + 29 * min + 41000 - 30, kind: 'countdown' }),
   { lines: ['BACK', 'IN'], detail: '29:41', blink: true }));
+
+// the Nearby key's own word, from the app: in capitals; NEARBY for none, or one too wide to draw
+check(() => assert.equal(nearbyWordOf({ nearbyWord: '  w   house ' }), 'W HOUSE'));
+check(() => assert.equal(nearbyWordOf({ nearbyWord: null }), 'NEARBY'));
+check(() => assert.equal(nearbyWordOf(null), 'NEARBY'));
+check(() => assert.equal(nearbyWordOf({ nearbyWord: 'WAREHOUSE' }), 'NEARBY'));          // too wide for the sign
+check(() => assert.equal(nearbyWordOf({ nearbyWord: 'UPSTAIRS' }), 'NEARBY'));           // too wide for the key
+check(() => assert.equal(nearbyWordOf({ nearbyWord: 'CAFÉ' }), 'NEARBY'));               // no É in the fonts
+check(() => assert.deepEqual(keyText('nearby', clock, null, 'W HOUSE'), { lines: ['W', 'HOUSE'], detail: '14:32', blink: true }));
+check(() => assert.deepEqual(nearbyLines('STUDIO'), ['STUDIO']));
+check(() => assert.deepEqual(nearbyLines('KITCHEN'), ['KITCHEN']));                      // one line, in the 5-row face
+check(() => assert.deepEqual(nearbyLines('NEARBY'), ['NEAR-', 'BY']));
 
 // nothing is cut off: every LED lit lies inside the panel's margin...
 function litColumns(frame) {
@@ -81,7 +93,8 @@ check(() => assert.doesNotThrow(() => keyImage({ state: 'notAState', moment: nul
 
 // the app's answer, as the keys read it
 check(() => assert.deepEqual(viewOf({ state: 'call', muted: true, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }),
-  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null }));
+  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null, nearbyWord: null }));
+check(() => assert.equal(viewOf({ state: 'nearby', dnd: false, nearbyWord: 'W HOUSE' }).nearbyWord, 'W HOUSE'));
 check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, meeting: { app: 'zoom', canLeave: true } }).meeting,
   { app: 'zoom', muted: null, canLeave: true }));
 check(() => assert.equal(viewOf({ state: 'free', dnd: false }).meeting, null));
@@ -108,6 +121,20 @@ for (const kind of AWAY_KINDS) {
 }
 check(() => assert.notEqual(awayKeyImage('backIn', awayView('backIn', now + 10 * min), new Date(now)),
   awayKeyImage('backIn', awayView('backIn', now + 20 * min), new Date(now))));
+
+// a Nearby word of its own, on the Nearby and Status keys: drawn, and never cut off — the
+// widest the sign takes among them (all 1s; M and W; two lines; one in the 5-row face)
+for (const word of ['W HOUSE', 'KITCHEN', 'STUDIO 2', 'M W M W', '1111111111..', 'A1 B2 C3']) {
+  check(() => assert.equal(E.nearbyWordOf(word), word, `${word}: taken`));
+  const view = Object.assign(awayView('nearby'), { state: 'nearby', nearbyWord: word });
+  check(() => assert.notEqual(awayKeyImage('nearby', view, new Date(now)), awayKeyImage('nearby', awayView('nearby'), new Date(now))));
+  check(() => assert.notEqual(keyImage(view, new Date(now)), keyImage(Object.assign({}, view, { nearbyWord: null }), new Date(now))));
+  for (const frame of [drawAwayKey('nearby', view, new Date(now)), drawKey(view, new Date(now + 1000))]) {
+    const cols = litColumns(frame);
+    check(() => assert.ok(cols.size > 0 && Math.min(...cols) >= 1 && Math.max(...cols) <= N - 2,
+      `${word}: type from column ${Math.min(...cols)} to ${Math.max(...cols)}`));
+  }
+}
 
 // the Mute and Leave keys' faces
 const inMeeting = (muted, canLeave = true) => ({ state: 'call', moment: null, dnd: false, meeting: { app: 'teams', muted, canLeave } });

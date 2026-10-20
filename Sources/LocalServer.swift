@@ -149,8 +149,11 @@ final class LocalServer: ObservableObject {
         }
         // where the full-screen display is, for the screen saver
         let wall = self.wall.displayNumber.map { LocalAPI.Status.Wall(display: $0, layout: DisplayWindow.layout.rawValue) }
+        // what the sign says in place of NEARBY, for the Stream Deck and the screen saver
+        let nearby = BarEngine.nearbyWord == BarEngine.nearbyDefault ? nil : BarEngine.nearbyWord
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
-                               dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall)
+                               dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall,
+                               nearbyWord: nearby)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {
