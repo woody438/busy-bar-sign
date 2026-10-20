@@ -17,6 +17,10 @@ expect(SaverStatus.read(answer(LocalAPI.Status(state: "nearby", moment: nil, dnd
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "nearby", moment: nil, dnd: false, nearbyWord: "W HOUSE")))
        == SaverStatus(state: "nearby", nearbyWord: "W HOUSE"),
        "the Nearby key's own word")
+expect(SaverStatus.read(answer(LocalAPI.Status(state: "nearby", moment: nil, dnd: false, dark: true)))
+       == SaverStatus(state: "nearby", dark: true),
+       "dark out of hours")
+expect(SaverStatus.read(answer(LocalAPI.Status(state: "free", moment: nil, dnd: false)))?.dark == false, "lit in hours")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)))?.state == "callMuted",
        "muted on a call reads as the bar draws it")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false)))?.state == "call", "on a call")

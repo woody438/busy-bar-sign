@@ -48,7 +48,12 @@ let calendarCases: [(BarState, BarState?, Double, String?)] = [
     (.lateMtg, .busyIn, 9.4, "late"), (.meeting, .lateMtg, 0.05, "free"),
     (.onSite, .free, 2.0, nil), (.onSite, .free, 3.8, nil), (.onSite, .free, 9.0, nil),
     // lunch from the calendar: a countdown to when you're back
-    (.lunch, .free, 3.75, "free"), (.lunch, .meeting, 9.0, "soon")
+    (.lunch, .free, 3.75, "free"), (.lunch, .meeting, 9.0, "soon"),
+    // FREE a quarter of an hour on: the icon and word scroll out to the left and back in from the
+    // right (and not after it, or a call); the next quarter's; and the other quiet states'
+    (.free, .call, 904.467, nil), (.free, .call, 905.067, nil), (.free, .call, 905.667, nil), (.free, .call, 906.267, nil),
+    (.free, .call, 907.0, nil), (.call, .free, 905.067, "free"), (.free, .call, 1804.767, nil),
+    (.nearby, nil, 905.0, nil), (.ooo, .free, 906.0, nil), (.lunch, .free, 905.5, "free")
 ]
 let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.meeting, .free, 2.0, "free"), (.meeting, .free, 9.0, "free"), (.callIn, .free, 2.0, "soon"), (.callIn, .free, 3.8, "soon"),
@@ -59,7 +64,9 @@ let stackedCalendarCases: [(BarState, BarState?, Double, String?)] = [
     (.nearby, .free, 2.0, nil), (.nearby, .free, 3.8, nil), (.nearby, .free, 9.0, nil),
     (.backIn, .free, 2.0, "soon"), (.backIn, .free, 9.0, "soon"),
     (.lateMtg, .busyIn, 2.0, "late"), (.lateMtg, .busyIn, 9.3, "late"), (.onSite, .free, 2.0, nil), (.onSite, .free, 9.0, nil),
-    (.lunch, .free, 9.0, "free")
+    (.lunch, .free, 9.0, "free"),
+    // the scroll, stacked
+    (.free, .call, 904.767, nil), (.free, .call, 905.967, nil), (.onSite, .free, 905.3, nil)
 ]
 // the Nearby key's own word, through each way of fitting it: as it is; stacked a step
 // tighter; the announcement in the status face, stacked in it too; stacked on two lines
@@ -85,6 +92,15 @@ let problems: [(String, BarEngine.NearbyProblem?)] = [
 ]
 for (word, problem) in problems where BarEngine.nearbyProblem(word) != problem {
     FileHandle.standardError.write(Data("\(word): \(String(describing: BarEngine.nearbyProblem(word))), not \(String(describing: problem))\n".utf8))
+    exit(1)
+}
+// how bright the LEDs are: dimmed only after half an hour of a quiet state (keep in step with parity.js)
+let rests: [(BarState, Double, Double)] = [
+    (.free, 0, 1), (.free, 1800, 1), (.free, 1815, 0.86), (.free, 1830, 0.83), (.nearby, 7200, 0.83),
+    (.call, 7200, 1), (.dnd, 7200, 1), (.callIn, 7200, 1)
+]
+for (state, e, level) in rests where BarEngine.restAt(1000 + e, state, since: 1000) != level {
+    FileHandle.standardError.write(Data("\(state) at \(e) s rests at \(BarEngine.restAt(1000 + e, state, since: 1000)), not \(level)\n".utf8))
     exit(1)
 }
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)

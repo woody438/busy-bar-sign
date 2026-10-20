@@ -21,7 +21,10 @@ sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
 Teams or Zoom meeting from anywhere ([below](#stream-deck)). Leaving your
 desk, a **Nearby** (or a word of your own for it, such as **W HOUSE**),
 **Lunch** or **Back In** key (Back In counts down: ten minutes a press) locks the Mac and the sign stays up on every screen,
-through its own **screen saver** ([below](#while-youre-away)). It **updates
+through its own **screen saver** ([below](#while-youre-away)). It **looks
+after the screen** — an OLED's especially: the LEDs move a pixel at a time,
+ease down when nothing's changed for half an hour, and out of hours the wall
+goes dark ([below](#looking-after-the-screen)). It **updates
 itself** when you're off calls ([below](#updates)).
 
 **See it without installing anything:** download the repo and open
@@ -132,8 +135,49 @@ open "build/Build/Products/Release/Busy Bar Sign.app"
   so nothing covers it while you're in another app. Clicking it never pulls
   focus from a call: a double-click toggles Do Not Disturb (or, during LATE
   FOR, says you're there in person), and single clicks do nothing.
-- While it's showing, the Mac won't let displays sleep. macOS applies that to
-  every display, not just the wall.
+- While it's showing, the Mac won't let displays sleep — in the wall's hours.
+  macOS applies that to every display, not just the wall. Out of hours the
+  wall goes dark and the displays may sleep ([Looking after the
+  screen](#looking-after-the-screen)).
+
+## Looking after the screen
+
+A wall display shows the same thing for hours on end, and an OLED remembers:
+what's lit longest wears fastest and leaves a ghost. So the wall (and the
+screen saver) looks after its screen in four ways. The floating window, on
+your desk screen among everything else, doesn't.
+
+| | What it does | Why |
+|---|---|---|
+| **Out of hours** | Outside 07:30–19:00, Monday to Friday, while the sign would say FREE or that you're not here, the wall goes black — and the screen saver with it — and the app lets the displays sleep. A call, a meeting or a warning lights it as usual. | The big one: about two thirds of the week, with nobody there to read it. Black on an OLED is its pixels off. |
+| **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. It replaces 2.4's jump of up to 3 pixels every 3 minutes, which was smaller than an LED. |
+| **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light. Any change brings them straight back, with its announcement. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
+| **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
+
+Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark.
+The simulator shows all four: **Quiet hour** plays the orbit, resting and
+the scroll sped up, and **Out of hours** the dark (as does **Calendar
+day**, from 06:45 to 07:30).
+
+**Settings ▸ Displays ▸ Out of hours** sets the hours and the days, or turns
+it off. **Let the displays sleep then** (on by default) stops the app keeping
+the displays awake out of hours, so macOS switches them off by Lock Screen ▸
+"Turn display off when inactive" once the Mac's idle — and a TV can go to
+standby, which is when many OLED TVs run their own short pixel-refresh cycle. The
+Mac itself is still kept awake. When the hours begin, or a call lights the
+wall out of hours, the app wakes the displays — unless the Mac's locked, as
+then they'd show only its lock screen: they come on when you're back at it.
+
+Worth knowing:
+
+- **A TV may not come back by itself.** A monitor wakes when the Mac sends it
+  a picture; many TVs, once in standby, wait for their remote. If the wall
+  stays off in the morning, turn **Let the displays sleep then** off: the
+  wall still goes black out of hours (pixels off), the TV just stays on.
+- The TV's own care still helps: leave its pixel shift and logo dimming on,
+  and let it run its pixel refresher when it asks.
+- Out of hours is the Mac's own clock and time zone, and a span past
+  midnight (22:00 to 06:00) belongs to the day it starts.
 
 ## The floating window
 
@@ -510,7 +554,7 @@ The same controls are in three places:
   app is in front. It opens by itself on first launch. Five tabs:
   **Status** (the bar live, why it says what it says, Sign, Do Not
   Disturb, the away keys and the Nearby key's word, and Updates), **Displays** (the full-screen
-  display and the floating window side by side, and the screen saver), **Calendar** (which calendar, the warning
+  display and the floating window side by side, the wall's hours, and the screen saver), **Calendar** (which calendar, the warning
   and late times, a guide to what to put in Outlook, and the title words),
   **Microphone** (what counts as a call, and what's using the mic now, to
   ignore) and **Meetings** (Accessibility, showing you're muted, the Stream
@@ -675,7 +719,8 @@ In the code:
 | `Sources/Bar/BarEngine.swift` | Decides every LED's colour for a moment in time. A line-for-line port of `simulator/engine.js`. |
 | `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. |
 | `Sources/Bar/LEDPanelView.swift` | Runs engine and raster on each display refresh and hands the pixels to a layer. |
-| `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body and where the LEDs go. |
+| `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body, where the LEDs go, and their orbit. |
+| `Sources/WallHours.swift` | The wall's hours: when it goes dark. |
 | `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
 | `Sources/CallDetector.swift`, `AudioProbe.swift`, `CameraProbe.swift` | Call detection. |
 | `Sources/StatusRules.swift` | Decides what the sign says from the controls, the mic and the calendar. A line-for-line port of `simulator/rules.js`. |
@@ -683,7 +728,7 @@ In the code:
 | `Sources/MuteDetector.swift`, `MuteLabels.swift` | Whether you're muted, from the call app's own mute button (Accessibility). |
 | `Sources/Meeting/` | Teams and Zoom through Accessibility, for the sign and the Mute and Leave keys: `MeetingEngine` (a port of Teams Meeting Keys' helper), `MeetingPatterns` (the words it reads), `AXMeetingBackend` (the Mac's side, and the shortcut fallback), `MeetingKeys` (a key press, start to finish). |
 | `Sources/StatusModel.swift` | Runs the rules once a second and on every change; everything that shows the sign reads it. |
-| `Sources/DisplayWindow.swift` | The full-screen window. |
+| `Sources/DisplayWindow.swift` | The full-screen window, and keeping the Mac and its displays awake (or letting them sleep, out of hours). |
 | `Sources/FloatingWindow.swift` | The floating window. |
 | `Sources/BusyBarSignApp.swift`, `ControlsWindow.swift` | The menus and the controls window. |
 | `Sources/Away.swift`, `AwayState.swift` | The away keys, and whether you're at the Mac: locked, or the screen saver on. Starts the screen saver after a key. |
@@ -705,13 +750,15 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 134 moments —
+- **The Swift engine matches the simulator LED for LED** across 147 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
-  it, LUNCH counting down to when you're back, and words of your own for
-  Nearby through every way of fitting one — to within float rounding. Both
-  take and turn away the same words for Nearby. What you see in the
+  it, LUNCH counting down to when you're back, words of your own for
+  Nearby through every way of fitting one, and the quarter-hourly scroll
+  out and back in — to within float rounding. Both
+  take and turn away the same words for Nearby, and rest the LEDs at the
+  same brightness at the same moments. What you see in the
   simulator is what the app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 3,168
   cases: a scripted working day every 15 seconds — a call joined late and
@@ -725,6 +772,11 @@ errors or warnings in its code.
   in person, a meeting in a room started with you at the Mac, and the away
   keys and a locked Mac across the day. The rules themselves have 229
   hand-checked cases (`simulator/tools/rules-check.js`).
+- **The wall's hours** (`Checks/hours`): in hours from 07:30 to just before
+  19:00 on weekdays, out all weekend, the same either side of the clocks
+  going back; dark only out of hours and only with nothing going on; a span
+  past midnight belonging to the day it starts; the settings kept, and
+  nonsense in them left out.
 - **The away keys** (`Checks/away`): Nearby and Lunch on and off, Back
   In ten minutes a press from the first (and from then, once it's run out),
   no further than a working day, and running out on time.
@@ -738,6 +790,9 @@ errors or warnings in its code.
 - **Every LED lands on whole pixels** on eight common displays — 4K at 1× and
   2×, 1080p, 1440p, 5K, 6K, ultrawide — and at all three floating sizes at 1×
   and 2×, with the whole device inside the window. (This check caught a real bug.)
+  **The orbit** steps a pixel at a time, stays within an LED and visits every
+  position evenly at nine pitches, and at its furthest the wide bar's LEDs
+  stay on the case's face (which they don't with smaller corners).
 - **A frame takes under 3 ms** for the wide bar at 4K in the worst case, and
   under 1 ms for the stacked layout at 960 × 540, on four slow virtual
   cores — the display allows 16.7 ms.
@@ -786,7 +841,7 @@ errors or warnings in its code.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
-  the plugin reads.
+  the plugin and the screen saver read, `dark` out of hours included.
 - The pixel fonts decode correctly, and every source file parses.
 
 **Run on a real Mac** — its author's, with an Outlook calendar through
@@ -813,7 +868,13 @@ Calendar.app and an Elgato Stream Deck:
   said OUT OF OFFICE (your own lunch is now LUNCH, counting down to when
   you're back).
 
-**Not yet run on a real Mac:** the rest of 2.4's places and in person —
+**Not yet run on a real Mac:** 2.5's care of the screen in the app itself —
+the orbit, resting and dark wall drawn by `BarDisplayView` and the screen
+saver, the Out of hours card, and above all `DisplayWindow` letting the
+displays sleep out of hours and waking them when the hours begin
+(`IOPMAssertionDeclareUserActivity`), on whatever the wall is. The engine,
+the orbit and the hours beneath them are checked, and the simulator shows
+the look. And the rest of 2.4's places and in person —
 whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during

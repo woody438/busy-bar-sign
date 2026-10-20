@@ -276,6 +276,55 @@ enum BarEngine {
         static var settled: Double { swap + hold + collapse }
     }
 
+    /*
+     * Looking after the wall's screen. When nothing's going on — FREE, or
+     * not here (quiet) — the same screen can stay up for hours, so:
+     *   - after half an hour unchanged the LEDs ease down to about 60% of
+     *     their light, over 20 s; any change brings them straight back
+     *   - every 15 minutes the pill's icon and word scroll out to the left
+     *     and back in from the right, as a sign does now and then
+     * Calls, meetings and warnings always show at full brightness, still.
+     */
+    enum Rest {
+        static let after = 30 * 60.0
+        static let fade = 20.0
+        /// Before the LED gamma: 0.83 of the value is about 60% of the light.
+        static let level = 0.83
+    }
+    enum Scroll {
+        static let every = 15 * 60.0
+        static let duration = 2.4     // out to the left in half of it, in from the right in the other
+    }
+
+    /// FREE, or not here: nobody's kept out, so the sign can rest.
+    static func quiet(_ state: BarState) -> Bool {
+        switch state {
+        case .free, .away, .lunch, .ooo, .onSite, .nearby: return true
+        default: return false
+        }
+    }
+
+    /// How bright the LEDs are, 0...1: 1 except in a quiet state that's been up half an hour.
+    /// In hundredths, so a fade reuses its LEDs' drawings.
+    static func restAt(_ now: Double, _ state: BarState, since: Double) -> Double {
+        guard quiet(state) else { return 1 }
+        let k = smooth(Rest.after, Rest.after + Rest.fade, now - since)
+        return (lerp(1, Rest.level, k) * 100).rounded() / 100
+    }
+
+    /// How far the pill's icon and word are scrolled, in LEDs: 0 except for a moment every
+    /// 15 minutes of a quiet state, once the announcement's done.
+    static func scrollAt(_ now: Double, _ state: BarState, since: Double, pillW: Double) -> Int {
+        guard quiet(state) else { return 0 }
+        let s = now - since - Timing.settled
+        guard s >= Scroll.every else { return 0 }
+        let p = s.truncatingRemainder(dividingBy: Scroll.every), half = Scroll.duration / 2
+        guard p < Scroll.duration else { return 0 }
+        // far enough that the icon and word, shadow and all, are out of the pill
+        let away = (Double(statusContentWidth(state)) + pillW) / 2 + 2
+        return p < half ? -jsRound(away * easeIn(p / half)) : jsRound(away * (1 - easeOut((p - half) / half)))
+    }
+
     static let days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
 
     /// Pictograms, drawn in the firmware's style: white, hard shadow. The mic
@@ -582,7 +631,8 @@ enum BarEngine {
             let slide = jsRound(Layout.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
             drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: Int(edge.rounded(.up)) + 2)
         } else {
-            drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0)
+            drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
+                       scroll: scrollAt(now, state, since: since, pillW: Layout.statusW))
         }
 
         if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
@@ -646,11 +696,15 @@ enum BarEngine {
                  baseY: h.base, colour: white, style: heroStyle(state, pal))
     }
 
+    /// `scroll`: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
     static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                           timer: BarTimer?, slide: Int) {
+                           timer: BarTimer?, slide: Int, scroll: Int = 0) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
-        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX, w: Layout.statusW, alpha: 1, clip: nil)
+        let clip: (lo: Int, hi: Int)? = scroll == 0 ? nil
+            : (lo: Int(Layout.statusX) + 1, hi: Int(Layout.statusX + Layout.statusW) - 1)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX + Double(scroll), w: Layout.statusW,
+                          alpha: 1, clip: clip)
         drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
     }
 
@@ -1113,18 +1167,22 @@ enum BarEngine {
             let slide = jsRound(Stacked.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
             drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: h + 2)
         } else {
-            drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0)
+            drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
+                              scroll: scrollAt(now, state, since: since, pillW: Stacked.pillW))
         }
 
         if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
     }
 
     static func drawStackedSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                                  timer: BarTimer?, slide: Int) {
+                                  timer: BarTimer?, slide: Int, scroll: Int = 0) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH,
                  dim: pulseAt(now, state))
-        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: 1, clip: nil)
+        let clip: (lo: Int, hi: Int)? = scroll == 0 ? nil
+            : (lo: Int(Stacked.pillX) + 1, hi: Int(Stacked.pillX + Stacked.pillW) - 1)
+        drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX + Double(scroll), w: Stacked.pillW,
+                          alpha: 1, clip: clip)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
     }
 

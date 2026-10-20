@@ -90,4 +90,42 @@ struct BarGeometry {
     func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
         CGRect(x: origin.x + x * u, y: origin.y + y * u, width: w * u, height: h * u)
     }
+
+    // MARK: - The orbit
+
+    /*
+     * Looking after the wall's screen: the LEDs never stand still. They move
+     * a device pixel at a time along a path through every position within
+     * one LED — there and back, snaking a row at a time — so every pixel of
+     * the screen spends as long under a dot as in a gap, and the edges of the
+     * pill and the type blur across a whole LED rather than burn in. A
+     * one-way pass takes about an hour whatever the pitch: a step every 14 s
+     * at 16 pixels an LED, every 3.5 s at 32. Whole pixels, so the dots stay
+     * sharp. In the wide layout the LEDs move inside the case, which stays put.
+     */
+    struct Offset: Equatable {
+        var x = 0, y = 0
+    }
+
+    /// Where the LEDs are, in device pixels from their place, at `t` (seconds since 1970).
+    static func orbit(at t: Double, pitch: Int) -> Offset {
+        let p = max(pitch, 1), cells = p * p
+        guard cells > 1 else { return Offset() }
+        let period = 2 * (cells - 1)
+        var i = Int((t / orbitStep(pitch: p)).rounded(.down)) % period
+        if i < 0 { i += period }
+        if i >= cells { i = period - i }                 // and back
+        let row = i / p
+        let col = row % 2 == 0 ? i % p : p - 1 - i % p   // snaking
+        return Offset(x: col - p / 2, y: row - p / 2)
+    }
+
+    /// Seconds between steps: a one-way pass in an hour, a step every 2 to 60 s.
+    static func orbitStep(pitch: Int) -> Double {
+        min(60, max(2, 3600 / Double(max(pitch * pitch, 1))))
+    }
+
+    /// The LEDs' corners in the wide layout, in 4K pixels: rounded, so that
+    /// moving half an LED they stay inside the case's rounded face.
+    static let fieldCorner: CGFloat = 40
 }

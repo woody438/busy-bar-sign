@@ -153,7 +153,7 @@ final class LocalServer: ObservableObject {
         let nearby = BarEngine.nearbyWord == BarEngine.nearbyDefault ? nil : BarEngine.nearbyWord
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
                                dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall,
-                               nearbyWord: nearby)
+                               nearbyWord: nearby, dark: status.wallDark ? true : nil)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {

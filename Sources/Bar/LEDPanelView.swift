@@ -61,12 +61,16 @@ struct LEDPanelView: NSViewRepresentable {
     /// Device pixels per LED. Whole pixels, so every dot lands on the grid.
     let pitchPixels: Int
     var layout: BarLayout = .wide
+    /// Whether the LEDs ease down after half an hour of nothing going on (BarEngine.restAt): the wall's.
+    var rests = false
+    /// Stops drawing: the wall while it's dark out of hours.
+    var paused = false
+    /// Rounded corners, in points: the wide bar's, so it can move inside its case.
+    var cornerRadius: CGFloat = 0
 
     func makeNSView(context: Context) -> LEDPanelNSView {
         let view = LEDPanelNSView(frame: .zero)
-        view.model = model
-        view.pitchPixels = pitchPixels
-        view.barLayout = layout
+        updateNSView(view, context: context)
         return view
     }
 
@@ -74,6 +78,9 @@ struct LEDPanelView: NSViewRepresentable {
         view.model = model
         view.pitchPixels = pitchPixels
         view.barLayout = layout
+        view.rests = rests
+        view.paused = paused
+        view.cornerRadius = cornerRadius
     }
 }
 
@@ -86,6 +93,15 @@ final class LEDPanelNSView: NSView {
     }
     var pitchPixels = 0 {
         didSet { if pitchPixels != oldValue { raster = nil; needsLayout = true } }
+    }
+    /// Whether the LEDs ease down after half an hour of nothing going on.
+    var rests = false
+    /// Whether to stop drawing, whatever the window's doing.
+    var paused = false {
+        didSet { if paused != oldValue { occlusionChanged() } }
+    }
+    var cornerRadius: CGFloat = 0 {
+        didSet { if cornerRadius != oldValue { layer?.cornerRadius = cornerRadius } }
     }
     /// (Not `layout`: that's NSView's layout pass.)
     var barLayout: BarLayout = .wide {
@@ -170,9 +186,9 @@ final class LEDPanelNSView: NSView {
         occlusionChanged()
     }
 
-    /// Stop rendering while the window is hidden or its screen is away.
+    /// Stop rendering while paused, or while the window is hidden or its screen is away.
     @objc private func occlusionChanged() {
-        link?.isPaused = followsOcclusion && !(window?.occlusionState.contains(.visible) ?? false)
+        link?.isPaused = paused || (followsOcclusion && !(window?.occlusionState.contains(.visible) ?? false))
     }
 
     override func viewDidChangeBackingProperties() {
@@ -202,21 +218,22 @@ final class LEDPanelNSView: NSView {
         if raster == nil { raster = LEDRaster(pitch: pitchPixels, cols: barLayout.cols, rows: barLayout.rows) }
         guard let raster else { return }
 
-        let date = Date()
+        let date = Date(), now = CACurrentMediaTime()
         let timer = model.moment?.timer(at: date)
         switch barLayout {
         case .wide:
-            BarEngine.render(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
+            BarEngine.render(into: &frameBuffer, now: now, state: model.state,
                              prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
         case .stacked:
-            BarEngine.renderStacked(into: &frameBuffer, now: CACurrentMediaTime(), state: model.state,
+            BarEngine.renderStacked(into: &frameBuffer, now: now, state: model.state,
                                     prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
         }
-        raster.render(frameBuffer)
+        let rest = rests ? BarEngine.restAt(now, model.state, since: model.since) : 1
+        raster.render(frameBuffer, dim: rest)
 
         let panel = image(from: UnsafeRawBufferPointer(raster.pixels), width: raster.width,
                           height: raster.height, bytesPerRow: raster.bytesPerRow)
-        let halo = raster.glow(frameBuffer).withUnsafeBytes { bytes in
+        let halo = raster.glow(frameBuffer, dim: rest).withUnsafeBytes { bytes in
             image(from: bytes, width: raster.glowWidth, height: raster.glowHeight,
                   bytesPerRow: raster.glowWidth * 4)
         }

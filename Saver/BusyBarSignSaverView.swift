@@ -29,8 +29,8 @@ final class BusyBarSignSaverView: ScreenSaverView {
     private var heardAt: Date?
     private var wall: SaverStatus.Wall?
     private var nearbyWord: String?
-    private var drift = CGSize.zero
-    private var ticks = 0
+    /// Where the LEDs are in their orbit (BarGeometry.orbit), as on the wall.
+    private var orbit = BarGeometry.Offset()
     private var framesReported = 0
     private var ending = false
     private var observers: [NSObjectProtocol] = []
@@ -47,6 +47,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
         animationTimeInterval = 1.0 / 30
         panel.model = bar
         panel.followsOcclusion = false
+        panel.rests = true                      // as the wall: easing down when nothing's going on
         panel.isHidden = true                   // until it knows what to say: no flash of FREE
         addSubview(panel)
         let centre = DistributedNotificationCenter.default()
@@ -122,11 +123,10 @@ final class BusyBarSignSaverView: ScreenSaverView {
         client.ask(makeReport()) { [weak self] status in
             MainActor.assumeIsolated { self?.heard(status) }
         }
-        // burn-in: every three minutes the bar moves a few pixels
-        ticks += 1
-        if ticks % 180 == 0 {
-            let scale = window?.backingScaleFactor ?? 2
-            drift = CGSize(width: CGFloat(Int.random(in: -3...3)) / scale, height: CGFloat(Int.random(in: -3...3)) / scale)
+        // the LEDs never stand still: a device pixel at a time, as on the wall
+        let next = BarGeometry.orbit(at: Date().timeIntervalSince1970, pitch: panel.pitchPixels)
+        if next != orbit {
+            orbit = next
             place()
         }
     }
@@ -159,7 +159,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
                 BarMoment(at: Date(timeIntervalSince1970: m.at / 1000),
                           kind: m.kind == "countUp" ? .countUp : m.kind == "fixed" ? .fixed : .countdown)
             }
-            show(state)
+            show(state, dark: status.dark)
         } else if now.timeIntervalSince(heardAt ?? startedAt) > (heardAt == nil ? 2 : 30) {
             // the app isn't answering (or is reopening after an update, which takes a second or two)
             bar.moment = nil
@@ -167,9 +167,13 @@ final class BusyBarSignSaverView: ScreenSaverView {
         }
     }
 
-    private func show(_ state: BarState) {
+    /// `dark`: out of hours with nothing going on, black, as the wall is.
+    private func show(_ state: BarState, dark: Bool = false) {
         bar.update(state)
-        if panel.isHidden {
+        panel.paused = dark
+        if dark {
+            panel.isHidden = true
+        } else if panel.isHidden {
             place()
             panel.isHidden = false
         }
@@ -193,8 +197,8 @@ final class BusyBarSignSaverView: ScreenSaverView {
         let snap = { (v: CGFloat) -> CGFloat in (v * scale).rounded() / scale }
         panel.barLayout = layout
         panel.pitchPixels = pitch
-        panel.frame = NSRect(x: snap((bounds.width - w) / 2 + drift.width), y: snap((bounds.height - h) / 2 + drift.height),
-                             width: w, height: h)
+        panel.frame = NSRect(x: snap((bounds.width - w) / 2) + CGFloat(orbit.x) / scale,
+                             y: snap((bounds.height - h) / 2) + CGFloat(orbit.y) / scale, width: w, height: h)
     }
 
     // MARK: - The host's bugs

@@ -1,4 +1,6 @@
 import AppKit
+import Combine
+import IOKit.pwr_mgt
 import SwiftUI
 
 /// A borderless window that owns one screen: the wall display.
@@ -12,11 +14,19 @@ import SwiftUI
 ///   changes never take focus, or cover what you're working on.
 /// - It's a non-activating panel, so clicking it never takes focus from a
 ///   call. A double-click toggles Do Not Disturb; single clicks do nothing.
+/// - It keeps the Mac and its displays awake while it's up — but out of hours,
+///   while the wall's dark, it lets the displays sleep (if Settings says they
+///   may), and wakes them when the wall lights again.
 @MainActor
 final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
 
     private var window: NSWindow?
     private var activity: NSObjectProtocol?
+    /// Whether `activity` keeps the displays awake, or only the Mac.
+    private var activityHoldsDisplays = false
+    /// Out of hours, dark, with the displays allowed to sleep.
+    private var displaysMaySleep = false
+    private var watching: AnyCancellable?
     private let detector: CallDetector
     /// Whether the user wants the display up (independent of whether its
     /// monitor is currently connected).
@@ -56,6 +66,11 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        watching = status.$wallDark.combineLatest(status.$wallHours.map(\.sleeps))
+            .map { dark, sleeps in dark && sleeps }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] maySleep in MainActor.assumeIsolated { self?.setDisplaysMaySleep(maySleep) } }
     }
 
     /// Show the display. Passing a screen makes it the chosen monitor.
@@ -167,22 +182,57 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         let scaled = Self.isScaledMode(target)
         if scaled != onScaledScreen { onScaledScreen = scaled }
 
-        // Keep the monitor awake — this is a display, not a screensaver.
-        // (macOS applies this to every display, not just this one.)
-        if activity == nil {
-            activity = ProcessInfo.processInfo.beginActivity(
-                options: [.idleDisplaySleepDisabled, .idleSystemSleepDisabled],
-                reason: "Busy Bar Sign is on the wall")
-        }
+        holdAwake(displays: !displaysMaySleep)
     }
 
-    private func takeDown() {
+    /// `keepingMacAwake`: the wall's monitor has gone because it was let sleep
+    /// out of hours, so the Mac stays up to wake it when the hours begin.
+    private func takeDown(keepingMacAwake: Bool = false) {
         window?.orderOut(nil)
         NSApp.presentationOptions = []
-        if let activity {
+        if keepingMacAwake {
+            holdAwake(displays: false)
+        } else if let activity {
             ProcessInfo.processInfo.endActivity(activity)
             self.activity = nil
         }
+    }
+
+    // MARK: - Keeping awake
+
+    /// Keep the Mac awake — and the monitor, unless it may sleep out of hours:
+    /// this is a display, not a screensaver. (macOS applies this to every
+    /// display, not just this one.)
+    private func holdAwake(displays: Bool) {
+        guard activity == nil || activityHoldsDisplays != displays else { return }
+        if let activity { ProcessInfo.processInfo.endActivity(activity) }
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: displays ? [.idleDisplaySleepDisabled, .idleSystemSleepDisabled] : [.idleSystemSleepDisabled],
+            reason: "Busy Bar Sign is on the wall")
+        activityHoldsDisplays = displays
+    }
+
+    /// The wall's gone dark out of hours, or lit again.
+    private func setDisplaysMaySleep(_ maySleep: Bool) {
+        guard maySleep != displaysMaySleep else { return }
+        displaysMaySleep = maySleep
+        guard window?.isVisible ?? false || waitingForScreen else { return }
+        holdAwake(displays: !maySleep)
+        if !maySleep { wakeDisplays() }
+    }
+
+    /// Lit again after a night's sleep — the hours have begun, or a call's
+    /// come in — so the displays come back on. Not while the Mac's locked: they'd
+    /// show only its lock screen, and come on when you're back at it.
+    private func wakeDisplays() {
+        guard !status.away.locked else { return }
+        let asleep = window?.screen.flatMap(Self.displayID).map { CGDisplayIsAsleep($0) != 0 } ?? true
+        guard asleep || waitingForScreen else { return }
+        var assertion: IOPMAssertionID = 0
+        guard IOPMAssertionDeclareUserActivity("Busy Bar Sign: the wall's lit again" as CFString,
+                                               kIOPMUserActiveLocal, &assertion) == kIOReturnSuccess else { return }
+        let id = assertion
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { IOPMAssertionRelease(id) }
     }
 
     /// The chosen monitor if it's connected (nil if it's away); with nothing
@@ -205,7 +255,7 @@ final class DisplayWindow: NSObject, NSWindowDelegate, ObservableObject {
         if let target = resolveScreen() {
             place(on: target, bringForward: false)       // no activation
         } else {
-            takeDown()                                   // the wall is away; don't cover the desk
+            takeDown(keepingMacAwake: displaysMaySleep)  // the wall is away; don't cover the desk
             waitingForScreen = true
         }
     }

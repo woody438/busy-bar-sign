@@ -127,7 +127,7 @@ jobs:
             BusyBarSign.json
 
       # before publishing: a published build reaches every copy through the updater
-      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, away keys, local API, screen saver, Stream Deck plugin)
+      - name: Checks (parity, geometry, frame time, detector, rules, mute, meeting keys, wall hours, away keys, local API, screen saver, Stream Deck plugin)
         run: |
           set -o pipefail
           Checks/run.sh 2>&1 | tee checks.log
