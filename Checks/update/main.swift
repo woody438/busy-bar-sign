@@ -14,8 +14,8 @@ expect(Updates.decode(Data("not json".utf8)) == nil, "rubbish isn't a release")
 
 expect(Updates.url("latest", "BusyBarSign.zip").absoluteString
        == "https://github.com/woody438/busy-bar-sign/releases/download/latest/BusyBarSign.zip", "download URL")
-expect(Updates.channels(following: "latest") == ["latest"], "main's builds follow main")
-expect(Updates.channels(following: "preview") == ["preview", "latest"], "a preview build follows the preview, then main")
+expect(Updates.channels(previews: false) == ["latest"], "previews off: main only")
+expect(Updates.channels(previews: true) == ["preview", "latest"], "previews on: the preview, then main")
 
 let main = Updates.Release(build: 40, version: "2.0", commit: "a", channel: "latest", plugin: nil)
 let preview = Updates.Release(build: 43, version: "2.0", commit: "b", channel: "preview", plugin: nil)
@@ -23,6 +23,14 @@ expect(Updates.newest([main, preview], after: 41) == preview, "the newest of two
 expect(Updates.newest([main], after: 41) == nil, "an older build isn't an update")
 expect(Updates.newest([main], after: 40) == nil, "the same build isn't an update")
 expect(Updates.newest([], after: 2) == nil, "nothing found")
+
+// back to main from a preview: main's build, older by number, once previews are off
+expect(Updates.backToMain([main], running: 43, channel: "preview", previews: false) == main, "a preview, previews off: main's to go back to")
+expect(Updates.backToMain([main], running: 43, channel: "preview", previews: true) == nil, "previews on: stay")
+expect(Updates.backToMain([main], running: 43, channel: "latest", previews: false) == nil, "main's own build: nowhere to go back to")
+let main44 = Updates.Release(build: 44, version: "2.0", commit: "f", channel: "latest", plugin: nil)
+expect(Updates.backToMain([main44], running: 43, channel: "preview", previews: false) == nil, "main's newer: an ordinary update")
+expect(Updates.backToMain([], running: 43, channel: "preview", previews: false) == nil, "main not found")
 
 expect(Updates.isNewer("1.2.0.0", than: "1.1.0.0"), "1.2 over 1.1")
 expect(!Updates.isNewer("1.1.0.0", than: "1.1.0.0"), "the same")

@@ -352,6 +352,17 @@ private struct UpdatesCard: View {
             Row(label: "Install updates automatically") {
                 Toggle("Install updates automatically", isOn: $updater.automatic).labelsHidden().toggleStyle(.switch)
             }
+            Row(label: "Get preview builds") {
+                Toggle("Get preview builds", isOn: $updater.previews).labelsHidden().toggleStyle(.switch)
+            }
+            // previews off on a preview: main's build is older by number, so going back is by hand
+            if let main = updater.mainRelease {
+                Row(label: "Main release") {
+                    Text("Build \(main.build)").foregroundStyle(.secondary)
+                    Button("Back to Main Release") { updater.backToMain() }
+                        .disabled(updater.phase == .downloading || updater.phase == .installing)
+                }
+            }
             if let plugin = updater.plugin {
                 Row(label: "Stream Deck plugin") {
                     Text(updater.pluginIncomplete ? "\(plugin.installed) not fully installed"
@@ -373,10 +384,10 @@ private struct UpdatesCard: View {
         }
         if updater.channel == "preview" {
             let pr = updater.previewPR.map { "pull request #\($0)" } ?? "a pull request"
-            Note("This copy is a preview, built from \(pr) to try before it's merged. It updates to newer previews and to main's releases, so once the pull request is merged, main's build replaces this one.")
+            Note("This copy is a preview, built from \(pr) to try before it's merged. With Get preview builds on, it takes newer previews and main's releases. Off, it waits for main's next build — or Back to Main Release goes back now.")
         }
         if let problem = updater.installProblem { Warning(text: problem) }
-        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")
+        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it. Get preview builds takes a pull request's build too, before it's merged, to try a change early: one at a time, whichever pull request was pushed last.")
     }
 }
 
