@@ -143,6 +143,8 @@ struct MeetingPatterns {
     static let zoomMainWindow = try! NSRegularExpression(pattern: #"(?i)^\s*zoom( workplace)?\s*$"#)
     static let zoomLeaveButton = try! NSRegularExpression(pattern: #"(?i)^\s*leave( the)? meeting\s*$"#)
     static let zoomEndForAll = try! NSRegularExpression(pattern: #"(?i)end (the )?meeting for all"#)
+    /// "Assign a new host", what Zoom asks a host who leaves.
+    static let zoomAssignAndLeave = try! NSRegularExpression(pattern: #"(?i)^\s*assign and leave\s*$"#)
 }
 
 // MARK: - Windows

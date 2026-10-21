@@ -496,7 +496,9 @@ agree:
   it took. If it can't, it brings the meeting window forward, sends the
   app's shortcut (Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W, then Zoom's "Leave
   meeting?" prompt is answered: "Leave meeting" for a press, "End meeting
-  for all" for a hold when you're the host) and hands you back the app you
+  for all" for a hold when you're the host; a host who leaves is asked for a
+  new host next, answered with "Assign and leave" and the one Zoom picked,
+  or left to you if it picked no one) and hands you back the app you
   were in. A press that reached the app is never followed by the shortcut
   until it's had 2.5 seconds to show, so mute can't toggle twice; an app
   that ignores its own button twice gets the shortcut from then on.
@@ -897,14 +899,15 @@ errors or warnings in its code.
   the Mute, Leave and away keys, and the widest words of your own the sign
   takes for Nearby, on the Nearby and Status keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
-  Meeting Keys' helper tests carried across, and more: 116 checks) against a scripted
+  Meeting Keys' helper tests carried across, and more: 118 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
   flyout covering the toolbar keeps the last reading for 20 s, a closed
   window or "Rejoin" ends the meeting at once; a press of the meeting's own
   button is checked, and one with no effect asks for the shortcut; Zoom's
   "Leave meeting?" answered with "Leave meeting" on a press, host or not,
   and "End meeting for all" on a hold only when it's offered, never a
-  toolbar button of the same name; a Teams meeting window showing only its
+  toolbar button of the same name; a host who leaves then gets "Assign and
+  leave", only once Zoom has picked someone; a Teams meeting window showing only its
   title-bar buttons makes Teams be asked as VoiceOver asks;
   the survey closed with Dismiss and focus handed back, never Submit or a
   thumbs, a stubborn one tried once each way then left, a live meeting
@@ -955,7 +958,8 @@ displays sleep out of hours and waking them when the hours begin
 the orbit and the hours beneath them are checked, and the simulator shows
 the look. The world clocks on the wall itself, through a day of FREE —
 the board, resting and the ticker at their real times — and the Leave key's
-END on a real Stream Deck. For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
+END on a real Stream Deck. Zoom's "Assign a new host", answered after a host
+presses Leave (from 2.8.5). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen

@@ -135,6 +135,7 @@ final class MeetingEngine {
         var nextSurveyScan = Date.distantPast
         var confirmUntil = Date.distantPast   // Zoom: answer its "Leave meeting?" prompt till then
         var endForAll = false                 // with "End meeting for all", if it offers it
+        var assignNext = false                // "Leave meeting" pressed: then "Assign a new host", if it asks
 
         init(_ app: MeetingApp) { self.app = app }
     }
@@ -186,7 +187,7 @@ final class MeetingEngine {
             // Teams can redraw its hang-up button mid-call while the mute button reads on
             t.nextDiscovery = now.addingTimeInterval(findLeave(t) ? Self.discoverEvery : Self.slowWalkEvery)
         }
-        if now < t.confirmUntil { confirmZoomLeave(t) }
+        if now < t.confirmUntil { confirmZoomLeave(t, now) }
 
         let surveyActive = now < t.surveyUntil
         if surveyActive && dismissSurveys && !t.inMeeting && now >= t.nextSurveyScan {
@@ -441,6 +442,7 @@ final class MeetingEngine {
         if t.app == .zoom {                         // Zoom asks "Leave meeting?" first
             t.confirmUntil = now.addingTimeInterval(Self.confirmWatch)
             t.endForAll = endForAll
+            t.assignNext = false
         }
         if t.inMeeting && t.app == .teams {
             meetingEnded(t, now, why: "leave key")
@@ -528,11 +530,13 @@ final class MeetingEngine {
 
     /// Answers Zoom's "Leave meeting?" prompt: "Leave meeting" for a press of
     /// the Leave key, host or not; "End meeting for all" for a hold, when the
-    /// prompt offers it (you're the host) — else a hold just leaves. Only the
+    /// prompt offers it (you're the host) — else a hold just leaves. A host
+    /// who leaves is asked for a new host next: "Assign and leave" hands over
+    /// to the one Zoom picked; with no one picked, it's left to you. Only the
     /// prompt's own buttons, never a toolbar button of the same name.
-    private func confirmZoomLeave(_ t: Tracker) {
+    private func confirmZoomLeave(_ t: Tracker, _ now: Date) {
         for w in windows(t) where w.kind != .main {
-            var leave: MeetingNode?, end: MeetingNode?
+            var leave: MeetingNode?, end: MeetingNode?, assign: MeetingNode?
             let (tree, _, _) = MeetingNode.walk(backend, w.element, maxNodes: 2000)
             tree.each { n in
                 guard n.expanded, n.attrs.role == "AXButton", w.kind != .meeting || n.inPopup else { return true }
@@ -541,14 +545,29 @@ final class MeetingEngine {
                     end = n
                 } else if leave == nil, MeetingPatterns.matches(MeetingPatterns.zoomLeaveButton, l) {
                     leave = n
+                } else if assign == nil, MeetingPatterns.matches(MeetingPatterns.zoomAssignAndLeave, l) {
+                    assign = n
                 }
                 return true
+            }
+            if t.assignNext {
+                guard let assign, assign.attrs.isEnabled else { continue }
+                if (try? backend.perform(assign.element, "AXPress")) != nil {
+                    log("left the Zoom meeting to the new host it picked")
+                }
+                t.confirmUntil = .distantPast
+                return
             }
             guard let button = t.endForAll ? (end ?? leave) : leave else { continue }
             if (try? backend.perform(button.element, "AXPress")) != nil {
                 log(button === end ? "ended the Zoom meeting for everyone" : "confirmed Zoom's Leave meeting prompt\(end == nil ? "" : " (as host)")")
             }
-            t.confirmUntil = .distantPast
+            if button === leave {                   // as host, Zoom asks for a new host next
+                t.assignNext = true
+                t.confirmUntil = now.addingTimeInterval(Self.confirmWatch)
+            } else {
+                t.confirmUntil = .distantPast
+            }
             return
         }
     }

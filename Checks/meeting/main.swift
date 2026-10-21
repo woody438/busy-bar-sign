@@ -489,6 +489,29 @@ do { // Zoom's "Leave meeting?": a press leaves, host or not; a hold ends it for
     }
 }
 
+do { // a host who leaves is asked for a new host: "Assign and leave", only once Zoom has picked one
+    for picked in [true, false] {
+        let h = Harness()
+        h.f.pid = 0
+        let (_, win) = h.zoomMeeting("Mute audio")
+        h.run(3)
+        let f = h.f
+        let leave = f.button("", "Leave meeting")
+        let pop = f.el(MeetingAttrs(role: "AXPopover"), f.button("", "End meeting for all"), leave)
+        let assign = f.button("", "Assign and leave")
+        assign.attrs.enabled = picked
+        leave.onAction = { _ in          // the same popover turns into "Assign a new host"
+            pop.children.forEach { $0.gone = true }
+            pop.add([f.text("Assign a new host"), f.button("", "Woody (Guest)"), assign])
+        }
+        win.add([pop])
+        h.e.left(.zoom)
+        h.run(3)
+        let want = picked ? ["AXPress “Leave meeting”", "AXPress “Assign and leave”"] : ["AXPress “Leave meeting”"]
+        expect(f.performed == want, "host leaving, \(picked ? "a new host picked" : "no one picked"): \(f.performed)")
+    }
+}
+
 do { // a held Leave key: Zoom goes through its shortcut; Teams just leaves
     let h = Harness()
     let (win, _, hang) = h.meeting("Mute mic")
