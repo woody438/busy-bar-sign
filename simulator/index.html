@@ -321,7 +321,7 @@
     <div class="mac-body" data-pane="calendar" role="tabpanel">
       <div class="m-card">
         <div class="m-row"><span class="k">Use my calendar</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Use my calendar"></button></div>
-        <div class="m-row"><span class="k">Calendar</span><span class="m-pop">Calendar — ian.woodall@solotech.com</span></div>
+        <div class="m-row"><span class="k">Calendar</span><span class="m-pop">Calendar — Exchange</span></div>
         <div class="m-row"><span class="k">Warn before calls and meetings</span><span class="m-pop">10 minutes</span></div>
         <div class="m-row"><span class="k">Show LATE FOR CALL or MTG for up to</span><span class="m-pop">10 minutes</span></div>
       </div>
@@ -339,10 +339,10 @@
       <p class="m-h">Where meetings are</p>
       <div class="m-card">
         <div class="m-row"><span class="k">YOUR OFFICE</span><span class="m-kw"><input value="my office, woody's office" aria-label="Your office words"></span></div>
-        <div class="m-row"><span class="k">SOLOTECH ROOMS</span><span class="m-kw"><input value="room, huddle, boardroom" aria-label="Solotech room words"></span></div>
-        <div class="m-row"><span class="k">SOLOTECH SITES</span><span class="m-kw"><input value="solotech" aria-label="Solotech site words"></span></div>
+        <div class="m-row"><span class="k">MEETING ROOMS</span><span class="m-kw"><input value="room, huddle, boardroom" aria-label="Meeting room words"></span></div>
+        <div class="m-row"><span class="k">COMPANY SITES</span><span class="m-kw"><input value="" placeholder="Your company's name" aria-label="Company site words"></span></div>
       </div>
-      <p class="m-sub">A meeting’s location says where you’ll be; a Teams or Zoom link only that others can dial in. Your office, a Solotech room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — or a Solotech site such as “Solotech - Nashville” is MEETING, even with a link (a room, and LATE FOR MTG if you’re still at the Mac). Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.</p>
+      <p class="m-sub">A meeting’s location says where you’ll be; a Teams or Zoom link only that others can dial in. Your office, a meeting room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — or one of your company’s sites — a location with one of the Company sites words, such as your company’s name — is MEETING, even with a link (a room, and LATE FOR MTG if you’re still at the Mac). Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.</p>
     </div>
 
     <div class="mac-body" data-pane="mic" role="tabpanel">
@@ -399,7 +399,7 @@
     <div class="cell"><h3>Small screens</h3><p>The <strong>Stacked layout</strong> button shows the option for small monitors such as 960 × 540: the pill across the top, the time large beneath it, the LEDs filling the screen. The announcement fills the whole panel on two lines, then draws up into the pill as the clock rises.</p></div>
     <div class="cell"><h3>Looking after the screen</h3><p>A wall display shows the same thing for hours, which an OLED remembers. So the LEDs never stand still: they move a pixel at a time through every position within an LED, so no pixel is always lit and no gap always dark. After half an hour of FREE they ease down to about 60% of their light, and every 15 minutes the word scrolls out and back. Out of hours, with nothing going on, the wall goes black. <strong>Quiet hour</strong> shows the first three, sped up; <strong>Out of hours</strong> the last.</p></div>
     <div class="cell"><h3>Do Not Disturb</h3><p>Double-click the display for 30 minutes of DO NOT DISTURB: an indigo pill with a moon, and a countdown where the clock was. Double-click again to end it. In the app a call still shows ON A CALL, then Do Not Disturb returns with whatever time is left.</p></div>
-    <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL, and never joined, it says MEETING; leave early and it says FREE TILL the slot ends if something follows straight after, or just FREE if nothing does. On a call or in a meeting the clock counts down to when you're free, through back-to-back meetings. A meeting's location says where you'll be: your office or a Solotech room is MEETING, even with a Teams link, and anywhere else is OUT ON SITE. Tentative meetings say CALL TBC. Lunch, your own blocks and flights show LUNCH, AWAY and OUT OF OFFICE.</p></div>
+    <div class="cell"><h3>Your calendar</h3><p>Press <strong>Calendar day</strong> to play a working day through the rules: 10 minutes before a call the bar turns amber with a countdown; if the call starts without you it pulses LATE FOR CALL, and never joined, it says MEETING; leave early and it says FREE TILL the slot ends if something follows straight after, or just FREE if nothing does. On a call or in a meeting the clock counts down to when you're free, through back-to-back meetings. A meeting's location says where you'll be: your office or a meeting room is MEETING, even with a Teams link, and anywhere else is OUT ON SITE. Tentative meetings say CALL TBC. Lunch, your own blocks and flights show LUNCH, AWAY and OUT OF OFFICE.</p></div>
     <div class="cell"><h3>Who wins</h3><p>Your own controls first, then the microphone, then the away keys (Nearby, Lunch, Back In), then Do Not Disturb, then the calendar: out of office, lunch, away, a phone call, an in-person meeting, a call you're late for, a warning, a tentative meeting; then NEARBY if the Mac's locked; then a no-meetings block, and a call you left early with something straight after. The microphone always turns it red.</p></div>
     <div class="cell"><h3>Same detection underneath</h3><p>Unchanged from the original: CoreAudio says which app has the microphone, dictation apps are ignored, and changes are debounced so the bar never flickers. A menu-bar item can force either state.</p></div>
   </div>
@@ -739,17 +739,17 @@
   // the guide: each state as the bar draws it, and what puts it there
   const GUIDE = [
     ['call', 'Automatic when an app uses your microphone.', 'Counts down to when you’re free, through back-to-back meetings. Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
-    ['meeting', 'A meeting in your office or at Solotech, or with invitees and no Teams, Zoom or Meet link.', 'A link doesn’t matter with the room or your office as the location. Or a call never joined, once LATE gives up.'],
+    ['meeting', 'A meeting in your office, a meeting room or one of your company’s sites, or with invitees and no Teams, Zoom or Meet link.', 'A link doesn’t matter with the room or your office as the location. Or a call never joined, once LATE gives up.'],
     ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time.'],
     ['late', 'A call has started and your microphone hasn’t.', 'Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you’re there in person.'],
-    ['lateMtg', 'A meeting in a Solotech room has started, and you’re still at the Mac.', 'Pulses for up to 10 minutes, or till you leave the Mac, then MEETING.'],
+    ['lateMtg', 'A meeting in a meeting room has started, and you’re still at the Mac.', 'Pulses for up to 10 minutes, or till you leave the Mac, then MEETING.'],
     ['freeTil', 'You left a call before its slot ended, and something follows it straight after.', 'Until the booked end time. With nothing within 5 minutes after it, just FREE.'],
     ['callTbc', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE — you may not be going.'],
     ['dnd', 'An event titled <span class="m-tok">No meetings</span> or <span class="m-tok">Focus</span>.', 'Or double-click the bar for 30 minutes. Warnings for calls still show inside it.'],
     ['lunch', 'An event of your own with <span class="m-tok">lunch</span> in the title — Show As Out of Office too.', 'Counts down to when you’re back. Beats any meeting over it: no warnings during lunch.'],
     ['away', 'Any other event of your own — no invitees.', 'e.g. “Gym”, “Drive home”, “School run”. Beats meetings too.'],
     ['ooo', 'Show As: <span class="m-tok">Out of Office</span>, an all-day busy event, or <span class="m-tok">✈</span> in the title.', 'Flights from TripIt or Flighty carry the ✈.'],
-    ['onSite', 'A meeting somewhere other than your office or Solotech, or <span class="m-tok">on site</span> in the title.', 'A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”.'],
+    ['onSite', 'A meeting somewhere other than your office, a meeting room or your company’s sites, or <span class="m-tok">on site</span> in the title.', 'A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”.'],
     [null, 'Ignored: Show As <span class="m-tok">Free</span>, cancelled meetings, and all-day events that aren’t busy.', 'Declined meetings disappear from Outlook, so they never count.']
   ];
   (function buildGuide() {

@@ -106,9 +106,11 @@ for (const extra of [{ active: true }, {}, { active: true, locked: true }, { act
 scenario([ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3, location: 'LP Huddle', availability: 'tentative' })],
   [], [603], { active: true });
 scenario([office], [], [603], { active: true });
-const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Solotech - Nashville' });
-scenario([nashville], [], [595, 603, 610, 744.9], { active: true });
-scenario([nashville, call('c', 620, 640)], [], [615, 625]);
+const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Acme - Nashville' });
+const acmeSites = { places: { sites: ['acme'] } };
+scenario([nashville], [], [595, 603, 610, 744.9], { active: true, config: acmeSites });
+scenario([nashville, call('c', 620, 640)], [], [615, 625], { config: acmeSites });
+scenario([nashville], [], [610]);
 scenario([ev({ id: 'l', title: 'Lunch', start: 750 * M, end: 805 * M, availability: 'ooo' }), call('c', 800, 815)], [[801, 810]],
   [745, 760, 792, 802, 811]);
 scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'Production Resource Group' })], [], [610],
@@ -157,13 +159,17 @@ const ONE = [
   { title: 'On-site: Glastonbury' }, { title: 'Nonsite' }, { title: 'ON SITE', allDay: true },
   { title: 'On site Coldplay', availability: 'ooo' }, { title: '✈ LHR→LAX on site' },
   { title: 'On site prep', attendees: 3, notes: 'https://teams.microsoft.com/l/x' },
-  { attendees: 7, location: 'Solotech - Nashville' }, { attendees: 7, notes: 'https://teams.microsoft.com/l/x', location: 'Solotech - Nashville' },
-  { attendees: 7, location: 'Solotech - Nashville; MTL-210' }, { attendees: 3, location: 'Solotech’s warehouse' },
-  { attendees: 3, location: 'Solotechnics Ltd, 4 High St' },
   { title: 'Lunch', availability: 'ooo' }, { title: 'Lunch with Paul', attendees: 1, availability: 'ooo' },
   { title: 'Lunch on site', availability: 'ooo' }, { title: 'Lunch', allDay: true, availability: 'ooo' }
 ];
 ONE.forEach((o, i) => scenario([ev(Object.assign({ id: 'one' + i, start: 600 * M, end: 660 * M }, o))], [], [590, 630]));
+// a company's sites, with its name set in Settings
+const AT_SITES = [
+  { attendees: 7, location: 'Acme - Nashville' }, { attendees: 7, notes: 'https://teams.microsoft.com/l/x', location: 'Acme - Nashville' },
+  { attendees: 7, location: 'Acme - Nashville; MTL-210' }, { attendees: 3, location: 'Acme’s warehouse' },
+  { attendees: 3, location: 'Acmetech Ltd, 4 High St' }
+];
+AT_SITES.forEach((o, i) => scenario([ev(Object.assign({ id: 'site' + i, start: 600 * M, end: 660 * M }, o))], [], [590, 630], { config: acmeSites }));
 
 fs.writeFileSync(process.argv[2], JSON.stringify({ cases: cases }));
 console.log('rule cases:', cases.length);

@@ -54,12 +54,13 @@ struct StatusConfig {
     }
 
     /// Words in a meeting's location, matched the same way: your own office,
-    /// Solotech's rooms (a room booked on the invite counts whatever its name),
-    /// and Solotech's sites — somewhere at Solotech, not saying which room.
+    /// meeting rooms (a room booked on the invite counts whatever its name),
+    /// and your company's sites — somewhere at work, not saying which room.
+    /// No sites to start with: they're your company's name, set in Settings.
     struct Places {
         var office = ["my office", "woody's office"]
         var rooms = ["room", "huddle", "boardroom"]
-        var sites = ["solotech"]
+        var sites: [String] = []
     }
 }
 
@@ -162,9 +163,9 @@ enum StatusRules {
     /*
      * Where a meeting is, from its location:
      *   office — yours (places.office)
-     *   room   — a Solotech room: booked on the invite, named with a word in
+     *   room   — a meeting room: booked on the invite, named with a word in
      *            places.rooms, or a code like MTL-210
-     *   site   — somewhere at Solotech, not saying where (places.sites): "Solotech - Nashville"
+     *   site   — somewhere at work, not saying where (places.sites): "Acme - Nashville"
      *   away   — anywhere else: a client, a venue, a restaurant
      *   nil    — no location, or one that says nothing about where
      * Outlook joins several locations with "; ".
@@ -187,10 +188,10 @@ enum StatusRules {
      *   ignore   — cancelled (or titled "Canceled: …"), Show As Free, or an all-day event that isn't busy
      *   ooo      — Show As Out of Office (but not your own lunch), an all-day busy event, or ✈ in
      *              your own block's title
-     *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't Solotech's
+     *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't your company's
      *   call     — has a Teams / Zoom / Meet link, and no location that says where
-     *   inPerson — has invitees and no link, or a link and your office, a room or a Solotech site
-     *              as the location; `room` when it's in one of Solotech's rooms (LATE FOR MTG)
+     *   inPerson — has invitees and no link, or a link and your office, a room or a company site
+     *              as the location; `room` when it's in a meeting room (LATE FOR MTG)
      *   lunch / dndBlock / phone / away — your own blocks, by title
      * Where beats how: a meeting's location says where you'll be, and a link
      * only that others can dial in. `tentative` is Show As Tentative, for calls
