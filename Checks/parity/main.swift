@@ -104,6 +104,50 @@ for (state, e, level) in rests where BarEngine.restAt(1000 + e, state, since: 10
     exit(1)
 }
 let clock = ClockReading(h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30)
+// world clocks: two plans through each phase (keep in step with parity.js)
+let worldZones = [
+    BarEngine.WorldZone(code: "LON", h: 14, m: 32, dow: 2, date: 30, dayDelta: 0),
+    BarEngine.WorldZone(code: "NYC", h: 9, m: 32, dow: 2, date: 30, dayDelta: 0),
+    BarEngine.WorldZone(code: "TYO", h: 23, m: 32, dow: 2, date: 30, dayDelta: 0),
+    BarEngine.WorldZone(code: "SYD", h: 0, m: 32, dow: 3, date: 31, dayDelta: 1)
+]
+var worldAll = BarEngine.WorldPlan()
+worldAll.zones = worldZones
+worldAll.turns = .init(on: true, secs: 5)
+worldAll.rest = .init(on: true, mins: 30)
+worldAll.board = .init(on: true, mins: 5, secs: 20)
+worldAll.ticker = .init(on: true, mins: 15)
+worldAll.rules = .init(restHolds: true, clash: .wait, tickerForScroll: true)
+var worldPlain = worldAll
+worldPlain.turns = .init(on: false, secs: 5)
+worldPlain.rest = .init(on: true, mins: 60)
+worldPlain.board = .init(on: true, mins: 7, secs: 20)
+worldPlain.ticker = .init(on: true, mins: 21)
+worldPlain.rules = .init(restHolds: false, clash: .skip, tickerForScroll: false)
+// fewer cities (a clock set to None): the layouts close up around the ones left
+var worldTwo = worldAll
+worldTwo.zones = [worldZones[0], worldZones[3]]
+var worldThree = worldAll
+worldThree.zones = [worldZones[0], worldZones[1], worldZones[3]]
+let worldPlans = ["all": worldAll, "plain": worldPlain, "two": worldTwo, "three": worldThree]
+let worldCases: [(stacked: Bool, String, Double)] = [
+    (false, "all", 2.167), (false, "all", 3.867), (false, "all", 9.167), (false, "all", 9.367), (false, "all", 304.417),
+    (false, "all", 309.167), (false, "all", 324.917), (false, "all", 904.767), (false, "all", 907.167), (false, "all", 917.167),
+    (false, "all", 1804.567), (false, "all", 1806.167),
+    (false, "plain", 2.167), (false, "plain", 9.167), (false, "plain", 424.417), (false, "plain", 904.767),
+    (false, "plain", 1264.767), (false, "plain", 1267.167), (false, "plain", 1280.167), (false, "plain", 3604.667),
+    (false, "plain", 3784.417), (false, "plain", 3794.167),
+    (true, "all", 2.167), (true, "all", 3.867), (true, "all", 9.167), (true, "all", 9.367),
+    (true, "all", 304.417), (true, "all", 309.167), (true, "all", 904.767), (true, "all", 907.167),
+    (true, "all", 1804.567), (true, "all", 1806.167),
+    (true, "plain", 9.167), (true, "plain", 904.767), (true, "plain", 3604.667), (true, "plain", 3784.417),
+    (false, "two", 9.367), (false, "two", 309.167), (false, "two", 907.167), (false, "two", 1806.167),
+    (false, "three", 309.167), (false, "three", 1806.167),
+    (true, "two", 9.367), (true, "two", 309.167), (true, "two", 1806.167),
+    (true, "three", 309.167), (true, "three", 1806.167)
+]
+// ...and as a call starts: how long FREE had been up
+let worldPresses: [(stacked: Bool, String, Double)] = [(false, "all", 9.367), (false, "plain", 9.167), (true, "all", 9.367)]
 var out = Data()
 for (state, prev, e) in cases {
     var f = LEDFrame()
@@ -145,6 +189,31 @@ for (word, stacked, e) in nearbyCases {
     f.px.withUnsafeBytes { out.append(contentsOf: $0) }
 }
 BarEngine.setNearbyWord(nil)
+for (stacked, plan, e) in worldCases {
+    let since = 1000.0, world = worldPlans[plan]!
+    var f = stacked ? LEDFrame(w: BarEngine.Stacked.cols, h: BarEngine.Stacked.rows) : LEDFrame()
+    if stacked {
+        BarEngine.renderStackedWorld(into: &f, now: since + e, state: .free, prev: .call, since: since, clock: clock, timer: nil,
+                                     world: world, prevFor: 0)
+    } else {
+        BarEngine.renderWorld(into: &f, now: since + e, state: .free, prev: .call, since: since, clock: clock, timer: nil,
+                              world: world, prevFor: 0)
+    }
+    f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+}
+for (stacked, plan, up) in worldPresses {
+    let since = 1000.0, world = worldPlans[plan]!
+    var f = stacked ? LEDFrame(w: BarEngine.Stacked.cols, h: BarEngine.Stacked.rows) : LEDFrame()
+    if stacked {
+        BarEngine.renderStackedWorld(into: &f, now: since + 0.05, state: .call, prev: .free, since: since, clock: clock, timer: timer,
+                                     world: world, prevFor: up)
+    } else {
+        BarEngine.renderWorld(into: &f, now: since + 0.05, state: .call, prev: .free, since: since, clock: clock, timer: timer,
+                              world: world, prevFor: up)
+    }
+    f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+}
 try! out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
-print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count + nearbyCases.count,
+print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count + nearbyCases.count
+      + worldCases.count + worldPresses.count,
       "bytes:", out.count)

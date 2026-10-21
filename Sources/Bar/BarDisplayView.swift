@@ -52,7 +52,8 @@ struct BarDisplayView: View {
                 if layout == .wide { DeviceBody(g: g, castsShadow: style == .wall) }
                 // the wall's LEDs move inside the case on rounded corners, and rest when nothing's going on
                 LEDPanelView(model: bar, pitchPixels: g.pitchPixels, layout: layout, rests: style == .wall, paused: dark,
-                             cornerRadius: style == .wall && layout == .wide ? BarGeometry.fieldCorner * g.u : 0)
+                             cornerRadius: style == .wall && layout == .wide ? BarGeometry.fieldCorner * g.u : 0,
+                             world: { [style] date in WorldClocks.shared.plan(for: style, at: date) })
                     .frame(width: g.field.width, height: g.field.height)
                     .offset(x: g.field.minX + px(orbit.x), y: g.field.minY + px(orbit.y))
             }

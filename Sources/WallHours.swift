@@ -1,7 +1,7 @@
 import Foundation
 
 /*
- * The wall's hours (Settings ▸ Screen care ▸ Out of hours). Outside them,
+ * The wall's hours (Settings ▸ Screen care ▸ Working hours). Outside them,
  * while the sign would say FREE or that you're not here (BarEngine.quiet),
  * the wall goes black — on an OLED, its pixels off — and the screen saver
  * with it, and the app lets the displays sleep. A call, a meeting or a

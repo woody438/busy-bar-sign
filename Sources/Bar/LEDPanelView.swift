@@ -29,6 +29,8 @@ final class BarModel: ObservableObject {
     @Published private(set) var state: BarState = .free
     private(set) var prev: BarState?
     private(set) var since: CFTimeInterval = CACurrentMediaTime()
+    /// How long the last state had been up when it gave way: the world clocks press FREE's face as it was.
+    private(set) var prevFor: CFTimeInterval = 0
     /// What the right of the pill counts to, or from; nil for the clock.
     var moment: BarMoment?
     private var hasReading = false
@@ -48,7 +50,18 @@ final class BarModel: ObservableObject {
             state = next
             return
         }
+        let now = CACurrentMediaTime()
         prev = state
+        prevFor = now - since
+        state = next
+        since = now
+    }
+
+    /// Plays the change from `from` to `next` again, from its start: the settings' previews.
+    func replay(_ next: BarState, from: BarState) {
+        hasReading = true
+        prev = from
+        prevFor = 0
         state = next
         since = CACurrentMediaTime()
     }
@@ -67,6 +80,8 @@ struct LEDPanelView: NSViewRepresentable {
     var paused = false
     /// Rounded corners, in points: the wide bar's, so it can move inside its case.
     var cornerRadius: CGFloat = 0
+    /// The world clocks, while the sign says FREE: what to show at a moment, or nil for FREE as it always was.
+    var world: ((Date) -> BarEngine.WorldPlan?)? = nil
 
     func makeNSView(context: Context) -> LEDPanelNSView {
         let view = LEDPanelNSView(frame: .zero)
@@ -81,11 +96,14 @@ struct LEDPanelView: NSViewRepresentable {
         view.rests = rests
         view.paused = paused
         view.cornerRadius = cornerRadius
+        view.world = world
     }
 }
 
 final class LEDPanelNSView: NSView {
     var model: BarModel?
+    /// The world clocks' plan at a moment (LEDPanelView.world); nil: none.
+    var world: ((Date) -> BarEngine.WorldPlan?)?
     /// Whether to stop drawing while the window's hidden. Off in the screen
     /// saver, whose host may not say its windows are visible.
     var followsOcclusion = true {
@@ -219,14 +237,22 @@ final class LEDPanelNSView: NSView {
         guard let raster else { return }
 
         let date = Date(), now = CACurrentMediaTime()
-        let timer = model.moment?.timer(at: date)
-        switch barLayout {
-        case .wide:
+        let timer = model.moment?.timer(at: date), clock = ClockReading(date)
+        // the world clocks only matter while FREE is up, or just giving way
+        let plan = model.state == .free || model.prev == .free ? world?(date) : nil
+        switch (barLayout, plan) {
+        case (.wide, let p?):
+            BarEngine.renderWorld(into: &frameBuffer, now: now, state: model.state, prev: model.prev, since: model.since,
+                                  clock: clock, timer: timer, world: p, prevFor: model.prevFor)
+        case (.stacked, let p?):
+            BarEngine.renderStackedWorld(into: &frameBuffer, now: now, state: model.state, prev: model.prev, since: model.since,
+                                         clock: clock, timer: timer, world: p, prevFor: model.prevFor)
+        case (.wide, nil):
             BarEngine.render(into: &frameBuffer, now: now, state: model.state,
-                             prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
-        case .stacked:
+                             prev: model.prev, since: model.since, clock: clock, timer: timer)
+        case (.stacked, nil):
             BarEngine.renderStacked(into: &frameBuffer, now: now, state: model.state,
-                                    prev: model.prev, since: model.since, clock: ClockReading(date), timer: timer)
+                                    prev: model.prev, since: model.since, clock: clock, timer: timer)
         }
         let rest = rests ? BarEngine.restAt(now, model.state, since: model.since) : 1
         raster.render(frameBuffer, dim: rest)

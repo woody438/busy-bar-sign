@@ -108,12 +108,48 @@ for (const [state, e, level] of RESTS) {
   if (E.restAt(1000 + e, state, 1000) !== level) { console.error(`${state} at ${e} s rests at ${E.restAt(1000 + e, state, 1000)}, not ${level}`); process.exit(2); }
 }
 const clock = { h: 14, m: 32, s: 27, ms: 200, dow: 2, date: 30 };
+// world clocks: two plans through each phase — settling, the split, a city rolling in, the board
+// rolling up, held and rolling away, the ticker, resting, the scroll, a skipped clash, the board
+// over the rest, and FREE pressed down as a call starts (keep in step with main.swift)
+const WORLD_ZONES = [
+  { code: 'LON', h: 14, m: 32, dow: 2, date: 30, dayDelta: 0 }, { code: 'NYC', h: 9, m: 32, dow: 2, date: 30, dayDelta: 0 },
+  { code: 'TYO', h: 23, m: 32, dow: 2, date: 30, dayDelta: 0 }, { code: 'SYD', h: 0, m: 32, dow: 3, date: 31, dayDelta: 1 }
+];
+const WORLD_PLANS = {
+  all: { zones: WORLD_ZONES, turns: { on: true, secs: 5 }, rest: { on: true, mins: 30 }, board: { on: true, mins: 5, secs: 20 },
+    ticker: { on: true, mins: 15 }, rules: { restHolds: true, clash: 'wait', tickerForScroll: true } },
+  plain: { zones: WORLD_ZONES, turns: { on: false, secs: 5 }, rest: { on: true, mins: 60 }, board: { on: true, mins: 7, secs: 20 },
+    ticker: { on: true, mins: 21 }, rules: { restHolds: false, clash: 'skip', tickerForScroll: false } }
+};
+// fewer cities (a clock set to None): the layouts close up around the ones left
+WORLD_PLANS.two = Object.assign({}, WORLD_PLANS.all, { zones: [WORLD_ZONES[0], WORLD_ZONES[3]] });
+WORLD_PLANS.three = Object.assign({}, WORLD_PLANS.all, { zones: [WORLD_ZONES[0], WORLD_ZONES[1], WORLD_ZONES[3]] });
+const WORLD_CASES = [
+  ['wide', 'all', 2.167], ['wide', 'all', 3.867], ['wide', 'all', 9.167], ['wide', 'all', 9.367], ['wide', 'all', 304.417],
+  ['wide', 'all', 309.167], ['wide', 'all', 324.917], ['wide', 'all', 904.767], ['wide', 'all', 907.167], ['wide', 'all', 917.167],
+  ['wide', 'all', 1804.567], ['wide', 'all', 1806.167],
+  ['wide', 'plain', 2.167], ['wide', 'plain', 9.167], ['wide', 'plain', 424.417], ['wide', 'plain', 904.767],
+  ['wide', 'plain', 1264.767], ['wide', 'plain', 1267.167], ['wide', 'plain', 1280.167], ['wide', 'plain', 3604.667],
+  ['wide', 'plain', 3784.417], ['wide', 'plain', 3794.167],
+  ['stacked', 'all', 2.167], ['stacked', 'all', 3.867], ['stacked', 'all', 9.167], ['stacked', 'all', 9.367],
+  ['stacked', 'all', 304.417], ['stacked', 'all', 309.167], ['stacked', 'all', 904.767], ['stacked', 'all', 907.167],
+  ['stacked', 'all', 1804.567], ['stacked', 'all', 1806.167],
+  ['stacked', 'plain', 9.167], ['stacked', 'plain', 904.767], ['stacked', 'plain', 3604.667], ['stacked', 'plain', 3784.417],
+  ['wide', 'two', 9.367], ['wide', 'two', 309.167], ['wide', 'two', 907.167], ['wide', 'two', 1806.167],
+  ['wide', 'three', 309.167], ['wide', 'three', 1806.167],
+  ['stacked', 'two', 9.367], ['stacked', 'two', 309.167], ['stacked', 'two', 1806.167],
+  ['stacked', 'three', 309.167], ['stacked', 'three', 1806.167]
+];
+// ...and as a call starts: [layout, plan, how long FREE had been up]
+const WORLD_PRESSES = [['wide', 'all', 9.367], ['wide', 'plain', 9.167], ['stacked', 'all', 9.367]];
 
 const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(STACKED_CASES.map((c) => ['stacked', ...c, timer]))
   .concat(CALENDAR_CASES.map(([s, p, e, k]) => ['wide', s, p, e, k ? TIMERS[k] : undefined]))
   .concat(STACKED_CALENDAR_CASES.map(([s, p, e, k]) => ['stacked', s, p, e, k ? TIMERS[k] : undefined]))
-  .concat(NEARBY_CASES.map(([word, layout, e]) => [layout, 'nearby', 'free', e, undefined, word]));
+  .concat(NEARBY_CASES.map(([word, layout, e]) => [layout, 'nearby', 'free', e, undefined, word]))
+  .concat(WORLD_CASES.map(([layout, plan, e]) => [layout, 'free', 'call', e, undefined, undefined, { plan, prevFor: 0 }]))
+  .concat(WORLD_PRESSES.map(([layout, plan, up]) => [layout, 'call', 'free', 0.05, timer, undefined, { plan, prevFor: up }]));
 const size = (layout) => (layout === 'wide' ? E.COLS * E.ROWS : E.STACKED.cols * E.STACKED.rows) * 3;
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -121,12 +157,16 @@ const total = JOBS.reduce((sum, [layout]) => sum + size(layout), 0);
 if (buf.length !== total * 8) { console.error('size mismatch', buf.length, 'expected', total * 8); process.exit(2); }
 
 let worst = 0, failed = 0, offset = 0;
-JOBS.forEach(([layout, state, prev, e, tm, word]) => {
+JOBS.forEach(([layout, state, prev, e, tm, word, world]) => {
   const stacked = layout === 'stacked';
   const f = stacked ? new E.Frame(E.STACKED.cols, E.STACKED.rows) : new E.Frame();
   // a word of its own must be the one drawn, not NEARBY in its place
   if (E.setNearbyWord(word) !== (word || E.NEARBY)) { console.error('the sign won\'t take', word); process.exit(2); }
-  (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm);
+  if (world) {
+    (stacked ? E.renderStackedWorld : E.renderWorld)(f, 1000 + e, state, prev, 1000, clock, tm, WORLD_PLANS[world.plan], world.prevFor);
+  } else {
+    (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm);
+  }
   const n = size(layout);
   let maxd = 0, at = -1, bad = 0;
   for (let j = 0; j < n; j++) {
@@ -138,7 +178,7 @@ JOBS.forEach(([layout, state, prev, e, tm, word]) => {
   offset += n;
   worst = Math.max(worst, maxd);
   const led = at >= 0 ? `x${Math.floor(at / 3) % f.w} y${Math.floor(at / 3 / f.w)}` : '';
-  console.log(`${layout.padEnd(8)} ${((word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
+  console.log(`${layout.padEnd(8)} ${((world ? 'world ' + world.plan + ' ' : '') + (word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
   if (bad) failed++;
 });
 console.log(failed ? `\n${failed} of ${JOBS.length} frames differ` : `\nall ${JOBS.length} frames match (worst ${(worst * 255).toFixed(5)}/255)`);

@@ -74,12 +74,13 @@ struct ControlsView: View {
     @AppStorage("settingsSection") private var section: Section = .status
 
     enum Section: String, CaseIterable, Identifiable {
-        case status, displays, screenCare, away, calendar, microphone, callApps, streamDeck, updates
+        case status, displays, worldClocks, screenCare, away, calendar, microphone, callApps, streamDeck, updates
         var id: String { rawValue }
         var label: String {
             switch self {
             case .status: return "Status"
             case .displays: return "Displays"
+            case .worldClocks: return "World clocks"
             case .screenCare: return "Screen care"
             case .away: return "Away & screen saver"
             case .calendar: return "Calendar"
@@ -93,6 +94,7 @@ struct ControlsView: View {
             switch self {
             case .status: return "switch.2"
             case .displays: return "display"
+            case .worldClocks: return "globe"
             case .screenCare: return "moon.fill"
             case .away: return "door.left.hand.open"
             case .calendar: return "calendar"
@@ -106,6 +108,7 @@ struct ControlsView: View {
             switch self {
             case .status, .updates: return .gray
             case .displays: return .blue
+            case .worldClocks: return .teal
             case .screenCare: return .indigo
             case .away: return .orange
             case .calendar: return .red
@@ -119,7 +122,7 @@ struct ControlsView: View {
     /// The sidebar's groups, Status on its own at the top.
     static let groups: [(title: String?, sections: [Section])] = [
         (nil, [.status]),
-        ("The sign", [.displays, .screenCare, .away]),
+        ("The sign", [.displays, .worldClocks, .screenCare, .away]),
         ("What it follows", [.calendar, .microphone, .callApps]),
         ("Devices and the app", [.streamDeck, .updates])
     ]
@@ -171,6 +174,7 @@ struct ControlsView: View {
         case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
                                 server: server, updater: status.updater)
         case .displays: DisplaysTab(wall: wall, floating: floating)
+        case .worldClocks: WorldClocksTab()
         case .screenCare: ScreenCareTab(status: status)
         case .away: AwayTab(away: status.away, saver: saver)
         case .calendar: CalendarTab(calendar: calendar)
@@ -449,7 +453,8 @@ private struct BarPreview: View {
 
     var body: some View {
         let pitch = max(Int((4 * scale).rounded()), 2)          // 4 points an LED
-        LEDPanelView(model: bar, pitchPixels: pitch, layout: .wide)
+        // as the wall shows it, world clocks and all
+        LEDPanelView(model: bar, pitchPixels: pitch, layout: .wide, world: { WorldClocks.shared.plan(for: .wall, at: $0) })
             .frame(width: CGFloat(BarEngine.cols * pitch) / scale, height: CGFloat(BarEngine.rows * pitch) / scale)
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .frame(maxWidth: .infinity)
@@ -551,19 +556,19 @@ private struct DisplaysTab: View {
     }
 }
 
-/// When the wall goes dark: Settings ▸ Screen care ▸ Out of hours.
+/// When the wall is lit, and dark the rest of the time: Settings ▸ Screen care ▸ Working hours.
 private struct OutOfHours: View {
     @ObservedObject var status: StatusModel
 
     var body: some View {
-        Heading("Out of hours")
+        Heading("Working hours")
         Card {
-            Row(label: "Dark out of hours", divider: false) {
+            Row(label: "Go dark outside working hours", divider: false) {
                 if status.wallDark { Text("Dark now").foregroundStyle(.secondary) }
-                Toggle("Dark out of hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
+                Toggle("Go dark outside working hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
             }
             if status.wallHours.on {
-                Row(label: "Hours") {
+                Row(label: "Lit during") {
                     DatePicker("From", selection: time(\.from), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
                     Text("to")
                     DatePicker("To", selection: time(\.to), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
@@ -578,12 +583,22 @@ private struct OutOfHours: View {
                         }
                     }
                 }
-                Row(label: "Let the displays sleep then") {
-                    Toggle("Let the displays sleep then", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
+                InfoRow(title: "So", detail: summary)
+                Row(label: "Let the displays sleep while it's dark") {
+                    Toggle("Let the displays sleep while it's dark", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
                 }
             }
         }
-        Note("Outside these hours, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning lights it as usual. Left to sleep, the displays go off by Lock Screen ▸ “Turn display off when inactive”, and come back on when the hours begin, unless the Mac's locked. Turn that off if the wall's TV doesn't come back on by itself. In hours the wall's LEDs move a pixel at a time, and ease down after half an hour with nothing going on.")
+        Note("The times are when the wall is lit: your working hours. The rest of the time, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning still lights it. Left to sleep, the displays go off by Lock Screen ▸ “Turn display off when inactive”, and come back on when working hours begin, unless the Mac's locked. Turn that off if the wall's TV doesn't come back on by itself. While it's lit, the wall's LEDs move a pixel at a time, and ease down after half an hour with nothing going on.")
+    }
+
+    /// The hours in a sentence: "Lit 07:30–19:00, Mon Tue Wed Thu Fri. Dark the rest of the time, unless something's on."
+    private var summary: String {
+        let h = status.wallHours
+        let t = { (m: Int) in String(format: "%02d:%02d", m / 60, m % 60) }
+        let days = Self.weekdays.filter { h.days.contains($0) }.map { Calendar.current.shortWeekdaySymbols[$0 - 1] }
+        guard !days.isEmpty else { return "No day ticked: dark all week, unless something's on." }
+        return "Lit \(t(h.from))–\(t(h.to)), \(days.joined(separator: " ")). Dark the rest of the time, unless something's on."
     }
 
     /// The days of the week, as this Mac starts them: Monday first in the UK.
@@ -685,6 +700,281 @@ private struct AwayTab: View {
     }
 }
 
+// MARK: - World clocks
+
+/// Local time and three more cities on the sign while it says FREE: which layouts, how often,
+/// how they meet, and the cities. WorldClocks reads these settings for the sign.
+private struct WorldClocksTab: View {
+    @AppStorage(WorldClocks.Key.on) private var on = WorldClocks.Settings.defaults.on
+    @AppStorage(WorldClocks.Key.onWall) private var onWall = WorldClocks.Settings.defaults.onWall
+    @AppStorage(WorldClocks.Key.onFloating) private var onFloating = WorldClocks.Settings.defaults.onFloating
+    @AppStorage(WorldClocks.Key.turns) private var turns = WorldClocks.Settings.defaults.turns
+    @AppStorage(WorldClocks.Key.turnsSecs) private var turnsSecs = WorldClocks.Settings.defaults.turnsSecs
+    @AppStorage(WorldClocks.Key.rest) private var rest = WorldClocks.Settings.defaults.rest
+    @AppStorage(WorldClocks.Key.restMins) private var restMins = WorldClocks.Settings.defaults.restMins
+    @AppStorage(WorldClocks.Key.board) private var board = WorldClocks.Settings.defaults.board
+    @AppStorage(WorldClocks.Key.boardMins) private var boardMins = WorldClocks.Settings.defaults.boardMins
+    @AppStorage(WorldClocks.Key.boardSecs) private var boardSecs = WorldClocks.Settings.defaults.boardSecs
+    @AppStorage(WorldClocks.Key.ticker) private var ticker = WorldClocks.Settings.defaults.ticker
+    @AppStorage(WorldClocks.Key.tickerMins) private var tickerMins = WorldClocks.Settings.defaults.tickerMins
+    @AppStorage(WorldClocks.Key.restHolds) private var restHolds = WorldClocks.Settings.defaults.restHolds
+    @AppStorage(WorldClocks.Key.clash) private var clash = WorldClocks.Settings.defaults.clash
+    @AppStorage(WorldClocks.Key.tickerForScroll) private var tickerForScroll = WorldClocks.Settings.defaults.tickerForScroll
+    @AppStorage(WorldClocks.Key.localCode) private var localCode = WorldClocks.Settings.defaults.localCode
+    @AppStorage(WorldClocks.Key.city(1)) private var city1 = WorldClocks.Settings.defaults.cities[0]
+    @AppStorage(WorldClocks.Key.city(2)) private var city2 = WorldClocks.Settings.defaults.cities[1]
+    @AppStorage(WorldClocks.Key.city(3)) private var city3 = WorldClocks.Settings.defaults.cities[2]
+    @AppStorage("worldWatch") private var watch: WorldClocks.Watch = .asSet
+    @State private var replays = 0
+
+    var body: some View {
+        Card {
+            Row(label: "Show world clocks", divider: false) {
+                Toggle("Show world clocks", isOn: $on).labelsHidden().toggleStyle(.switch)
+            }
+            Row(label: "Show on") {
+                Toggle("Wall display", isOn: $onWall).toggleStyle(.checkbox)
+                Toggle("Floating window", isOn: $onFloating).toggleStyle(.checkbox)
+            }
+        }
+        Note("Only while the sign says FREE: a call, a warning or Do Not Disturb takes the bar back at once, as it always has. The screen saver keeps to the sign as it is.")
+
+        Heading("Layouts · tick any or all")
+        Card {
+            LayoutRow(title: "In turns, split", detail: "Local on the right, the others in turn on the left", isOn: $turns, divider: false) {
+                Text("A city every")
+                NumberStepper(value: $turnsSecs, range: 3...60, unit: "s")
+            }
+            LayoutRow(title: "Resting", detail: "All four and a green chip, till anything changes", isOn: $rest) {
+                Text("After")
+                NumberStepper(value: $restMins, range: 1...120, unit: "min of FREE")
+            }
+            LayoutRow(title: "Now and then", detail: "The bar rolls over to a world board", isOn: $board) {
+                Text("Every")
+                NumberStepper(value: $boardMins, range: 1...60, unit: "min for")
+                NumberStepper(value: $boardSecs, range: 5...60, step: 5, unit: "s")
+            }
+            LayoutRow(title: "Ticker", detail: "The other cities run through the pill", isOn: $ticker) {
+                Text("Every")
+                NumberStepper(value: $tickerMins, range: 5...120, step: 5, unit: "min")
+            }
+        }
+        if turns && ticker {
+            Warning(text: "With In turns on, the ticker shows the cities a second time, in a pill a third narrower. You may not want both.")
+        }
+        if !(turns || rest || board || ticker) {
+            Warning(text: "No layout ticked: FREE looks as it always has.")
+        }
+
+        Heading("Preview")
+        Card {
+            WorldPreview(watch: watch, replays: replays).padding(12)
+            Divider().padding(.leading, 12)
+            // five layouts and a button: the picker takes the row, so nothing is squeezed
+            HStack(spacing: 12) {
+                Picker("Watch", selection: $watch) {
+                    ForEach(WorldClocks.Watch.allCases) { w in Text(w.label).tag(w) }
+                }
+                .labelsHidden().pickerStyle(.segmented)
+                Button { replays += 1 } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
+                    .fixedSize()
+                    .help("Play the preview again, from a call ending")
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+        Note("The preview plays from a call ending, with your cities, whether or not the world clocks are on. Each layout comes round a few seconds in, and again every few seconds; As set keeps your timings, so its first board or ticker is minutes away.")
+
+        Heading("When layouts meet")
+        Card {
+            Row(label: "While Resting is up", divider: false) {
+                Picker("While Resting is up", selection: $restHolds) {
+                    Text("Hold the board").tag(true)
+                    Text("Board still runs").tag(false)
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
+            }
+            .disabled(!(rest && board))
+            Row(label: "When two fall together") {
+                Picker("When two fall together", selection: $clash) {
+                    Text("Second waits").tag("wait")
+                    Text("Skip the second").tag("skip")
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
+            }
+            .disabled(!(board && ticker))
+            Row(label: "The ticker") {
+                Picker("The ticker", selection: $tickerForScroll) {
+                    Text("Instead of the word's scroll").tag(true)
+                    Text("As well as it").tag(false)
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
+            }
+            .disabled(!ticker)
+        }
+        Note("In turns sets how FREE looks. Resting takes over after its wait, till anything changes. Now and then and the ticker come in at their times, one at a time; the ticker needs the pill, so it never runs while Resting is up. A rule that doesn't apply to what's ticked is greyed out.")
+
+        Heading("Cities")
+        Card {
+            LocalCityRow(code: $localCode)
+            CityRow(slot: 1)
+            CityRow(slot: 2)
+            CityRow(slot: 3)
+        }
+        if [city1, city2, city3].allSatisfy({ WorldClocks.city(named: $0) == nil }) {
+            Warning(text: "No cities but local: FREE looks as it always has.")
+        }
+        Note("Each list runs west to east by the city's offset today, from macOS, so it stays right when the clocks change. Set a clock to None for fewer: the layouts close up around the ones left. Local is the Mac's own time zone, from System Settings ▸ General ▸ Date & Time, and always shows. The sign calls each city by three letters: type your own, or leave it empty for the city's.")
+    }
+}
+
+/// A layout to tick, and its timing, greyed out while it's unticked.
+private struct LayoutRow<Controls: View>: View {
+    let title: String
+    let detail: String
+    @Binding var isOn: Bool
+    var divider = true
+    @ViewBuilder var controls: Controls
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if divider { Divider().padding(.leading, 12) }
+            HStack(spacing: 12) {
+                Toggle(isOn: $isOn) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                        Text(detail).font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                Spacer(minLength: 8)
+                HStack(spacing: 6) { controls }
+                    .disabled(!isOn)
+                    .opacity(isOn ? 1 : 0.5)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+    }
+}
+
+/// A whole number typed or stepped, kept to its range.
+private struct NumberStepper: View {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    var step = 1
+    let unit: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 44)
+            Stepper("", value: $value, in: range, step: step).labelsHidden()
+            Text(unit)
+        }
+        .onChange(of: value) { _, v in
+            let c = min(max(v, range.lowerBound), range.upperBound)
+            if c != v { value = c }
+        }
+    }
+}
+
+/// The world clocks on their own little bar, playing one layout or all of them as set.
+private struct WorldPreview: View {
+    let watch: WorldClocks.Watch
+    let replays: Int
+    @StateObject private var bar = BarModel()
+    @Environment(\.displayScale) private var scale
+
+    var body: some View {
+        let pitch = max(Int((4 * scale).rounded()), 2)          // 4 points an LED
+        LEDPanelView(model: bar, pitchPixels: pitch, layout: .wide,
+                     world: { [watch] date in WorldClocks.shared.preview(watch, at: date) })
+            .frame(width: CGFloat(BarEngine.cols * pitch) / scale, height: CGFloat(BarEngine.rows * pitch) / scale)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .frame(maxWidth: .infinity)
+            .onAppear { bar.replay(.free, from: .call) }
+            .onChange(of: watch) { _, _ in bar.replay(.free, from: .call) }
+            .onChange(of: replays) { _, _ in bar.replay(.free, from: .call) }
+    }
+}
+
+/// A clock's row: what it is and how far from local on the left, its city and code on the right.
+private struct CityLine<Controls: View>: View {
+    let title: String
+    let detail: String
+    var divider = true
+    @ViewBuilder var controls: Controls
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if divider { Divider().padding(.leading, 12) }
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text(detail).font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                controls
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+    }
+}
+
+/// What the sign calls a city: three letters, or empty for the city's own.
+private struct CodeField: View {
+    @Binding var code: String
+    let placeholder: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("as").foregroundStyle(.secondary)
+            TextField(placeholder, text: Binding(get: { code }, set: { code = WorldClocks.code($0) }))
+                .textFieldStyle(.roundedBorder).frame(width: 48)
+        }
+    }
+}
+
+private struct LocalCityRow: View {
+    @Binding var code: String
+
+    var body: some View {
+        CityLine(title: "Local", detail: "From the Mac", divider: false) {
+            Text(WorldClocks.localLabel(at: Date())).foregroundStyle(.secondary)
+            CodeField(code: $code, placeholder: WorldClocks.localCode)
+        }
+    }
+}
+
+/// One of the other three clocks: a city from the list, and what the sign calls it.
+private struct CityRow: View {
+    let slot: Int
+    @AppStorage private var city: String
+    @AppStorage private var code: String
+
+    init(slot: Int) {
+        self.slot = slot
+        _city = AppStorage(wrappedValue: WorldClocks.Settings.defaults.cities[slot - 1], WorldClocks.Key.city(slot))
+        _code = AppStorage(wrappedValue: "", WorldClocks.Key.code(slot))
+    }
+
+    var body: some View {
+        let now = Date()
+        let picked = WorldClocks.city(named: city)
+        CityLine(title: "Clock \(slot + 1)", detail: picked.map { WorldClocks.fromLocal($0.timeZone, at: now) } ?? "Not shown") {
+            Picker("Clock \(slot + 1)", selection: $city) {
+                Text("None").tag("")
+                Divider()
+                ForEach(WorldClocks.listed(at: now)) { c in Text(c.label(at: now)).tag(c.name) }
+            }
+            .labelsHidden().frame(width: 260)
+            CodeField(code: $code, placeholder: picked?.code ?? "")
+                .disabled(picked == nil)
+        }
+        // a new city goes by its own code
+        .onChange(of: city) { _, _ in code = "" }
+    }
+}
+
 // MARK: - Screen care
 
 /// Looking after the wall's screen: dark out of hours, and what it does in hours.
@@ -697,7 +987,7 @@ private struct ScreenCareTab: View {
         Card {
             InfoRow(title: "The orbit", detail: "The LEDs move a pixel at a time through every position within an LED: one pass an hour.", divider: false)
             InfoRow(title: "Resting", detail: "After half an hour of FREE or a not-here state unchanged, the LEDs ease down to about 60% of their light.")
-            InfoRow(title: "The scroll", detail: "Every 15 minutes of a quiet state, the pill's icon and word scroll out and back in.")
+            InfoRow(title: "The scroll", detail: "Every 15 minutes of a quiet state, the pill's icon and word scroll out and back in: or the world clocks' ticker runs in its place, if it's set to (World clocks).")
         }
         Note("Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark. The floating window, on your desk screen among everything else, does none of this.")
     }
