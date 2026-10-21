@@ -935,9 +935,10 @@ Calendar.app and an Elgato Stream Deck:
 - On real Teams and Zoom meetings: the mute state read on the sign and the
   Mute key, the Mute and Leave keys pressing the meeting (found here: Teams
   only shows its meeting controls to Accessibility once asked as VoiceOver
-  asks, and Zoom's host gets a "Leave meeting?" prompt — now answered), and
-  no crash pressing a key with the settings window in front (that was
-  found here too).
+  asks, and Zoom's host gets a "Leave meeting?" prompt, then "Assign a new
+  host" — both now answered, the second from 2.8.5 through its preview
+  build), and no crash pressing a key with the settings window in front
+  (that was found here too).
 - An update installing itself — build 35 to build 36 — with no Open Anyway
   and Accessibility still allowed, both builds signed with the project's
   certificate.
@@ -958,8 +959,7 @@ displays sleep out of hours and waking them when the hours begin
 the orbit and the hours beneath them are checked, and the simulator shows
 the look. The world clocks on the wall itself, through a day of FREE —
 the board, resting and the ticker at their real times — and the Leave key's
-END on a real Stream Deck. Zoom's "Assign a new host", answered after a host
-presses Leave (from 2.8.5). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
+END on a real Stream Deck. For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen
