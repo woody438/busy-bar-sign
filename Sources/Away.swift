@@ -26,7 +26,7 @@ final class Away: ObservableObject {
     }
     /// Why the screen saver didn't start, or nil.
     @Published private(set) var problem: String?
-    /// The Nearby key's word as you typed it in Settings ▸ Status ("W House"),
+    /// The Nearby key's word as you typed it in Settings ▸ Away & screen saver ("W House"),
     /// or "" for NEARBY. The sign says it in capitals wherever it would say
     /// NEARBY, the Stream Deck and the screen saver too; the menus as typed.
     /// Settings only sets one the sign can show (BarEngine.nearbyProblem).

@@ -132,7 +132,7 @@ final class BusyBarSignSaverView: ScreenSaverView {
     }
 
     /// Where this screen saver is, and whether it drew since it last asked:
-    /// the app lists the monitors it's showing on (Settings ▸ Displays).
+    /// the app lists the monitors it's showing on (Settings ▸ Away & screen saver).
     private func makeReport() -> LocalAPI.SaverReport? {
         guard !isPreview, let screen = window?.screen,
               let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return nil }

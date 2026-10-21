@@ -20,7 +20,7 @@ final class StatusModel: ObservableObject {
     @Published private(set) var moment: BarMoment?
     /// Out of hours with nothing going on: the wall and the screen saver are black.
     @Published private(set) var wallDark = false
-    /// When the wall goes dark (Settings ▸ Displays ▸ Out of hours).
+    /// When the wall goes dark (Settings ▸ Screen care ▸ Out of hours).
     @Published var wallHours = WallHours(.standard) {
         didSet {
             wallHours.save(to: .standard)

@@ -5,7 +5,7 @@ import Security
  * Keeps Busy Bar Sign up to date from its GitHub releases (UpdateCheck says
  * which): looks at launch and every four hours, and installs a newer build
  * when you're not on a call or in a meeting, so the sign never blinks out
- * mid-call. Or by hand, from Settings ▸ Status. With Get preview builds on,
+ * mid-call. Or by hand, from Settings ▸ Updates. With Get preview builds on,
  * a pull request's preview build counts too; turned off on a preview, Back to
  * Main Release installs main's build, though its number is lower.
  *
