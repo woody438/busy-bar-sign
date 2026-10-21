@@ -488,8 +488,8 @@ the keys, the sign and the settings always agree:
   call from your calendar — MEETING after a call you took on your phone,
   LATE FOR, OUT ON SITE, an event of your own — **Leave** says **END** in
   red. Press it (or hold it, if it's set to hold) when it finished early: the
-  sign moves straight on to what's next, FREE, or **FREE TILL** if something
-  follows straight after. **End Now** in either menu and **Finished early?**
+  sign moves straight on to **FREE**, and the next call or meeting warns ten
+  minutes before, as usual. **End Now** in either menu and **Finished early?**
   under Settings ▸ Status do the same. Not while the mic's in use: the sign's
   following the call then.
 - A press clicks the meeting's own button through Accessibility and checks
@@ -534,7 +534,7 @@ account's own "Calendar" by itself.
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
-| **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
+| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
@@ -551,9 +551,9 @@ while the Mac's locked); then the calendar — out of office, out on site,
 lunch, away, a phone-call block, a meeting in a room you're late for, an
 in-person meeting, a call you're late for, a call never joined, a warning, a
 tentative meeting; then, with the Mac locked, NEARBY; then a no-meetings
-block, and a call you left early — or an event you ended early — with
-something straight after it. An event you've ended early is off the sign
-from then on, as if it had finished.
+block. A call you left early, or an event you ended early, is just FREE; an
+event you've ended early is off the sign from then on, as if it had
+finished.
 
 **Where a meeting is** decides it before its Teams or Zoom link does: the
 location says where you'll be, a link only that others can dial in.

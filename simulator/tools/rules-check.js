@@ -25,7 +25,7 @@ for (const [t, want, note] of D.MOMENTS) {
 const sAt = (t, extra) => R.decide(Object.assign({ now: D.at(base, t), override: 'auto', dndUntil: null }, day, extra || {}));
 expect('08:20 counts down 10:00', sAt('08:20').left, 600);
 expect('09:46 is 60 s late', sAt('09:46').left, 60);
-expect('14:47 free till 14:55', sAt('14:47').at, D.at(base, '14:55'));
+expect('14:47 left early: the clock on the right, not a time', sAt('14:47').at, undefined);
 expect('14:09:59 still late', sAt('14:09:59').state, 'late');
 expect('14:10:00 never joined: in person', sAt('14:10:00').state, 'meeting');
 expect('…counting down to the end', sAt('14:10:00').at, D.at(base, '15:30'));
@@ -143,17 +143,17 @@ expect('overrun: on the mic', decide(663, two, [[598, 665]]).state, 'call');
 expect('overrun: next call is late', decide(666, two, [[598, 665]]).state, 'late');
 expect('overrun: late counts from its start', decide(666, two, [[598, 665]]).left, 360);
 // joining a few minutes early counts as joining
-expect('joined 4 min early, left early', decide(640, [call('a', 600, 660), call('b', 660, 690)], [[596, 630]]).state, 'freeTil');
-// left early: FREE TILL only with something on the sign straight after (within 5 min), else FREE
+expect('joined 4 min early, left early', decide(640, [call('a', 600, 660), call('b', 660, 690)], [[596, 630]]).state, 'free');
+// left early: FREE, whatever's next; the next one warns 10 minutes before, as usual
 const own = (title, s, e, o) => ev(Object.assign({ title: title, start: s * M, end: e * M }, o || {}));
 expect('left early, nothing after', decide(640, [call('a', 600, 660)], [[600, 630]]).state, 'free');
 expect('left early, next call 30 min after', decide(640, [call('a', 600, 660), call('b', 690, 720)], [[600, 630]]).state, 'free');
-expect('left early, next call 5 min after', decide(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).state, 'freeTil');
-expect('…free till the slot ends', decide(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).at, 660 * M);
+expect('left early, next call 5 min after', decide(640, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).state, 'free');
+expect('…which warns 10 minutes before', decide(656, [call('a', 600, 660), call('b', 665, 700)], [[600, 630]]).state, 'callIn');
 expect('left early, next call 6 min after', decide(640, [call('a', 600, 660), call('b', 666, 700)], [[600, 630]]).state, 'free');
-expect('left early, lunch straight after', decide(640, [call('a', 600, 660), own('Lunch', 660, 720)], [[600, 630]]).state, 'freeTil');
-expect('left early, your own block after', decide(640, [call('a', 600, 660), own('Gym', 660, 720)], [[600, 630]]).state, 'freeTil');
-expect('left early, tentative after', decide(640, [call('a', 600, 660), call('t', 660, 690, { availability: 'tentative' })], [[600, 630]]).state, 'freeTil');
+expect('left early, lunch straight after', decide(640, [call('a', 600, 660), own('Lunch', 660, 720)], [[600, 630]]).state, 'free');
+expect('left early, your own block after', decide(640, [call('a', 600, 660), own('Gym', 660, 720)], [[600, 630]]).state, 'free');
+expect('left early, tentative after', decide(640, [call('a', 600, 660), call('t', 660, 690, { availability: 'tentative' })], [[600, 630]]).state, 'free');
 expect('left early, cancelled after', decide(640, [call('a', 600, 660), call('x', 660, 690, { cancelled: true })], [[600, 630]]).state, 'free');
 expect('left early, show-as-free after', decide(640, [call('a', 600, 660), call('x', 660, 690, { availability: 'free' })], [[600, 630]]).state, 'free');
 expect('left early, one inside the slot', decide(640, [call('a', 600, 660), own('Gym', 645, 660)], [[600, 630]]).state, 'free');
@@ -163,8 +163,8 @@ expect('tentative call soon', decide(595, [call('t', 600, 630, { availability: '
 expect('…counts down', decide(595, [call('t', 600, 630, { availability: 'tentative' })]).left, 300);
 expect('tentative in person', decide(605, [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3, availability: 'tentative' })]).state, 'busyTbc');
 expect('…shows its end', decide(605, [ev({ title: 'm', start: 600 * M, end: 660 * M, attendees: 3, availability: 'tentative' })]).at, 660 * M);
-// a warning beats FREE TILL
-expect('warning beats free till', decide(645, [call('a', 600, 660), call('b', 652, 700)], [[600, 640]]).state, 'callIn');
+// after leaving early, the next call's warning comes as usual
+expect('left early, then the warning', decide(645, [call('a', 600, 660), call('b', 652, 700)], [[600, 640]]).state, 'callIn');
 // LATE beats the next call's warning
 expect('late beats warning', decide(603, [call('a', 600, 660), call('b', 610, 640)]).state, 'late');
 // an in-person meeting beats a call warning
@@ -297,8 +297,7 @@ expect('custom lunch word', R.decide({ now: 600 * M, events: [ev({ title: 'Déje
 const inOffice = (id, s, e) => ev({ id: id, title: id, start: s * M, end: e * M, attendees: 3, location: "Woody's office" });
 const endedAt = (now, events, mic, ids) => decideWith(now, events, mic, { ended: ids });
 expect('a meeting ended early: free', endedAt(620, [inOffice('m', 600, 660)], [], ['m']).state, 'free');
-expect('…with something straight after: free till', endedAt(620, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'freeTil');
-expect('…till when it would have ended', endedAt(620, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).at, 660 * M);
+expect('…with something straight after: still free', endedAt(620, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'free');
 expect('…and the next one still warns', endedAt(652, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'callIn');
 expect('…and comes on as usual', endedAt(661, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'late');
 expect('a call never joined (MEETING), ended: free', endedAt(625, [call('c', 600, 660)], [], ['c']).state, 'free');

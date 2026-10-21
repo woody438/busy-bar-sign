@@ -1172,8 +1172,6 @@ private enum Guide {
              more: "Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you're there in person."),
         Line(state: .lateMtg, how: "A meeting in a meeting room has started, and you're still at the Mac.",
              more: "Pulses for up to 10 minutes, or till you leave the Mac, then MEETING."),
-        Line(state: .freeTil, how: "You left a call before its slot ended.",
-             more: "Until the booked end time — the time was set aside."),
         Line(state: .callTbc, how: "Show As: Tentative on a meeting.",
              more: "Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE."),
         Line(state: .dnd, how: "An event titled “No meetings” or “Focus”.",
