@@ -1045,6 +1045,457 @@
       { alpha: 0.5, clipY: clipY });
   }
 
+  /* ------------------------------------------------------------------ *
+   * World clocks — local time and three more cities, while the sign    *
+   * says FREE. Any mix of four layouts, each on its own timing:        *
+   *   turns  — the split: the other cities in turn on the left, a      *
+   *            narrower pill in the middle, local on the right         *
+   *   rest   — after a while of FREE, the pill draws in to a chip and  *
+   *            the four take the bar, till anything changes            *
+   *   board  — now and then the bar rolls over to a four-column board *
+   *   ticker — the other cities run through the pill                  *
+   * world = { zones: [{ code, h, m, dow, date, dayDelta }] (local      *
+   *           first), turns: { on, secs }, rest: { on, mins },         *
+   *           board: { on, mins, secs }, ticker: { on, mins },         *
+   *           rules: { restHolds, clash: 'wait' | 'skip',              *
+   *                    tickerForScroll } }                             *
+   * The app works out each city's time; this only draws it.            *
+   *                                                                    *
+   *   split  cols 1-31 the other cities · 35-82 the pill · 86-116 local *
+   *   rest   cols 1-16 the chip · from col 19 two lines of two cities  *
+   *   board  four columns of 29, each city above its time              *
+   * ------------------------------------------------------------------ */
+  const WORLD = {
+    leftX: 1, leftW: 31, pillX: 35, pillW: 48, rightX: 86, rightW: 31,
+    slideIn: 40,                       // the clocks slide in from either side as the pill draws in
+    roll: 0.45,                        // the left clock rolls up to the next city
+    chipW: 16, restIn: 0.8,            // resting: the pill draws in to a chip over this long
+    gridX: 19, gridCell: 52, gridLabel: 14, gridGap: 3,
+    boardCell: 29, boardRoll: 0.5, boardGap: 2,
+    tickerSpeed: 24, tickerGap: 12     // LEDs a second; LEDs between the cities
+  };
+  const hhmm = (z) => pad2(z.h) + ':' + pad2(z.m);
+  /* Tomorrow or yesterday there. */
+  const dayMark = (z) => (z.dayDelta > 0 ? '+1' : z.dayDelta < 0 ? '-1' : '');
+  const cityLine = (z) => z.code + (dayMark(z) ? ' ' + dayMark(z) : '');
+  const colonOf = (clock) => (clock.s % 2 === 1 ? 0.4 : 1);
+  /* The pill FREE sits in: today's, or the split's. */
+  const worldPill = (world) => (world.turns.on ? { x: WORLD.pillX, w: WORLD.pillW } : { x: LAYOUT.statusX, w: LAYOUT.statusW });
+
+  /* A clock beside the pill: the time in the clock's face, a line beneath at
+     half brightness. dy moves it down (a roll), dx across (an entrance);
+     nothing is drawn outside clip. */
+  function drawSideClock(f, clock, top, bottom, x, w, dy, dx, alpha, clip) {
+    const L = LAYOUT;
+    const tw = clockTextWidth(L.timeFont, top), bw = textWidth(L.dateFont, bottom);
+    drawClockText(f, L.timeFont, top, x + dx + Math.round((w - tw) / 2), L.timeBase + dy, PALETTE.white,
+      { alpha: alpha, clip: clip }, colonOf(clock));
+    drawText(f, L.dateFont, bottom, x + dx + Math.round((w - bw) / 2), L.dateBase + dy, PALETTE.white,
+      { alpha: 0.5 * alpha, clip: clip });
+  }
+
+  /* The other cities on the left, one at a time, rolling up to the next
+     every turns.secs seconds. slide pushes it left; nothing right of maxX. */
+  function drawLeftTurns(f, clock, world, t, slide, maxX, alpha) {
+    const others = world.zones.slice(1), n = others.length;
+    if (n === 0) return;
+    const dwell = world.turns.secs, tt = Math.max(t, 0);
+    const i = Math.floor(tt / dwell) % n, p = tt % dwell;
+    // the first city is there from the start; each after it rolls in
+    const k = n < 2 || tt < dwell || p >= WORLD.roll ? 1 : easeInOut(p / WORLD.roll);
+    const clip = [0, maxX];
+    if (k < 1) {
+      const z = others[(i - 1 + n) % n];
+      drawSideClock(f, clock, hhmm(z), cityLine(z), WORLD.leftX, WORLD.leftW, -Math.round(k * (ROWS + 1)), -slide, alpha, clip);
+    }
+    const z = others[i];
+    drawSideClock(f, clock, hhmm(z), cityLine(z), WORLD.leftX, WORLD.leftW, Math.round((1 - k) * (ROWS + 1)), -slide, alpha, clip);
+  }
+
+  /* Local time and the day, right of the split's pill. */
+  function drawRightLocal(f, clock, world, slide, minX, alpha) {
+    const z = world.zones[0];
+    drawSideClock(f, clock, hhmm(z), DAYS[z.dow] + ' ' + z.date, WORLD.rightX, WORLD.rightW, 0, slide, alpha, [minX, COLS]);
+  }
+
+  /* FREE as the settings have it: today's layout, or the split. dx moves the
+     tick and word (the scroll); empty leaves them out (the ticker's there). */
+  function drawWorldBase(f, now, t, clock, world, dx, empty) {
+    const pal = PALETTE.free, g = worldPill(world);
+    f.px.fill(0);
+    if (world.turns.on) {
+      drawLeftTurns(f, clock, world, t, 0, WORLD.leftX + WORLD.leftW + 1, 1);
+      drawRightLocal(f, clock, world, 0, 0, 1);
+    } else {
+      drawRight(f, 'free', clock, null, 0, 0);
+    }
+    drawPill(f, g.x, g.w, pal, { sheen: sheenAt(now) });
+    if (!empty) drawStatusContent(f, now, 'free', pal, g.x + dx, g.w, 1, dx ? [g.x + 1, g.x + g.w - 1] : undefined);
+  }
+
+  /* The word's quarter-hour scroll in a pill w wide, s seconds after FREE settled: as scrollAt. */
+  function worldScroll(s, w) {
+    if (s < SCROLL.every) return 0;
+    const p = s % SCROLL.every, half = SCROLL.duration / 2;
+    if (p >= SCROLL.duration) return 0;
+    const away = (statusContentWidth('free') + w) / 2 + 2;
+    return p < half ? -Math.round(away * easeIn(p / half)) : Math.round(away * (1 - easeOut((p - half) / half)));
+  }
+
+  /* The ticker: how long the other cities are, and them running right to left
+     through a pill at x0, w wide, t seconds in. */
+  function tickerWidth(world) {
+    const others = world.zones.slice(1);
+    let w = 0;
+    for (let i = 0; i < others.length; i++) {
+      const z = others[i];
+      w += textWidth('busy_bold_10', z.code + ' ') + clockTextWidth('busy_bold_10', hhmm(z));
+      if (dayMark(z)) w += 2 + textWidth('busy_regular_5', dayMark(z));
+      if (i < others.length - 1) w += WORLD.tickerGap;
+    }
+    return w;
+  }
+  function drawTickerText(f, world, x0, w, t) {
+    const pal = PALETTE.free, clip = [x0 + 1, x0 + w - 1];
+    let x = Math.round(x0 + w - t * WORLD.tickerSpeed);
+    const others = world.zones.slice(1);
+    for (let i = 0; i < others.length; i++) {
+      const z = others[i], label = z.code + ' ', mark = dayMark(z);
+      drawText(f, 'busy_bold_10', label, x, LAYOUT.statusBase, PALETTE.white,
+        { shadow: pal.shadow, alpha: 0.7, shadowAlpha: 0.9 * 0.7, clip: clip });
+      x += textWidth('busy_bold_10', label);
+      x += drawClockText(f, 'busy_bold_10', hhmm(z), x, LAYOUT.statusBase, PALETTE.white,
+        { shadow: pal.shadow, alpha: 1, shadowAlpha: 0.9, clip: clip }, 1);
+      if (mark) {
+        drawText(f, 'busy_regular_5', mark, x + 2, LAYOUT.statusBase - 5, PALETTE.white,
+          { shadow: pal.shadow, alpha: 0.8, shadowAlpha: 0.9 * 0.8, clip: clip });
+        x += 2 + textWidth('busy_regular_5', mark);
+      }
+      x += WORLD.tickerGap;
+    }
+  }
+  /* Out goes the word, in run the cities, and back the word comes: how long, in a pill pillW wide. */
+  const tickerSpan = (world, pillW) => SCROLL.duration + (pillW + tickerWidth(world)) / WORLD.tickerSpeed;
+  /* t: seconds into the ticker; s: since FREE settled, for the left clock. */
+  function drawWorldTicker(f, now, t, s, clock, world) {
+    const g = worldPill(world), half = SCROLL.duration / 2;
+    const run = (g.w + tickerWidth(world)) / WORLD.tickerSpeed;
+    const away = (statusContentWidth('free') + g.w) / 2 + 2;
+    if (t < half) { drawWorldBase(f, now, s, clock, world, -Math.round(away * easeIn(t / half)), false); return; }
+    if (t >= half + run) {
+      drawWorldBase(f, now, s, clock, world, Math.round(away * (1 - easeOut(Math.min((t - half - run) / half, 1)))), false);
+      return;
+    }
+    drawWorldBase(f, now, s, clock, world, 0, true);
+    drawTickerText(f, world, g.x, g.w, t - half);
+  }
+
+  /* The board: four columns, each city above its time, local in FREE's green. */
+  function drawWorldBoard(f, clock, world) {
+    f.px.fill(0);
+    const cell = WORLD.boardCell;
+    for (let i = 0; i < world.zones.length && i < 4; i++) {
+      const z = world.zones[i], cx = 1 + i * cell, label = cityLine(z);
+      const lw = textWidth('busy_regular_5', label);
+      drawText(f, 'busy_regular_5', label, cx + Math.round((cell - lw) / 2), 5, i === 0 ? PALETTE.free.top : PALETTE.white,
+        { alpha: i === 0 ? 1 : 0.55 });
+      const tw = clockTextWidth('busy_regular_7', hhmm(z));
+      drawClockText(f, 'busy_regular_7', hhmm(z), cx + Math.round((cell - tw) / 2) + 1, 14, PALETTE.white, {}, colonOf(clock));
+    }
+  }
+  /* Frame a rolling up and out, b following from below, gap rows behind. */
+  function rollFrames(f, a, b, off, gap) {
+    for (let y = 0; y < f.h; y++) {
+      const src = y + off;
+      for (let x = 0; x < f.w; x++) {
+        if (src < f.h) f.set(x, y, a.get(x, src));
+        else if (src - f.h - gap >= 0) f.set(x, y, b.get(x, src - f.h - gap));
+        else f.set(x, y, [0, 0, 0]);
+      }
+    }
+  }
+  const boardSpan = (world) => 2 * WORLD.boardRoll + world.board.secs;
+  /* t seconds into the board: up it rolls over `under`, stays, and rolls away again. */
+  function drawWorldBoardOn(f, t, world, face, under) {
+    const R = WORLD.boardRoll, secs = world.board.secs, gap = WORLD.boardGap, span = f.h + gap;
+    if (t >= R && t < R + secs) { face(f); return; }
+    const a = new Frame(f.w, f.h), b = new Frame(f.w, f.h);
+    if (t < R) {
+      under(a); face(b);
+      rollFrames(f, a, b, Math.round(easeInOut(t / R) * span), gap);
+    } else {
+      face(a); under(b);
+      rollFrames(f, a, b, Math.round(easeInOut(Math.min((t - R - secs) / R, 1)) * span), gap);
+    }
+  }
+
+  /* Resting's grid: two lines of two, each city then its time; nothing left of minX. */
+  function drawWorldGrid(f, clock, world, x0, alpha, minX) {
+    const bases = [6, 15], clip = [minX, COLS];
+    for (let i = 0; i < world.zones.length && i < 4; i++) {
+      const z = world.zones[i], cx = x0 + (i % 2) * WORLD.gridCell, base = bases[Math.floor(i / 2)];
+      drawText(f, 'busy_regular_5', z.code, cx, base, i === 0 ? PALETTE.free.top : PALETTE.white,
+        { alpha: (i === 0 ? 1 : 0.55) * alpha, clip: clip });
+      drawClockText(f, 'busy_bold_7', hhmm(z), cx + WORLD.gridLabel + WORLD.gridGap, base, PALETTE.white,
+        { alpha: alpha, clip: clip }, colonOf(clock));
+    }
+  }
+  /* Resting, k of the way there: the pill slides left and draws in to the
+     chip, what was beside it gives way, and the four slide in behind. */
+  function drawWorldRest(f, now, t, clock, world, k) {
+    const pal = PALETTE.free, L = LAYOUT, ek = easeInOut(k), split = world.turns.on;
+    const fromX = split ? WORLD.pillX : L.statusX, fromW = split ? WORLD.pillW : L.statusW;
+    f.px.fill(0);
+    const outA = 1 - smooth(0, 0.35, k), go = Math.round(20 * smooth(0, 0.4, k));
+    if (outA > 0) {
+      const z = world.zones[0];
+      drawSideClock(f, clock, hhmm(z), DAYS[z.dow] + ' ' + z.date, split ? WORLD.rightX : L.clockX, split ? WORLD.rightW : L.clockW,
+        0, go, outA, [0, COLS]);
+      if (split) drawLeftTurns(f, clock, world, t, go, WORLD.leftX + WORLD.leftW + 1, outA);
+    }
+    const x = lerp(fromX, L.statusX, ek), w = lerp(fromW, WORLD.chipW, ek);
+    drawPill(f, x, w, pal, { sheen: sheenAt(now) });
+    const ix = Math.round(lerp(Math.round(fromX + (fromW - statusContentWidth('free')) / 2),
+      L.statusX + Math.round((WORLD.chipW - ICONS.free[0].length) / 2), ek));
+    const clip = [Math.ceil(x) + 1, Math.floor(x + w) - 1];
+    drawIcon(f, ICONS.free, ix, L.statusBase - ICON_LIFT.free, PALETTE.white, pal.shadow, 1, clip);
+    const wordA = 1 - smooth(0, 0.35, k);
+    if (wordA > 0) {
+      drawText(f, L.statusFont, WORDS.free, ix + iconWidth('free'), L.statusBase, PALETTE.white,
+        { shadow: pal.shadow, alpha: wordA, shadowAlpha: 0.9 * wordA, clip: clip });
+    }
+    const inA = smooth(0.4, 1, k);
+    if (inA > 0) drawWorldGrid(f, clock, world, WORLD.gridX + Math.round(30 * (1 - easeOut(k))), inA, Math.round(x + w) + 2);
+  }
+
+  /* A call has just ended (e seconds into FREE): the announcement across the
+     bar, then, with the split on, it draws in to the middle as both clocks
+     slide back from the sides. */
+  function drawWorldSettle(f, now, e, prev, clock, world) {
+    const cs = T.swap + T.hold;
+    if (!world.turns.on || e < cs) { render(f, now, 'free', prev, now - e, clock, null); return; }
+    const pal = PALETTE.free, L = LAYOUT;
+    f.px.fill(0);
+    const p = Math.min((e - cs) / T.collapse, 1), k = easeInOut(p);
+    const x = lerp(L.heroX, WORLD.pillX, k), w = lerp(L.heroW, WORLD.pillW, k);
+    drawPill(f, x, w, pal, { sheen: sheenAt(now) });
+    const clip = [Math.ceil(x) + 1, Math.floor(x + w) - 1];
+    const fadeOut = 1 - smooth(0.08, 0.34, k), fadeIn = smooth(0.14, 0.4, k);
+    if (fadeOut > 0) {
+      const hw = heroWidth('free', null);
+      drawText(f, HERO.free.font, heroWord('free', null), x + (Math.max(w, hw + 6) - hw) / 2 + 0.5, HERO.free.base,
+        PALETTE.white, Object.assign(heroStyle('free', pal, fadeOut), { clip: clip }));
+    }
+    if (fadeIn > 0) drawStatusContent(f, now, 'free', pal, x, w, fadeIn, clip);
+    const slide = Math.round(WORLD.slideIn * (1 - easeOut(p))), sideA = smooth(0.3, 0.75, p);
+    if (sideA > 0) {
+      drawRightLocal(f, clock, world, slide, Math.ceil(x + w) + 2, sideA);
+      drawLeftTurns(f, clock, world, 0, slide, Math.floor(x) - 1, sideA);
+    }
+  }
+
+  /*
+   * When the board and the ticker show, up to s seconds after FREE settled,
+   * and when it rests. The ticker needs the pill, so it never runs over the
+   * chip; the board can, if the rules let it. One at a time: when two fall
+   * together the second waits for the first (or is skipped), and nothing
+   * starts that would run into the rest.
+   */
+  function worldSchedule(world, s, pillW) {
+    const R = world.rules;
+    const rest = world.rest.on ? world.rest.mins * 60 : Infinity;
+    const raw = [], tickerFor = tickerSpan(world, pillW), boardFor = boardSpan(world);
+    if (world.ticker.on && world.ticker.mins > 0) {
+      for (let at = world.ticker.mins * 60; at <= s && at < rest; at += world.ticker.mins * 60) {
+        raw.push({ kind: 'ticker', due: at, dur: tickerFor });
+      }
+    }
+    if (world.board.on && world.board.mins > 0) {
+      for (let at = world.board.mins * 60; at <= s && (!R.restHolds || at < rest); at += world.board.mins * 60) {
+        raw.push({ kind: 'board', due: at, dur: boardFor });
+      }
+    }
+    raw.sort((a, b) => a.due - b.due || (a.kind === 'ticker' ? -1 : 1));
+    const events = [];
+    let clear = 0;
+    for (const e of raw) {
+      if (R.clash === 'skip' && e.due < clear) continue;
+      const at = Math.max(e.due, clear);
+      const runsIntoRest = at < rest && at + e.dur > rest;
+      if (runsIntoRest || (e.kind === 'ticker' && at >= rest)) continue;
+      events.push({ kind: e.kind, at: at, dur: e.dur });
+      clear = at + e.dur + 1;
+    }
+    return { events: events, rest: rest };
+  }
+
+  /* The bar s seconds after FREE settled (below 0: still settling, after prev), and what it's showing. */
+  function worldAt(f, now, s, clock, world, prev) {
+    if (s < 0) { drawWorldSettle(f, now, s + SETTLED, prev, clock, world); return 'settle'; }
+    const sch = worldSchedule(world, s, worldPill(world).w);
+    const resting = s >= sch.rest, restK = Math.min((s - sch.rest) / WORLD.restIn, 1);
+    for (const e of sch.events) {
+      if (s < e.at || s >= e.at + e.dur) continue;
+      if (e.kind === 'board') {
+        drawWorldBoardOn(f, s - e.at, world, (g) => drawWorldBoard(g, clock, world),
+          resting ? (g) => drawWorldRest(g, now, s, clock, world, restK) : (g) => drawWorldBase(g, now, s, clock, world, 0, false));
+      } else {
+        drawWorldTicker(f, now, s - e.at, s, clock, world);
+      }
+      return e.kind;
+    }
+    if (resting) { drawWorldRest(f, now, s, clock, world, restK); return 'rest'; }
+    const dx = world.ticker.on && world.rules.tickerForScroll ? 0 : worldScroll(s, worldPill(world).w);
+    drawWorldBase(f, now, s, clock, world, dx, false);
+    return dx ? 'scroll' : 'base';
+  }
+
+  /*
+   * The scene with world clocks on: as render, but FREE as the settings have
+   * it, and, as FREE gives way, its face pressed down as the wave hits it.
+   * prevFor: how long FREE had been up when it ended.
+   */
+  function renderWorld(f, now, state, prev, since, clock, timer, world, prevFor) {
+    const e = now - since;
+    if (state === 'free') { f.px.fill(0); worldAt(f, now, e - SETTLED, clock, world, prev); return; }
+    if (prev === 'free' && e < T.swap) {
+      f.px.fill(0);
+      worldAt(f, now, prevFor - SETTLED, clock, world, null);
+      shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
+      drawShockwave(f, e / T.wave, palOf(state));
+      return;
+    }
+    render(f, now, state, prev, since, clock, timer);
+  }
+
+  /* ---- the same, stacked: the big clock stays local; the day line beneath takes each city in turn ---- */
+
+  /* The day line: the day (i = 0) or a city and its time. */
+  function drawStackedTurn(f, clock, world, i, dy) {
+    const S = STACKED, z = world.zones[i], font = S.smallFont, base = S.smallBase + dy, clipY = [35, S.rows];
+    if (i === 0) {
+      const d = DAYS[z.dow] + ' ' + z.date, w = textWidth(font, d);
+      drawText(f, font, d, Math.round((S.cols - w) / 2), base, PALETTE.white, { alpha: 0.5, clipY: clipY });
+      return;
+    }
+    const mark = dayMark(z), lw = textWidth(font, z.code + ' '), tw = clockTextWidth(font, hhmm(z));
+    const mw = mark ? 2 + textWidth('busy_regular_5', mark) : 0;
+    const x = Math.round((S.cols - lw - tw - mw) / 2);
+    drawText(f, font, z.code + ' ', x, base, PALETTE.white, { alpha: 0.5, clipY: clipY });
+    drawClockText(f, font, hhmm(z), x + lw, base, PALETTE.white, { alpha: 0.8, clipY: clipY }, colonOf(clock));
+    if (mark) drawText(f, 'busy_regular_5', mark, x + lw + tw + 2, base - 2, PALETTE.white, { alpha: 0.5, clipY: clipY });
+  }
+  function drawStackedWorldBase(f, now, t, clock, world, dx, empty) {
+    const S = STACKED, pal = PALETTE.free;
+    f.px.fill(0);
+    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH });
+    if (!empty) drawStatusContent(f, now, 'free', pal, S.pillX + dx, S.pillW, 1, dx ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined);
+    if (!world.turns.on) { drawStackedClock(f, 'free', clock, null, 0, 0); return; }
+    const big = pad2(clock.h) + ':' + pad2(clock.m), bw = clockTextWidth(S.bigFont, big);
+    drawClockText(f, S.bigFont, big, Math.round((f.w - bw) / 2), S.bigBase, PALETTE.white, {}, colonOf(clock));
+    const n = world.zones.length;
+    if (n === 0) return;
+    const dwell = world.turns.secs, tt = Math.max(t, 0);
+    const i = Math.floor(tt / dwell) % n, p = tt % dwell;
+    const k = n < 2 || tt < dwell || p >= WORLD.roll ? 1 : easeInOut(p / WORLD.roll);
+    if (k < 1) drawStackedTurn(f, clock, world, (i - 1 + n) % n, -Math.round(k * 10));
+    drawStackedTurn(f, clock, world, i, Math.round((1 - k) * 10));
+  }
+  function drawStackedWorldTicker(f, now, t, s, clock, world) {
+    const S = STACKED, half = SCROLL.duration / 2;
+    const run = (S.pillW + tickerWidth(world)) / WORLD.tickerSpeed;
+    const away = (statusContentWidth('free') + S.pillW) / 2 + 2;
+    if (t < half) { drawStackedWorldBase(f, now, s, clock, world, -Math.round(away * easeIn(t / half)), false); return; }
+    if (t >= half + run) {
+      drawStackedWorldBase(f, now, s, clock, world, Math.round(away * (1 - easeOut(Math.min((t - half - run) / half, 1)))), false);
+      return;
+    }
+    drawStackedWorldBase(f, now, s, clock, world, 0, true);
+    drawTickerText(f, world, S.pillX, S.pillW, t - half);
+  }
+  /* The board, stacked: four rows, a departures board. */
+  function drawStackedWorldBoard(f, clock, world) {
+    f.px.fill(0);
+    const font = 'busy_bold_7', bases = [9, 20, 31, 42];
+    for (let i = 0; i < world.zones.length && i < 4; i++) {
+      const z = world.zones[i], base = bases[i], mark = dayMark(z);
+      drawText(f, font, z.code, 8, base, i === 0 ? PALETTE.free.top : PALETTE.white, { alpha: i === 0 ? 1 : 0.55 });
+      if (mark) drawText(f, 'busy_regular_5', mark, 33, base, PALETTE.white, { alpha: 0.5 });
+      const tw = clockTextWidth(font, hhmm(z));
+      drawClockText(f, font, hhmm(z), STACKED.cols - 7 - tw, base, PALETTE.white, {}, colonOf(clock));
+    }
+  }
+  /* Resting, stacked: the chip and the local time share the top band, the
+     other three beneath with their day; the big clock rises from behind the pill. */
+  function drawStackedWorldRest(f, now, clock, world, k) {
+    const S = STACKED, pal = PALETTE.free, L = LAYOUT, ek = easeInOut(k), z = world.zones[0];
+    f.px.fill(0);
+    const big = hhmm(z), bw = clockTextWidth(S.bigFont, big);
+    const bx = Math.round(lerp((S.cols - bw) / 2, 18 + (66 - bw) / 2, ek)), bb = Math.round(lerp(S.bigBase, 14, ek));
+    drawClockText(f, S.bigFont, big, bx, bb, PALETTE.white, {}, colonOf(clock));
+    const dayA = 1 - smooth(0, 0.3, k);
+    if (dayA > 0) {
+      const d = DAYS[z.dow] + ' ' + z.date, dw = textWidth(S.smallFont, d);
+      drawText(f, S.smallFont, d, Math.round((S.cols - dw) / 2), S.smallBase, PALETTE.white, { alpha: 0.5 * dayA });
+    }
+    const inA = smooth(0.35, 1, k), dy = Math.round(18 * (1 - easeOut(k))), clipY = [18, S.rows];
+    if (inA > 0) {
+      for (let j = 1; j < world.zones.length && j < 4; j++) {
+        const zz = world.zones[j], cx = (j - 1) * 28, cell = 28;
+        const lw = textWidth('busy_regular_5', zz.code);
+        drawText(f, 'busy_regular_5', zz.code, cx + Math.round((cell - lw) / 2), 26 + dy, PALETTE.white, { alpha: 0.55 * inA, clipY: clipY });
+        const tw = clockTextWidth('busy_regular_7', hhmm(zz));
+        drawClockText(f, 'busy_regular_7', hhmm(zz), cx + Math.round((cell - tw) / 2) + 1, 35 + dy, PALETTE.white,
+          { alpha: inA, clipY: clipY }, colonOf(clock));
+        const d = DAYS[zz.dow], dw = textWidth('busy_regular_5', d);
+        drawText(f, 'busy_regular_5', d, cx + Math.round((cell - dw) / 2), 42 + dy, PALETTE.white,
+          { alpha: (zz.dayDelta ? 0.9 : 0.4) * inA, clipY: clipY });
+      }
+    }
+    const w = lerp(S.pillW, WORLD.chipW, ek);
+    drawPill(f, S.pillX, w, pal, { sheen: sheenAt(now, f.w), h: S.pillH });
+    const ix = Math.round(lerp(Math.round(S.pillX + (S.pillW - statusContentWidth('free')) / 2),
+      S.pillX + Math.round((WORLD.chipW - ICONS.free[0].length) / 2), ek));
+    drawIcon(f, ICONS.free, ix, L.statusBase - ICON_LIFT.free, PALETTE.white, pal.shadow, 1);
+    const wordA = 1 - smooth(0, 0.35, k);
+    if (wordA > 0) {
+      drawText(f, L.statusFont, WORDS.free, ix + iconWidth('free'), L.statusBase, PALETTE.white,
+        { shadow: pal.shadow, alpha: wordA, shadowAlpha: 0.9 * wordA, clip: [S.pillX + 1, Math.floor(S.pillX + w) - 1] });
+    }
+  }
+  function worldAtStacked(f, now, s, clock, world, prev) {
+    const S = STACKED;
+    if (s < 0) { renderStacked(f, now, 'free', prev, now - (s + SETTLED), clock, null); return 'settle'; }
+    const sch = worldSchedule(world, s, S.pillW);
+    const resting = s >= sch.rest, restK = Math.min((s - sch.rest) / WORLD.restIn, 1);
+    for (const e of sch.events) {
+      if (s < e.at || s >= e.at + e.dur) continue;
+      if (e.kind === 'board') {
+        drawWorldBoardOn(f, s - e.at, world, (g) => drawStackedWorldBoard(g, clock, world),
+          resting ? (g) => drawStackedWorldRest(g, now, clock, world, restK) : (g) => drawStackedWorldBase(g, now, s, clock, world, 0, false));
+      } else {
+        drawStackedWorldTicker(f, now, s - e.at, s, clock, world);
+      }
+      return e.kind;
+    }
+    if (resting) { drawStackedWorldRest(f, now, clock, world, restK); return 'rest'; }
+    const dx = world.ticker.on && world.rules.tickerForScroll ? 0 : worldScroll(s, S.pillW);
+    drawStackedWorldBase(f, now, s, clock, world, dx, false);
+    return dx ? 'scroll' : 'base';
+  }
+  function renderStackedWorld(f, now, state, prev, since, clock, timer, world, prevFor) {
+    const e = now - since;
+    if (state === 'free') { f.px.fill(0); worldAtStacked(f, now, e - SETTLED, clock, world, prev); return; }
+    if (prev === 'free' && e < T.swap) {
+      f.px.fill(0);
+      worldAtStacked(f, now, prevFor - SETTLED, clock, world, null);
+      shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
+      drawShockwave(f, e / T.wave, palOf(state));
+      return;
+    }
+    renderStacked(f, now, state, prev, since, clock, timer);
+  }
+
   root.BusyEngine = {
     STACKED: STACKED, renderStacked: renderStacked,
     clockTextWidth: clockTextWidth, drawClockText: drawClockText, ICONS: ICONS, statusContentWidth: statusContentWidth,
@@ -1054,6 +1505,8 @@
     drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
     hash: hash,
     REST: REST, SCROLL: SCROLL, SETTLED: SETTLED, quiet: quiet, restAt: restAt, scrollAt: scrollAt,
-    NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord
+    NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord,
+    WORLD: WORLD, renderWorld: renderWorld, renderStackedWorld: renderStackedWorld, worldAt: worldAt, worldAtStacked: worldAtStacked,
+    worldSchedule: worldSchedule
   };
 })(typeof window !== 'undefined' ? window : globalThis);

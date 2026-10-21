@@ -274,6 +274,7 @@
         <button class="mac-tab" role="tab" aria-selected="true" data-tab="status"><i class="m-tile" style="background:#8E8E93"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/></svg></i>Status</button>
         <p class="mac-side-h">The sign</p>
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="displays"><i class="m-tile" style="background:#0A84FF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6M12 17v4"/></svg></i>Displays</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="world"><i class="m-tile" style="background:#30B0C7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.7 2.5 3.9 5.3 3.9 8.5s-1.2 6-3.9 8.5M12 3.5c-2.7 2.5-3.9 5.3-3.9 8.5s1.2 6 3.9 8.5"/></svg></i>World clocks</button>
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="care"><i class="m-tile" style="background:#5E5CE6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15a7.5 7.5 0 0 1-9-10 7.5 7.5 0 1 0 9 10z"/></svg></i>Screen care</button>
         <button class="mac-tab" role="tab" aria-selected="false" data-tab="away"><i class="m-tile" style="background:#FF9F0A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="9" height="18" rx="1"/><path d="M13 12h7M17 9l3 3-3 3"/></svg></i>Away &amp; screen saver</button>
         <p class="mac-side-h">What it follows</p>
@@ -325,6 +326,35 @@
         </div>
       </div>
       <p class="m-sub">Stacked fills small screens such as 960 × 540 with the status on top and a big clock beneath. The floating window always uses the wide bar. Warnings — a scaled display mode, a monitor that's gone to sleep — appear on the card.</p>
+      </div>
+      <div class="mac-body" data-pane="world" role="tabpanel">
+        <p class="mac-pane-title">World clocks</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Show world clocks</span><button class="m-switch" role="switch" aria-checked="false" aria-label="Show world clocks"></button></div>
+        <div class="m-row"><span class="k">Show on</span><span style="display:flex;gap:12px"><label><input type="checkbox" checked> Wall display</label><label><input type="checkbox" checked> Floating window</label></span></div>
+      </div>
+      <p class="m-sub">Only while the sign says FREE: a call, a warning or Do Not Disturb takes the bar back at once.</p>
+      <p class="m-h">Layouts · tick any or all</p>
+      <div class="m-card">
+        <div class="m-row m-info"><span class="k"><label><input type="checkbox" checked> In turns, split</label><small>Local on the right, the others in turn on the left · a city every 5 s</small></span></div>
+        <div class="m-row m-info"><span class="k"><label><input type="checkbox"> Resting</label><small>All four and a green chip, till anything changes · after 30 min of FREE</small></span></div>
+        <div class="m-row m-info"><span class="k"><label><input type="checkbox"> Now and then</label><small>The bar rolls over to a world board · every 10 min for 20 s</small></span></div>
+        <div class="m-row m-info"><span class="k"><label><input type="checkbox"> Ticker</label><small>The other cities run through the pill · every 15 min</small></span></div>
+      </div>
+      <p class="m-h">When layouts meet</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">While Resting is up</span><span class="m-seg" data-seg><button aria-pressed="true">Hold the board</button><button aria-pressed="false">Board still runs</button></span></div>
+        <div class="m-row"><span class="k">When two fall together</span><span class="m-seg" data-seg><button aria-pressed="true">Second waits</button><button aria-pressed="false">Skip the second</button></span></div>
+        <div class="m-row"><span class="k">The ticker</span><span class="m-seg" data-seg><button aria-pressed="true">Instead of the word's scroll</button><button aria-pressed="false">As well as it</button></span></div>
+      </div>
+      <p class="m-h">Cities</p>
+      <div class="m-card">
+        <div class="m-row m-info"><span class="k">Local<small>From the Mac</small></span><span>London — BST, GMT+1 &nbsp;as <span class="m-pop">LON</span></span></div>
+        <div class="m-row m-info"><span class="k">Clock 2<small>5 h behind</small></span><span><span class="m-pop">New York — EDT, GMT−4</span> &nbsp;as <span class="m-pop">NYC</span></span></div>
+        <div class="m-row m-info"><span class="k">Clock 3<small>8 h behind</small></span><span><span class="m-pop">Los Angeles — PDT, GMT−7</span> &nbsp;as <span class="m-pop">LAX</span></span></div>
+        <div class="m-row m-info"><span class="k">Clock 4<small>8 h ahead</small></span><span><span class="m-pop">Tokyo — JST, GMT+9</span> &nbsp;as <span class="m-pop">TYO</span></span></div>
+      </div>
+      <p class="m-sub">The app's section also has a preview that plays each layout. The layouts are drawn by this page's engine (<code>BusyEngine.renderWorld</code>), the same as the app's, LED for LED.</p>
       </div>
       <div class="mac-body" data-pane="care" role="tabpanel">
         <p class="mac-pane-title">Screen care</p>

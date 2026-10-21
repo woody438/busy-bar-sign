@@ -1224,4 +1224,586 @@ enum BarEngine {
         drawText(&f, font: Stacked.smallFont, text.bottom, x: Double(jsRound(Double(f.w - sw) / 2)),
                  baseY: Stacked.smallBase + slide, colour: white, style: TextStyle(alpha: 0.5, clipY: clipY))
     }
+
+    // MARK: - World clocks
+
+    /*
+     * Local time and three more cities, while the sign says FREE. Any mix of
+     * four layouts, each on its own timing:
+     *   turns  — the split: the other cities in turn on the left, a narrower
+     *            pill in the middle, local on the right
+     *   rest   — after a while of FREE, the pill draws in to a chip and the
+     *            four take the bar, till anything changes
+     *   board  — now and then the bar rolls over to a four-column board
+     *   ticker — the other cities run through the pill
+     * The app works out each city's time; this only draws it.
+     *
+     *   split  cols 1-31 the other cities · 35-82 the pill · 86-116 local
+     *   rest   cols 1-16 the chip · from col 19 two lines of two cities
+     *   board  four columns of 29, each city above its time
+     */
+    struct WorldZone {
+        let code: String
+        let h: Int, m: Int
+        let dow: Int, date: Int
+        let dayDelta: Int          // 1: tomorrow there; -1: yesterday
+    }
+
+    struct WorldPlan {
+        struct Turns { var on = true; var secs = 5.0 }
+        struct Resting { var on = false; var mins = 30.0 }
+        struct Board { var on = false; var mins = 5.0; var secs = 20.0 }
+        struct Ticker { var on = false; var mins = 15.0 }
+        enum Clash: String { case wait, skip }
+        struct Rules { var restHolds = true; var clash = Clash.wait; var tickerForScroll = true }
+        var zones: [WorldZone] = []        // local first
+        var turns = Turns(), rest = Resting(), board = Board(), ticker = Ticker(), rules = Rules()
+    }
+
+    enum World {
+        static let leftX = 1, leftW = 31, pillX = 35.0, pillW = 48.0, rightX = 86, rightW = 31
+        static let slideIn = 40.0          // the clocks slide in from either side as the pill draws in
+        static let roll = 0.45             // the left clock rolls up to the next city
+        static let chipW = 16.0, restIn = 0.8     // resting: the pill draws in to a chip over this long
+        static let gridX = 19, gridCell = 52, gridLabel = 14, gridGap = 3
+        static let boardCell = 29, boardRoll = 0.5, boardGap = 2
+        static let tickerSpeed = 24.0, tickerGap = 12     // LEDs a second; LEDs between the cities
+    }
+
+    private static func hhmm(_ z: WorldZone) -> String { String(format: "%02d:%02d", z.h, z.m) }
+    /// Tomorrow or yesterday there.
+    private static func dayMark(_ z: WorldZone) -> String { z.dayDelta > 0 ? "+1" : z.dayDelta < 0 ? "-1" : "" }
+    private static func cityLine(_ z: WorldZone) -> String { z.code + (dayMark(z).isEmpty ? "" : " " + dayMark(z)) }
+    private static func colonOf(_ clock: ClockReading) -> Double { clock.s % 2 == 1 ? 0.4 : 1 }
+    private static func dayOf(_ z: WorldZone) -> String { days[((z.dow % 7) + 7) % 7] + " " + String(z.date) }
+    /// The pill FREE sits in: today's, or the split's.
+    private static func worldPill(_ world: WorldPlan) -> (x: Double, w: Double) {
+        world.turns.on ? (x: World.pillX, w: World.pillW) : (x: Layout.statusX, w: Layout.statusW)
+    }
+
+    /// A clock beside the pill: the time in the clock's face, a line beneath at
+    /// half brightness. dy moves it down (a roll), dx across (an entrance);
+    /// nothing is drawn outside clip.
+    private static func drawSideClock(_ f: inout LEDFrame, clock: ClockReading, _ top: String, _ bottom: String,
+                                      x: Int, w: Int, dy: Int, dx: Int, alpha: Double, clip: (lo: Int, hi: Int)) {
+        let tw = clockTextWidth(Layout.timeFont, top), bw = textWidth(Layout.dateFont, bottom)
+        drawClockText(&f, font: Layout.timeFont, top, x: x + dx + jsRound(Double(w - tw) / 2), baseY: Layout.timeBase + dy,
+                      colour: white, style: TextStyle(alpha: alpha, clip: clip), colonAlpha: colonOf(clock))
+        drawText(&f, font: Layout.dateFont, bottom, x: Double(x + dx + jsRound(Double(w - bw) / 2)), baseY: Layout.dateBase + dy,
+                 colour: white, style: TextStyle(alpha: 0.5 * alpha, clip: clip))
+    }
+
+    /// The other cities on the left, one at a time, rolling up to the next
+    /// every turns.secs seconds. slide pushes it left; nothing right of maxX.
+    private static func drawLeftTurns(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan, t: Double, slide: Int,
+                                      maxX: Int, alpha: Double) {
+        let others = Array(world.zones.dropFirst()), n = others.count
+        guard n > 0 else { return }
+        let dwell = world.turns.secs, tt = max(t, 0)
+        let i = Int((tt / dwell).rounded(.down)) % n, p = tt.truncatingRemainder(dividingBy: dwell)
+        // the first city is there from the start; each after it rolls in
+        let k = n < 2 || tt < dwell || p >= World.roll ? 1 : easeInOut(p / World.roll)
+        let clip = (lo: 0, hi: maxX)
+        if k < 1 {
+            let z = others[(i - 1 + n) % n]
+            drawSideClock(&f, clock: clock, hhmm(z), cityLine(z), x: World.leftX, w: World.leftW,
+                          dy: -jsRound(k * Double(rows + 1)), dx: -slide, alpha: alpha, clip: clip)
+        }
+        let z = others[i]
+        drawSideClock(&f, clock: clock, hhmm(z), cityLine(z), x: World.leftX, w: World.leftW,
+                      dy: jsRound((1 - k) * Double(rows + 1)), dx: -slide, alpha: alpha, clip: clip)
+    }
+
+    /// Local time and the day, right of the split's pill.
+    private static func drawRightLocal(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan, slide: Int, minX: Int,
+                                       alpha: Double) {
+        guard let z = world.zones.first else { return }
+        drawSideClock(&f, clock: clock, hhmm(z), dayOf(z), x: World.rightX, w: World.rightW, dy: 0, dx: slide, alpha: alpha,
+                      clip: (lo: minX, hi: cols))
+    }
+
+    /// FREE as the settings have it: today's layout, or the split. dx moves the
+    /// tick and word (the scroll); empty leaves them out (the ticker's there).
+    private static func drawWorldBase(_ f: inout LEDFrame, now: Double, t: Double, clock: ClockReading, world: WorldPlan,
+                                      dx: Int, empty: Bool) {
+        let pal = BarPalette.free, g = worldPill(world)
+        f.clear()
+        if world.turns.on {
+            drawLeftTurns(&f, clock: clock, world: world, t: t, slide: 0, maxX: World.leftX + World.leftW + 1, alpha: 1)
+            drawRightLocal(&f, clock: clock, world: world, slide: 0, minX: 0, alpha: 1)
+        } else {
+            drawRight(&f, state: .free, clock: clock, timer: nil, slide: 0, minX: 0)
+        }
+        drawPill(&f, x0: g.x, w: g.w, pal: pal, sheen: sheenAt(now))
+        if !empty {
+            let clip: (lo: Int, hi: Int)? = dx == 0 ? nil : (lo: Int(g.x) + 1, hi: Int(g.x + g.w) - 1)
+            drawStatusContent(&f, now: now, state: .free, pal: pal, x0: g.x + Double(dx), w: g.w, alpha: 1, clip: clip)
+        }
+    }
+
+    /// The word's quarter-hour scroll in a pill w wide, s seconds after FREE settled: as scrollAt.
+    private static func worldScroll(_ s: Double, _ w: Double) -> Int {
+        guard s >= Scroll.every else { return 0 }
+        let p = s.truncatingRemainder(dividingBy: Scroll.every), half = Scroll.duration / 2
+        guard p < Scroll.duration else { return 0 }
+        let away = (Double(statusContentWidth(.free)) + w) / 2 + 2
+        return p < half ? -jsRound(away * easeIn(p / half)) : jsRound(away * (1 - easeOut((p - half) / half)))
+    }
+
+    /// The ticker: how long the other cities are, and them running right to
+    /// left through a pill at x0, w wide, t seconds in.
+    private static func tickerWidth(_ world: WorldPlan) -> Int {
+        let others = Array(world.zones.dropFirst())
+        var w = 0
+        for (i, z) in others.enumerated() {
+            w += textWidth("busy_bold_10", z.code + " ") + clockTextWidth("busy_bold_10", hhmm(z))
+            if !dayMark(z).isEmpty { w += 2 + textWidth("busy_regular_5", dayMark(z)) }
+            if i < others.count - 1 { w += World.tickerGap }
+        }
+        return w
+    }
+    private static func drawTickerText(_ f: inout LEDFrame, world: WorldPlan, x0: Double, w: Double, t: Double) {
+        let pal = BarPalette.free, clip = (lo: Int(x0) + 1, hi: Int(x0 + w) - 1)
+        var x = jsRound(x0 + w - t * World.tickerSpeed)
+        for z in world.zones.dropFirst() {
+            let label = z.code + " ", mark = dayMark(z)
+            drawText(&f, font: "busy_bold_10", label, x: Double(x), baseY: Layout.statusBase, colour: white,
+                     style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * 0.7, alpha: 0.7, clip: clip))
+            x += textWidth("busy_bold_10", label)
+            x += drawClockText(&f, font: "busy_bold_10", hhmm(z), x: x, baseY: Layout.statusBase, colour: white,
+                               style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9, alpha: 1, clip: clip), colonAlpha: 1)
+            if !mark.isEmpty {
+                drawText(&f, font: "busy_regular_5", mark, x: Double(x + 2), baseY: Layout.statusBase - 5, colour: white,
+                         style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * 0.8, alpha: 0.8, clip: clip))
+                x += 2 + textWidth("busy_regular_5", mark)
+            }
+            x += World.tickerGap
+        }
+    }
+    /// Out goes the word, in run the cities, and back the word comes: how long, in a pill pillW wide.
+    private static func tickerSpan(_ world: WorldPlan, pillW: Double) -> Double {
+        Scroll.duration + (pillW + Double(tickerWidth(world))) / World.tickerSpeed
+    }
+    /// t: seconds into the ticker; s: since FREE settled, for the left clock.
+    private static func drawWorldTicker(_ f: inout LEDFrame, now: Double, t: Double, s: Double, clock: ClockReading,
+                                        world: WorldPlan) {
+        let g = worldPill(world), half = Scroll.duration / 2
+        let run = (g.w + Double(tickerWidth(world))) / World.tickerSpeed
+        let away = (Double(statusContentWidth(.free)) + g.w) / 2 + 2
+        if t < half {
+            drawWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: -jsRound(away * easeIn(t / half)), empty: false)
+            return
+        }
+        if t >= half + run {
+            drawWorldBase(&f, now: now, t: s, clock: clock, world: world,
+                          dx: jsRound(away * (1 - easeOut(min((t - half - run) / half, 1)))), empty: false)
+            return
+        }
+        drawWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: 0, empty: true)
+        drawTickerText(&f, world: world, x0: g.x, w: g.w, t: t - half)
+    }
+
+    /// The board: four columns, each city above its time, local in FREE's green.
+    private static func drawWorldBoard(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan) {
+        f.clear()
+        let cell = World.boardCell
+        for (i, z) in world.zones.prefix(4).enumerated() {
+            let cx = 1 + i * cell, label = cityLine(z)
+            let lw = textWidth("busy_regular_5", label)
+            drawText(&f, font: "busy_regular_5", label, x: Double(cx + jsRound(Double(cell - lw) / 2)), baseY: 5,
+                     colour: i == 0 ? BarPalette.free.top : white, style: TextStyle(alpha: i == 0 ? 1 : 0.55))
+            let tw = clockTextWidth("busy_regular_7", hhmm(z))
+            drawClockText(&f, font: "busy_regular_7", hhmm(z), x: cx + jsRound(Double(cell - tw) / 2) + 1, baseY: 14,
+                          colour: white, style: TextStyle(), colonAlpha: colonOf(clock))
+        }
+    }
+    /// Frame a rolling up and out, b following from below, gap rows behind.
+    private static func rollFrames(_ f: inout LEDFrame, _ a: LEDFrame, _ b: LEDFrame, off: Int, gap: Int) {
+        for y in 0..<f.h {
+            let src = y + off
+            for x in 0..<f.w {
+                if src < f.h { f.set(x, y, a.get(x, src)) }
+                else if src - f.h - gap >= 0 { f.set(x, y, b.get(x, src - f.h - gap)) }
+                else { f.set(x, y, RGB(0, 0, 0)) }
+            }
+        }
+    }
+    private static func boardSpan(_ world: WorldPlan) -> Double { 2 * World.boardRoll + world.board.secs }
+    /// t seconds into the board: up it rolls over `under`, stays, and rolls away again.
+    private static func drawWorldBoardOn(_ f: inout LEDFrame, t: Double, world: WorldPlan,
+                                         face: (inout LEDFrame) -> Void, under: (inout LEDFrame) -> Void) {
+        let r = World.boardRoll, secs = world.board.secs, gap = World.boardGap, span = Double(f.h + gap)
+        if t >= r && t < r + secs { face(&f); return }
+        var a = LEDFrame(w: f.w, h: f.h), b = LEDFrame(w: f.w, h: f.h)
+        if t < r {
+            under(&a); face(&b)
+            rollFrames(&f, a, b, off: jsRound(easeInOut(t / r) * span), gap: gap)
+        } else {
+            face(&a); under(&b)
+            rollFrames(&f, a, b, off: jsRound(easeInOut(min((t - r - secs) / r, 1)) * span), gap: gap)
+        }
+    }
+
+    /// Resting's grid: two lines of two, each city then its time; nothing left of minX.
+    private static func drawWorldGrid(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan, x0: Int, alpha: Double,
+                                      minX: Int) {
+        let bases = [6, 15], clip = (lo: minX, hi: cols)
+        for (i, z) in world.zones.prefix(4).enumerated() {
+            let cx = x0 + (i % 2) * World.gridCell, base = bases[i / 2]
+            drawText(&f, font: "busy_regular_5", z.code, x: Double(cx), baseY: base, colour: i == 0 ? BarPalette.free.top : white,
+                     style: TextStyle(alpha: (i == 0 ? 1 : 0.55) * alpha, clip: clip))
+            drawClockText(&f, font: "busy_bold_7", hhmm(z), x: cx + World.gridLabel + World.gridGap, baseY: base, colour: white,
+                          style: TextStyle(alpha: alpha, clip: clip), colonAlpha: colonOf(clock))
+        }
+    }
+    /// Resting, k of the way there: the pill slides left and draws in to the
+    /// chip, what was beside it gives way, and the four slide in behind.
+    private static func drawWorldRest(_ f: inout LEDFrame, now: Double, t: Double, clock: ClockReading, world: WorldPlan,
+                                      k: Double) {
+        let pal = BarPalette.free, ek = easeInOut(k), split = world.turns.on
+        let fromX = split ? World.pillX : Layout.statusX, fromW = split ? World.pillW : Layout.statusW
+        f.clear()
+        let outA = 1 - smooth(0, 0.35, k), go = jsRound(20 * smooth(0, 0.4, k))
+        if outA > 0 {
+            if let z = world.zones.first {
+                drawSideClock(&f, clock: clock, hhmm(z), dayOf(z), x: split ? World.rightX : Layout.clockX,
+                              w: split ? World.rightW : Layout.clockW, dy: 0, dx: go, alpha: outA, clip: (lo: 0, hi: cols))
+            }
+            if split {
+                drawLeftTurns(&f, clock: clock, world: world, t: t, slide: go, maxX: World.leftX + World.leftW + 1, alpha: outA)
+            }
+        }
+        let x = lerp(fromX, Layout.statusX, ek), w = lerp(fromW, World.chipW, ek)
+        drawPill(&f, x0: x, w: w, pal: pal, sheen: sheenAt(now))
+        let icon = icons[.free] ?? []
+        let ix = jsRound(lerp(Double(jsRound(fromX + (fromW - Double(statusContentWidth(.free))) / 2)),
+                              Layout.statusX + Double(jsRound((World.chipW - Double(icon.first?.count ?? 0)) / 2)), ek))
+        let clip = (lo: Int(x.rounded(.up)) + 1, hi: Int((x + w).rounded(.down)) - 1)
+        drawIcon(&f, rows: icon, x: ix, bottomY: Layout.statusBase - (iconLift[.free] ?? 0), colour: white, shadow: pal.shadow,
+                 alpha: 1, clip: clip)
+        let wordA = 1 - smooth(0, 0.35, k)
+        if wordA > 0 {
+            drawText(&f, font: Layout.statusFont, BarState.free.word, x: Double(ix + iconWidth(.free)), baseY: Layout.statusBase,
+                     colour: white, style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * wordA, alpha: wordA, clip: clip))
+        }
+        let inA = smooth(0.4, 1, k)
+        if inA > 0 {
+            drawWorldGrid(&f, clock: clock, world: world, x0: World.gridX + jsRound(30 * (1 - easeOut(k))), alpha: inA,
+                          minX: jsRound(x + w) + 2)
+        }
+    }
+
+    /// A call has just ended (e seconds into FREE): the announcement across the
+    /// bar, then, with the split on, it draws in to the middle as both clocks
+    /// slide back from the sides.
+    private static func drawWorldSettle(_ f: inout LEDFrame, now: Double, e: Double, prev: BarState?, clock: ClockReading,
+                                        world: WorldPlan) {
+        let cs = Timing.swap + Timing.hold
+        guard world.turns.on, e >= cs else {
+            render(into: &f, now: now, state: .free, prev: prev, since: now - e, clock: clock, timer: nil)
+            return
+        }
+        let pal = BarPalette.free
+        f.clear()
+        let p = min((e - cs) / Timing.collapse, 1), k = easeInOut(p)
+        let x = lerp(Layout.heroX, World.pillX, k), w = lerp(Layout.heroW, World.pillW, k)
+        drawPill(&f, x0: x, w: w, pal: pal, sheen: sheenAt(now))
+        let clip = (lo: Int(x.rounded(.up)) + 1, hi: Int((x + w).rounded(.down)) - 1)
+        let fadeOut = 1 - smooth(0.08, 0.34, k), fadeIn = smooth(0.14, 0.4, k)
+        if fadeOut > 0 {
+            let hw = Double(heroWidth(.free, nil))
+            var style = heroStyle(.free, pal, alpha: fadeOut)
+            style.clip = clip
+            let h = hero(.free)
+            drawText(&f, font: h.font, heroWord(.free, nil), x: x + (max(w, hw + 6) - hw) / 2 + 0.5, baseY: h.base,
+                     colour: white, style: style)
+        }
+        if fadeIn > 0 { drawStatusContent(&f, now: now, state: .free, pal: pal, x0: x, w: w, alpha: fadeIn, clip: clip) }
+        let slide = jsRound(World.slideIn * (1 - easeOut(p))), sideA = smooth(0.3, 0.75, p)
+        if sideA > 0 {
+            drawRightLocal(&f, clock: clock, world: world, slide: slide, minX: Int((x + w).rounded(.up)) + 2, alpha: sideA)
+            drawLeftTurns(&f, clock: clock, world: world, t: 0, slide: slide, maxX: Int(x.rounded(.down)) - 1, alpha: sideA)
+        }
+    }
+
+    /// The board or the ticker, from `at` for `dur` seconds after FREE settled.
+    struct WorldEvent {
+        enum Kind { case board, ticker }
+        let kind: Kind
+        let at: Double, dur: Double
+    }
+
+    /*
+     * When the board and the ticker show, up to s seconds after FREE settled,
+     * and when it rests. The ticker needs the pill, so it never runs over the
+     * chip; the board can, if the rules let it. One at a time: when two fall
+     * together the second waits for the first (or is skipped), and nothing
+     * starts that would run into the rest.
+     */
+    static func worldSchedule(_ world: WorldPlan, upTo s: Double, pillW: Double) -> (events: [WorldEvent], rest: Double) {
+        let r = world.rules
+        let rest = world.rest.on ? world.rest.mins * 60 : Double.infinity
+        var raw: [(kind: WorldEvent.Kind, due: Double, dur: Double)] = []
+        let tickerFor = tickerSpan(world, pillW: pillW), boardFor = boardSpan(world)
+        if world.ticker.on && world.ticker.mins > 0 {
+            var at = world.ticker.mins * 60
+            while at <= s && at < rest {
+                raw.append((kind: .ticker, due: at, dur: tickerFor))
+                at += world.ticker.mins * 60
+            }
+        }
+        if world.board.on && world.board.mins > 0 {
+            var at = world.board.mins * 60
+            while at <= s && (!r.restHolds || at < rest) {
+                raw.append((kind: .board, due: at, dur: boardFor))
+                at += world.board.mins * 60
+            }
+        }
+        raw.sort { $0.due != $1.due ? $0.due < $1.due : ($0.kind == .ticker && $1.kind != .ticker) }
+        var events: [WorldEvent] = []
+        var clear = 0.0
+        for e in raw {
+            if r.clash == .skip && e.due < clear { continue }
+            let at = max(e.due, clear)
+            let runsIntoRest = at < rest && at + e.dur > rest
+            if runsIntoRest || (e.kind == .ticker && at >= rest) { continue }
+            events.append(WorldEvent(kind: e.kind, at: at, dur: e.dur))
+            clear = at + e.dur + 1
+        }
+        return (events, rest)
+    }
+
+    /// The bar s seconds after FREE settled (below 0: still settling, after prev), and what it's showing.
+    @discardableResult
+    static func worldAt(into f: inout LEDFrame, now: Double, s: Double, clock: ClockReading, world: WorldPlan,
+                        prev: BarState?) -> String {
+        if s < 0 {
+            drawWorldSettle(&f, now: now, e: s + Timing.settled, prev: prev, clock: clock, world: world)
+            return "settle"
+        }
+        let sch = worldSchedule(world, upTo: s, pillW: worldPill(world).w)
+        let resting = s >= sch.rest, restK = min((s - sch.rest) / World.restIn, 1)
+        for e in sch.events where s >= e.at && s < e.at + e.dur {
+            switch e.kind {
+            case .board:
+                drawWorldBoardOn(&f, t: s - e.at, world: world,
+                                 face: { (g: inout LEDFrame) in drawWorldBoard(&g, clock: clock, world: world) },
+                                 under: { (g: inout LEDFrame) in
+                                     if resting { drawWorldRest(&g, now: now, t: s, clock: clock, world: world, k: restK) }
+                                     else { drawWorldBase(&g, now: now, t: s, clock: clock, world: world, dx: 0, empty: false) }
+                                 })
+                return "board"
+            case .ticker:
+                drawWorldTicker(&f, now: now, t: s - e.at, s: s, clock: clock, world: world)
+                return "ticker"
+            }
+        }
+        if resting {
+            drawWorldRest(&f, now: now, t: s, clock: clock, world: world, k: restK)
+            return "rest"
+        }
+        let dx = world.ticker.on && world.rules.tickerForScroll ? 0 : worldScroll(s, worldPill(world).w)
+        drawWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: dx, empty: false)
+        return dx != 0 ? "scroll" : "base"
+    }
+
+    /*
+     * The scene with world clocks on: as render, but FREE as the settings have
+     * it, and, as FREE gives way, its face pressed down as the wave hits it.
+     * prevFor: how long FREE had been up when it ended.
+     */
+    static func renderWorld(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?, since: Double,
+                            clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double) {
+        let e = now - since
+        if state == .free {
+            f.clear()
+            worldAt(into: &f, now: now, s: e - Timing.settled, clock: clock, world: world, prev: prev)
+            return
+        }
+        if prev == .free && e < Timing.swap {
+            f.clear()
+            worldAt(into: &f, now: now, s: prevFor - Timing.settled, clock: clock, world: world, prev: nil)
+            shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
+            drawShockwave(&f, progress: e / Timing.wave, pal: BarPalette.of(state))
+            return
+        }
+        render(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer)
+    }
+
+    // the same, stacked: the big clock stays local; the day line beneath takes each city in turn
+
+    /// The day line: the day (i = 0) or a city and its time.
+    private static func drawStackedTurn(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan, i: Int, dy: Int) {
+        let font = Stacked.smallFont, base = Stacked.smallBase + dy, clipY = (lo: 35, hi: Stacked.rows)
+        let z = world.zones[i]
+        if i == 0 {
+            let d = dayOf(z), w = textWidth(font, d)
+            drawText(&f, font: font, d, x: Double(jsRound(Double(Stacked.cols - w) / 2)), baseY: base, colour: white,
+                     style: TextStyle(alpha: 0.5, clipY: clipY))
+            return
+        }
+        let mark = dayMark(z), lw = textWidth(font, z.code + " "), tw = clockTextWidth(font, hhmm(z))
+        let mw = mark.isEmpty ? 0 : 2 + textWidth("busy_regular_5", mark)
+        let x = jsRound(Double(Stacked.cols - lw - tw - mw) / 2)
+        drawText(&f, font: font, z.code + " ", x: Double(x), baseY: base, colour: white, style: TextStyle(alpha: 0.5, clipY: clipY))
+        drawClockText(&f, font: font, hhmm(z), x: x + lw, baseY: base, colour: white, style: TextStyle(alpha: 0.8, clipY: clipY),
+                      colonAlpha: colonOf(clock))
+        if !mark.isEmpty {
+            drawText(&f, font: "busy_regular_5", mark, x: Double(x + lw + tw + 2), baseY: base - 2, colour: white,
+                     style: TextStyle(alpha: 0.5, clipY: clipY))
+        }
+    }
+    private static func drawStackedWorldBase(_ f: inout LEDFrame, now: Double, t: Double, clock: ClockReading, world: WorldPlan,
+                                             dx: Int, empty: Bool) {
+        let pal = BarPalette.free
+        f.clear()
+        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH)
+        if !empty {
+            let clip: (lo: Int, hi: Int)? = dx == 0 ? nil
+                : (lo: Int(Stacked.pillX) + 1, hi: Int(Stacked.pillX + Stacked.pillW) - 1)
+            drawStatusContent(&f, now: now, state: .free, pal: pal, x0: Stacked.pillX + Double(dx), w: Stacked.pillW, alpha: 1,
+                              clip: clip)
+        }
+        guard world.turns.on else {
+            drawStackedClock(&f, state: .free, clock: clock, timer: nil, slide: 0, minY: 0)
+            return
+        }
+        let big = String(format: "%02d:%02d", clock.h, clock.m), bw = clockTextWidth(Stacked.bigFont, big)
+        drawClockText(&f, font: Stacked.bigFont, big, x: jsRound(Double(f.w - bw) / 2), baseY: Stacked.bigBase, colour: white,
+                      style: TextStyle(), colonAlpha: colonOf(clock))
+        let n = world.zones.count
+        guard n > 0 else { return }
+        let dwell = world.turns.secs, tt = max(t, 0)
+        let i = Int((tt / dwell).rounded(.down)) % n, p = tt.truncatingRemainder(dividingBy: dwell)
+        let k = n < 2 || tt < dwell || p >= World.roll ? 1 : easeInOut(p / World.roll)
+        if k < 1 { drawStackedTurn(&f, clock: clock, world: world, i: (i - 1 + n) % n, dy: -jsRound(k * 10)) }
+        drawStackedTurn(&f, clock: clock, world: world, i: i, dy: jsRound((1 - k) * 10))
+    }
+    private static func drawStackedWorldTicker(_ f: inout LEDFrame, now: Double, t: Double, s: Double, clock: ClockReading,
+                                               world: WorldPlan) {
+        let half = Scroll.duration / 2
+        let run = (Stacked.pillW + Double(tickerWidth(world))) / World.tickerSpeed
+        let away = (Double(statusContentWidth(.free)) + Stacked.pillW) / 2 + 2
+        if t < half {
+            drawStackedWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: -jsRound(away * easeIn(t / half)), empty: false)
+            return
+        }
+        if t >= half + run {
+            drawStackedWorldBase(&f, now: now, t: s, clock: clock, world: world,
+                                 dx: jsRound(away * (1 - easeOut(min((t - half - run) / half, 1)))), empty: false)
+            return
+        }
+        drawStackedWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: 0, empty: true)
+        drawTickerText(&f, world: world, x0: Stacked.pillX, w: Stacked.pillW, t: t - half)
+    }
+    /// The board, stacked: four rows, a departures board.
+    private static func drawStackedWorldBoard(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan) {
+        f.clear()
+        let font = "busy_bold_7", bases = [9, 20, 31, 42]
+        for (i, z) in world.zones.prefix(4).enumerated() {
+            let base = bases[i], mark = dayMark(z)
+            drawText(&f, font: font, z.code, x: 8, baseY: base, colour: i == 0 ? BarPalette.free.top : white,
+                     style: TextStyle(alpha: i == 0 ? 1 : 0.55))
+            if !mark.isEmpty {
+                drawText(&f, font: "busy_regular_5", mark, x: 33, baseY: base, colour: white, style: TextStyle(alpha: 0.5))
+            }
+            let tw = clockTextWidth(font, hhmm(z))
+            drawClockText(&f, font: font, hhmm(z), x: Stacked.cols - 7 - tw, baseY: base, colour: white, style: TextStyle(),
+                          colonAlpha: colonOf(clock))
+        }
+    }
+    /// Resting, stacked: the chip and the local time share the top band, the
+    /// other three beneath with their day; the big clock rises from behind the pill.
+    private static func drawStackedWorldRest(_ f: inout LEDFrame, now: Double, clock: ClockReading, world: WorldPlan, k: Double) {
+        let pal = BarPalette.free, ek = easeInOut(k)
+        guard let z = world.zones.first else { f.clear(); return }
+        f.clear()
+        let big = hhmm(z), bw = clockTextWidth(Stacked.bigFont, big)
+        let bx = jsRound(lerp(Double(Stacked.cols - bw) / 2, 18 + Double(66 - bw) / 2, ek))
+        let bb = jsRound(lerp(Double(Stacked.bigBase), 14, ek))
+        drawClockText(&f, font: Stacked.bigFont, big, x: bx, baseY: bb, colour: white, style: TextStyle(), colonAlpha: colonOf(clock))
+        let dayA = 1 - smooth(0, 0.3, k)
+        if dayA > 0 {
+            let d = dayOf(z), dw = textWidth(Stacked.smallFont, d)
+            drawText(&f, font: Stacked.smallFont, d, x: Double(jsRound(Double(Stacked.cols - dw) / 2)), baseY: Stacked.smallBase,
+                     colour: white, style: TextStyle(alpha: 0.5 * dayA))
+        }
+        let inA = smooth(0.35, 1, k), dy = jsRound(18 * (1 - easeOut(k))), clipY = (lo: 18, hi: Stacked.rows)
+        if inA > 0 {
+            for (j, zz) in world.zones.prefix(4).enumerated() where j > 0 {
+                let cx = (j - 1) * 28, cell = 28
+                let lw = textWidth("busy_regular_5", zz.code)
+                drawText(&f, font: "busy_regular_5", zz.code, x: Double(cx + jsRound(Double(cell - lw) / 2)), baseY: 26 + dy,
+                         colour: white, style: TextStyle(alpha: 0.55 * inA, clipY: clipY))
+                let tw = clockTextWidth("busy_regular_7", hhmm(zz))
+                drawClockText(&f, font: "busy_regular_7", hhmm(zz), x: cx + jsRound(Double(cell - tw) / 2) + 1, baseY: 35 + dy,
+                              colour: white, style: TextStyle(alpha: inA, clipY: clipY), colonAlpha: colonOf(clock))
+                let d = days[((zz.dow % 7) + 7) % 7], dw = textWidth("busy_regular_5", d)
+                drawText(&f, font: "busy_regular_5", d, x: Double(cx + jsRound(Double(cell - dw) / 2)), baseY: 42 + dy,
+                         colour: white, style: TextStyle(alpha: (zz.dayDelta != 0 ? 0.9 : 0.4) * inA, clipY: clipY))
+            }
+        }
+        let w = lerp(Stacked.pillW, World.chipW, ek)
+        drawPill(&f, x0: Stacked.pillX, w: w, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH)
+        let icon = icons[.free] ?? []
+        let ix = jsRound(lerp(Double(jsRound(Stacked.pillX + (Stacked.pillW - Double(statusContentWidth(.free))) / 2)),
+                              Stacked.pillX + Double(jsRound((World.chipW - Double(icon.first?.count ?? 0)) / 2)), ek))
+        drawIcon(&f, rows: icon, x: ix, bottomY: Layout.statusBase - (iconLift[.free] ?? 0), colour: white, shadow: pal.shadow,
+                 alpha: 1, clip: nil)
+        let wordA = 1 - smooth(0, 0.35, k)
+        if wordA > 0 {
+            drawText(&f, font: Layout.statusFont, BarState.free.word, x: Double(ix + iconWidth(.free)), baseY: Layout.statusBase,
+                     colour: white, style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * wordA, alpha: wordA,
+                                                     clip: (lo: Int(Stacked.pillX) + 1, hi: Int((Stacked.pillX + w).rounded(.down)) - 1)))
+        }
+    }
+    @discardableResult
+    static func worldAtStacked(into f: inout LEDFrame, now: Double, s: Double, clock: ClockReading, world: WorldPlan,
+                               prev: BarState?) -> String {
+        if s < 0 {
+            renderStacked(into: &f, now: now, state: .free, prev: prev, since: now - (s + Timing.settled), clock: clock, timer: nil)
+            return "settle"
+        }
+        let sch = worldSchedule(world, upTo: s, pillW: Stacked.pillW)
+        let resting = s >= sch.rest, restK = min((s - sch.rest) / World.restIn, 1)
+        for e in sch.events where s >= e.at && s < e.at + e.dur {
+            switch e.kind {
+            case .board:
+                drawWorldBoardOn(&f, t: s - e.at, world: world,
+                                 face: { (g: inout LEDFrame) in drawStackedWorldBoard(&g, clock: clock, world: world) },
+                                 under: { (g: inout LEDFrame) in
+                                     if resting { drawStackedWorldRest(&g, now: now, clock: clock, world: world, k: restK) }
+                                     else { drawStackedWorldBase(&g, now: now, t: s, clock: clock, world: world, dx: 0, empty: false) }
+                                 })
+                return "board"
+            case .ticker:
+                drawStackedWorldTicker(&f, now: now, t: s - e.at, s: s, clock: clock, world: world)
+                return "ticker"
+            }
+        }
+        if resting {
+            drawStackedWorldRest(&f, now: now, clock: clock, world: world, k: restK)
+            return "rest"
+        }
+        let dx = world.ticker.on && world.rules.tickerForScroll ? 0 : worldScroll(s, Stacked.pillW)
+        drawStackedWorldBase(&f, now: now, t: s, clock: clock, world: world, dx: dx, empty: false)
+        return dx != 0 ? "scroll" : "base"
+    }
+    static func renderStackedWorld(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?, since: Double,
+                                   clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double) {
+        let e = now - since
+        if state == .free {
+            f.clear()
+            worldAtStacked(into: &f, now: now, s: e - Timing.settled, clock: clock, world: world, prev: prev)
+            return
+        }
+        if prev == .free && e < Timing.swap {
+            f.clear()
+            worldAtStacked(into: &f, now: now, s: prevFor - Timing.settled, clock: clock, world: world, prev: nil)
+            shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
+            drawShockwave(&f, progress: e / Timing.wave, pal: BarPalette.of(state))
+            return
+        }
+        renderStacked(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer)
+    }
 }

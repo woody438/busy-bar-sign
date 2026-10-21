@@ -152,7 +152,7 @@ your desk screen among everything else, doesn't.
 | **Out of hours** | Outside 07:30–19:00, Monday to Friday, while the sign would say FREE or that you're not here, the wall goes black — and the screen saver with it — and the app lets the displays sleep. A call, a meeting or a warning lights it as usual. | The big one: about two thirds of the week, with nobody there to read it. Black on an OLED is its pixels off. |
 | **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. It replaces 2.4's jump of up to 3 pixels every 3 minutes, which was smaller than an LED. |
 | **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light. Any change brings them straight back, with its announcement. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
-| **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
+| **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds — or, with the world clocks' ticker set to run in its place, the ticker does. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
 
 Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark.
 The simulator shows all four: **Quiet hour** plays the orbit, resting and
@@ -213,6 +213,47 @@ Stacked is made for small screens, where it's cheap to draw (under 1 ms a
 frame at 960 × 540). You can use it on a big screen too; on 4K it draws 7
 million pixels, and during the second or so of a change's shockwave a slower
 Mac may drop below 60 frames a second (never below 30).
+
+## World clocks
+
+While the sign says FREE it can show local time and three more cities.
+**Settings ▸ World clocks**: turn on **Show world clocks**, choose where
+(**Wall display**, **Floating window**), tick any mix of four layouts, and
+pick the cities. Off by default; once on, **In turns** is the only layout
+ticked till you tick more.
+
+| Layout | What it does | Its timing |
+|---|---|---|
+| **In turns, split** | FREE's pill narrows to the middle; local time and the day sit right of it, and the other three cities take turns on the left, each rolling up to the next. | A city every 3–60 s (5) |
+| **Resting** | After a while of FREE the pill slides left and draws in to a green chip, and all four cities take the bar in two lines of two, till anything changes. | After 1–120 min of FREE (30) |
+| **Now and then** | The whole bar rolls over to a four-column world board, each city above its time, local in FREE's green, then rolls back. | Every 1–60 min (10), for 5–60 s (20) |
+| **Ticker** | The word slides out of the pill, the other cities run through it right to left, and the word comes back. | Every 5–120 min (15) |
+
+**When layouts meet** sets how they combine: whether the board holds off
+while Resting is up or still runs over it; when the board and the ticker
+fall together, whether the second waits for the first or is skipped; and
+whether the ticker replaces the word's quarter-hourly scroll or runs as well
+as it. The ticker needs the pill, so it never runs while Resting is up. A
+call, a warning or Do Not Disturb takes the bar back at once, whatever's
+showing: FREE's face — split, board, chip or ticker — is pressed down as the
+wave hits it, as any state's is.
+
+**Cities** lists about fifty major cities west to east, each with its zone
+and offset as they are today — "Chicago — CDT, GMT−5" — from macOS, so they
+stay right when the clocks change; beside each, how far it is from you.
+Local is the Mac's own time zone. The sign calls each city by three letters
+(NYC, LON, TYO; +1 or −1 when it's tomorrow or yesterday there): type your
+own, or leave it empty for the city's. **Preview** plays each layout a few
+seconds after a call ends, or all of them with your timings.
+
+In the Stacked layout the big clock stays local and the day line beneath it
+takes each city in turn; resting, the board and the ticker have stacked
+versions of their own. The screen saver keeps to the sign as it is.
+
+Worth knowing: none of the layouts looks after the screen. The split and
+resting light about as many LEDs as FREE does (103%); the board lights
+about 58%, but only for its 20 seconds. The orbit, resting's dimming and out
+of hours (above) do that job.
 
 ## Do Not Disturb
 
@@ -559,9 +600,11 @@ The same controls are in three places:
     Disturb, the away keys, and whether the mic, calendar, Stream Deck and
     updates are working.
   - *The sign:* **Displays** (the full-screen display and the floating
-    window side by side), **Screen care** (the wall's hours, and what it
-    does in them) and **Away & screen saver** (the Nearby key's word, and
-    the screen saver).
+    window side by side), **World clocks** (local time and three cities
+    while FREE: the layouts, their timings, how they meet, a preview, the
+    cities), **Screen care** (the wall's hours, and what it does in them)
+    and **Away & screen saver** (the Nearby key's word, and the screen
+    saver).
   - *What it follows:* **Calendar** (which calendar and the warning and
     late times; an event guide to what to put in your calendar; the title
     and location words), **Microphone** (what counts as a call, and what's
@@ -760,13 +803,16 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 147 moments —
+- **The Swift engine matches the simulator LED for LED** across 186 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
   it, LUNCH counting down to when you're back, words of your own for
-  Nearby through every way of fitting one, and the quarter-hourly scroll
-  out and back in — to within float rounding. Both
+  Nearby through every way of fitting one, the quarter-hourly scroll
+  out and back in, and the world clocks through each layout, wide and
+  stacked — settling into the split, a city rolling in, the board rolling
+  up, held and away, the ticker, resting, a skipped clash, the board over
+  the rest, and FREE pressed down as a call starts — to within float rounding. Both
   take and turn away the same words for Nearby, and rest the LEDs at the
   same brightness at the same moments. What you see in the
   simulator is what the app draws.
