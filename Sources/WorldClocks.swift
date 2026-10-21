@@ -19,11 +19,12 @@ final class WorldClocks {
         static let rest = "worldRest", restMins = "worldRestMins"
         static let board = "worldBoard", boardMins = "worldBoardMins", boardSecs = "worldBoardSecs"
         static let ticker = "worldTicker", tickerMins = "worldTickerMins"
-        static let restHolds = "worldRestHolds", clash = "worldClash", tickerForScroll = "worldTickerForScroll"
         static let localCode = "worldLocalCode"
         /// The other three clocks, 1...3: the city, and what the sign calls it ("" for the city's own code).
         static func city(_ slot: Int) -> String { "worldCity\(slot)" }
         static func code(_ slot: Int) -> String { "worldCode\(slot)" }
+        /// Whether that clock shows: unticked, its city is kept but it's off the sign.
+        static func shown(_ slot: Int) -> String { "worldShown\(slot)" }
     }
 
     /// The settings, and what they start as: off, and In turns the only layout ticked.
@@ -33,10 +34,13 @@ final class WorldClocks {
         var rest = false, restMins = 30
         var board = false, boardMins = 10, boardSecs = 20
         var ticker = false, tickerMins = 15
+        /// How the layouts meet, fixed: the board holds off while resting, one waits for the
+        /// other, and the ticker takes the place of the word's quarter-hourly scroll.
         var restHolds = true, clash = "wait", tickerForScroll = true
         var localCode = ""
         var cities = ["New York", "Los Angeles", "Tokyo"]
         var codes = ["", "", ""]
+        var shown = [true, true, true]
 
         static let defaults = Settings()
 
@@ -53,11 +57,11 @@ final class WorldClocks {
             bool(Key.rest, &s.rest); int(Key.restMins, &s.restMins, 1...120)
             bool(Key.board, &s.board); int(Key.boardMins, &s.boardMins, 1...60); int(Key.boardSecs, &s.boardSecs, 5...60)
             bool(Key.ticker, &s.ticker); int(Key.tickerMins, &s.tickerMins, 5...120)
-            bool(Key.restHolds, &s.restHolds); string(Key.clash, &s.clash); bool(Key.tickerForScroll, &s.tickerForScroll)
             string(Key.localCode, &s.localCode)
             for slot in 1...3 {
                 string(Key.city(slot), &s.cities[slot - 1])
                 string(Key.code(slot), &s.codes[slot - 1])
+                bool(Key.shown(slot), &s.shown[slot - 1])
             }
             return s
         }
@@ -202,7 +206,7 @@ final class WorldClocks {
         let localDay = Self.dayKey(local, date)
         var z = [Self.reading(settings.localCode.isEmpty ? Self.localCode : settings.localCode, local, date, localDay)]
         for slot in 0..<3 {
-            guard let city = Self.city(named: settings.cities[slot]) else { continue }
+            guard settings.shown[slot], let city = Self.city(named: settings.cities[slot]) else { continue }
             let typed = settings.codes[slot]
             z.append(Self.reading(typed.isEmpty ? city.code : typed, city.timeZone, date, localDay))
         }
