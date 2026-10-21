@@ -479,17 +479,17 @@ account's own "Calendar" by itself.
 | The bar | What puts it there |
 |---|---|
 | **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
-| **MEETING** · *countdown* | A meeting in your office or at Solotech (a room or a site) — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
+| **MEETING** · *countdown* | A meeting in your office, a meeting room or one of your company's sites — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
-| **LATE FOR** · *MTG +01:20* | A meeting in a Solotech room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
+| **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
 | **FREE TILL** · *11:00* | You left a call before its slot ended and something else starts straight after it (within 5 minutes): free till then. With nothing straight after, just **FREE**. |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office** (except your own lunch), an all-day busy event, or **✈** in the title (flight apps put it there). |
-| **OUT ON SITE** | With a client: a meeting somewhere other than your office or Solotech — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
@@ -507,13 +507,15 @@ location says where you'll be, a link only that others can dial in.
 
 - **Your office** — a location with **my office** or **Woody's office** in
   it: MEETING, even with a link.
-- **A Solotech room** — a room booked on the invite (whatever it's called),
+- **A meeting room** — a room booked on the invite (whatever it's called),
   a location with **room**, **huddle** or **boardroom** in it, or a code like
   **MTL-210**: MEETING, even with a link, and LATE FOR MTG if you're still at
   the Mac when it starts.
-- **A Solotech site** — a location with **Solotech** in it, such as
-  "Solotech - Nashville": MEETING, even with a link. Not LATE FOR MTG: it
-  doesn't say which room, and it could be your office.
+- **A company site** — a location with one of the **Company sites** words
+  in it: your company's name, so "Acme - Nashville" with **acme** there.
+  MEETING, even with a link. Not LATE FOR MTG: it doesn't say which room,
+  and it could be your office. There are none until you add your company's
+  name (Settings ▸ Calendar).
 - **Anywhere else** — OUT ON SITE.
 - **No location**, or one that says nothing about where — "TBC", "Teams", a
   dial-in number, a link: by the link, a call; without one, MEETING.
@@ -555,7 +557,7 @@ The same controls are in three places:
   **Status** (the bar live, why it says what it says, Sign, Do Not
   Disturb, the away keys and the Nearby key's word, and Updates), **Displays** (the full-screen
   display and the floating window side by side, the wall's hours, and the screen saver), **Calendar** (which calendar, the warning
-  and late times, a guide to what to put in Outlook, and the title words),
+  and late times, a guide to what to put in your calendar, and the title words),
   **Microphone** (what counts as a call, and what's using the mic now, to
   ignore) and **Meetings** (Accessibility, showing you're muted, the Stream
   Deck's Mute and Leave keys, the post-call survey, and what to send if Teams
@@ -862,9 +864,9 @@ Calendar.app and an Elgato Stream Deck:
   and Accessibility still allowed, both builds signed with the project's
   certificate.
 - Where a meeting is (2.4), on the author's own Outlook calendar through the
-  preview builds. That is how it was found that a typed "Solotech -
-  Nashville" location, with no room booked, read as OUT ON SITE (it now reads
-  as a Solotech site: MEETING), and that a Lunch block shown as Out of Office
+  preview builds. That is how it was found that a typed location naming
+  one of the company's sites, with no room booked, read as OUT ON SITE (it
+  now reads as a company site: MEETING), and that a Lunch block shown as Out of Office
   said OUT OF OFFICE (your own lunch is now LUNCH, counting down to when
   you're back).
 
@@ -910,7 +912,7 @@ misbehaves on another Mac, these are the likeliest places:
    location names your office or a room. In a booked room, the Status tab
    should say "In a meeting, in a room"; if it says "In a meeting", EventKit
    isn't marking the room as one, so add a word from its name to
-   **Solotech rooms**.
+   **Meeting rooms**.
 6. `LocalServer.swift` — if the Stream Deck key says APP OFF while the app
    is running, `curl http://127.0.0.1:47811/status` should answer with the
    sign's state; if it doesn't, the listener didn't start (the controls'

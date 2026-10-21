@@ -88,12 +88,16 @@ expect('…is not a room', room({ attendees: 2, notes: teams, location: "Woody's
 expect('your office, curly', kind({ attendees: 2, notes: teams, location: 'Woody’s Office' }), 'inPerson');
 expect('my office', kind({ attendees: 2, location: 'My office' }), 'inPerson');
 expect('no location', room({ attendees: 2 }), false);
-expect('a Solotech site', kind({ attendees: 7, location: 'Solotech - Nashville' }), 'inPerson');
-expect('…with a teams link', kind({ attendees: 7, notes: teams, location: 'Solotech - Nashville' }), 'inPerson');
-expect('…is not a room', room({ attendees: 7, location: 'Solotech - Nashville' }), false);
-expect('…but a room there is', room({ attendees: 7, location: 'Solotech - Nashville; MTL-210' }), true);
-expect('Solotech’s, curly', kind({ attendees: 3, location: 'Solotech’s warehouse' }), 'inPerson');
-expect('a client named like it is not', kind({ attendees: 3, location: 'Solotechnics Ltd, 4 High St' }), 'onSite');
+// a company's sites: its name, as Settings ▸ Calendar ▸ Company sites has it (none to start with)
+const acme = Object.assign({}, R.DEFAULTS, { places: Object.assign({}, R.DEFAULTS.places, { sites: ['acme'] }) });
+const kindAt = (o) => R.classify(ev(o), acme).kind, roomAt = (o) => R.classify(ev(o), acme).room;
+expect('no company sites yet: anywhere else', kind({ attendees: 7, location: 'Acme - Nashville' }), 'onSite');
+expect('a company site', kindAt({ attendees: 7, location: 'Acme - Nashville' }), 'inPerson');
+expect('…with a teams link', kindAt({ attendees: 7, notes: teams, location: 'Acme - Nashville' }), 'inPerson');
+expect('…is not a room', roomAt({ attendees: 7, location: 'Acme - Nashville' }), false);
+expect('…but a room there is', roomAt({ attendees: 7, location: 'Acme - Nashville; MTL-210' }), true);
+expect('the company’s, curly', kindAt({ attendees: 3, location: 'Acme’s warehouse' }), 'inPerson');
+expect('a client named like it is not', kindAt({ attendees: 3, location: 'Acmetech Ltd, 4 High St' }), 'onSite');
 expect('a venue', kind({ attendees: 3, location: 'OVO Arena Wembley, Arena Square, London HA9 0AA' }), 'onSite');
 expect('a venue with a teams link', kind({ attendees: 3, notes: teams, location: 'Live Nation, 9348 Civic Center Dr, Beverly Hills' }), 'onSite');
 expect('a restaurant', kind({ title: 'Lunch with Paul', attendees: 1, location: 'The Ivy' }), 'onSite');
@@ -253,10 +257,11 @@ expect('…joined, then off it: in the meeting', decideWith(608, [huddle], [[601
 expect('…tentative: busy tbc', decideWith(603, [ev({ id: 'r', title: 'r', start: 600 * M, end: 660 * M, attendees: 3,
   location: 'LP Huddle', availability: 'tentative' })], [], { active: true }).state, 'busyTbc');
 expect('in your office, at the Mac: in the meeting', decideWith(603, [meeting], [], { active: true }).state, 'meeting');
-const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Solotech - Nashville' });
-expect('at a Solotech site: a meeting, not out on site', decide(610, [nashville]).state, 'meeting');
-expect('…and at the Mac, not late for it', decideWith(603, [nashville], [], { active: true }).state, 'meeting');
-expect('…busy soon before it', decide(595, [nashville]).state, 'busyIn');
+const nashville = ev({ id: 'n', title: 'n', start: 600 * M, end: 745 * M, attendees: 7, location: 'Acme - Nashville' });
+const acmeSites = { config: { places: { sites: ['acme'] } } };
+expect('at a company site: a meeting, not out on site', decideWith(610, [nashville], [], acmeSites).state, 'meeting');
+expect('…and at the Mac, not late for it', decideWith(603, [nashville], [], Object.assign({ active: true }, acmeSites)).state, 'meeting');
+expect('…busy soon before it', decideWith(595, [nashville], [], acmeSites).state, 'busyIn');
 
 // your lunch, shown as Out of Office: LUNCH, as you're coming back
 const oofLunch = own('Lunch', 750, 805, { availability: 'ooo' });

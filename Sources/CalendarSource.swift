@@ -46,7 +46,7 @@ final class CalendarSource: ObservableObject {
     @Published var callWords: String { didSet { save(callWords, "callWords") } }
     @Published var oooWords: String { didSet { save(oooWords, "oooWords") } }
     @Published var onSiteWords: String { didSet { save(onSiteWords, "onSiteWords") } }
-    /// Comma-separated location words: your office, Solotech's rooms and its sites.
+    /// Comma-separated location words: your office, meeting rooms and your company's sites.
     @Published var officeWords: String { didSet { save(officeWords, "officeWords") } }
     @Published var roomWords: String { didSet { save(roomWords, "roomWords") } }
     @Published var siteWords: String { didSet { save(siteWords, "siteWords") } }
@@ -226,7 +226,7 @@ final class CalendarSource: ObservableObject {
         // one key per occurrence: every instance of a series shares an external ID
         let base = e.calendarItemExternalIdentifier ?? e.eventIdentifier ?? UUID().uuidString
         let occurrence = (e.occurrenceDate ?? start).timeIntervalSince1970
-        // a room booked on the invite: one of Solotech's, whatever it's called
+        // a room booked on the invite: a meeting room, whatever it's called
         let rooms = (e.attendees ?? []).filter { $0.participantType == .room }.map { $0.name ?? "" }
         return CalEvent(id: "\(base)#\(Int(occurrence))", title: e.title ?? "",
                         start: start.timeIntervalSince1970 * 1000, end: end.timeIntervalSince1970 * 1000,
