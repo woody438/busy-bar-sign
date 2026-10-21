@@ -163,15 +163,15 @@ jobs:
             --title "Busy Bar Sign — preview (PR #${{ github.event.pull_request.number }})" \
             --notes "Built from pull request #${{ github.event.pull_request.number }} (\`${{ github.head_ref }}\`) at ${{ github.event.pull_request.head.sha }}. For testing; the latest release is still the one built from main.
 
-          **Already have Busy Bar Sign 2.4.2 or later?** Settings ▸ Status ▸ Updates ▸ **Get preview builds**, and it installs this as it does an update.
+          **Already have Busy Bar Sign 2.4.2 or later?** Settings ▸ Status ▸ Updates (from 2.6, Settings ▸ Updates) ▸ **Get preview builds**, and it installs this as it does an update.
 
           **Install:** download BusyBarSign.zip, double-click to unzip, drag **Busy Bar Sign** to Applications (replacing the old one).
 
           **First open:** the app isn't notarised by Apple, so macOS blocks it the first time. Try to open it, then go to System Settings ▸ Privacy & Security, scroll down and click **Open Anyway**. Allow calendar access when it asks.
 
-          **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin. New: **Mute** and **Leave** keys for Teams and Zoom (Settings ▸ Meetings; remove the old Teams Meeting Keys plugin).
+          **Stream Deck:** double-click BusyBarSign.streamDeckPlugin to install or update the plugin. New: **Mute** and **Leave** keys for Teams and Zoom (Settings ▸ Call apps; remove the old Teams Meeting Keys plugin).
 
-          **Accessibility:** if Settings ▸ Meetings says it isn't allowed though Busy Bar Sign is switched on in Privacy & Security ▸ Accessibility, that entry belongs to an older build: press **Reset and ask again**, then switch it on."
+          **Accessibility:** if Settings ▸ Call apps says it isn't allowed though Busy Bar Sign is switched on in Privacy & Security ▸ Accessibility, that entry belongs to an older build: press **Reset and ask again**, then switch it on."
 
       - name: Keep the build log
         if: always()
