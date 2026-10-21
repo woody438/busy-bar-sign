@@ -756,13 +756,16 @@ private struct WorldClocksTab: View {
         Heading("Preview")
         Card {
             WorldPreview(watch: watch, replays: replays).padding(12)
-            Row(label: "Watch") {
+            Divider().padding(.leading, 12)
+            // five layouts and a button: the picker takes the row, so nothing is squeezed
+            HStack(spacing: 12) {
                 Picker("Watch", selection: $watch) {
                     ForEach(WorldClocks.Watch.allCases) { w in Text(w.label).tag(w) }
                 }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
+                .labelsHidden().pickerStyle(.segmented)
                 Button("Again") { replays += 1 }
             }
+            .padding(.horizontal, 12).padding(.vertical, 8)
         }
         Note("The preview plays from a call ending, with your cities, whether or not the world clocks are on. Each layout comes round a few seconds in, and again every few seconds; As set keeps your timings, so its first board or ticker is minutes away.")
 
