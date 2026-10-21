@@ -143,6 +143,8 @@
     if (matches(ev.title, kw.lunch)) return out('lunch');
     if (matches(ev.title, kw.dnd)) return out('dndBlock');
     if (matches(ev.title, kw.call)) return out('phone');
+    // your own appointment somewhere else (a client, a venue) is out on site
+    if (placeOf(ev, c) === 'away') return out('onSite');
     return out('away');
   }
 

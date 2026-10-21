@@ -1104,7 +1104,7 @@ private struct CalendarTab: View {
             keywordRow("OUT OF OFFICE", $calendar.oooWords)
             keywordRow("OUT ON SITE", $calendar.onSiteWords)
         }
-        Note("Only your own events — ones with no invitees — are matched by title, and all-day and Out of Office ones for OUT ON SITE: whole words, any case, separated by commas. Meetings are sorted by their location, invitees and join link, so their titles never matter.")
+        Note("Only your own events — ones with no invitees — are matched by title, and all-day and Out of Office ones for OUT ON SITE: whole words, any case, separated by commas. With no title word, one of your own with a location somewhere else is OUT ON SITE. Meetings are sorted by their location, invitees and join link, so their titles never matter.")
 
         Heading("Where meetings are")
         Card {
@@ -1144,12 +1144,12 @@ private enum Guide {
              more: "Or double-click the bar for 30 minutes. Warnings for calls still show inside it."),
         Line(state: .lunch, how: "An event of your own with “lunch” in the title — Show As Out of Office too.",
              more: "Counts down to when you're back. Beats any meeting over it: no warnings during lunch."),
-        Line(state: .away, how: "Any other event of your own — no invitees.",
+        Line(state: .away, how: "Any other event of your own — no invitees — with no location, or one that says nothing about where.",
              more: "e.g. “Gym”, “Drive home”, “School run”. Beats meetings too."),
         Line(state: .ooo, how: "Show As: Out of Office, an all-day busy event, or ✈ in the title.",
              more: "Flight apps such as Flighty put the ✈ in."),
-        Line(state: .onSite, how: "A meeting somewhere other than your office, a meeting room or your company's sites, or “on site” in the title.",
-             more: "A client, a venue, a restaurant. Or your own event — all-day or Show As Out of Office too — titled “On site”."),
+        Line(state: .onSite, how: "A meeting, or an event of your own, somewhere other than your office, a meeting room or your company's sites, or “on site” in the title.",
+             more: "A client, a venue, a restaurant — anywhere with an address, the dentist's too. Or your own event — all-day or Show As Out of Office too — titled “On site”."),
         Line(state: nil, how: "Ignored: Show As Free, cancelled meetings, and all-day events that aren't busy.",
              more: "Declined meetings leave your Outlook calendar, so they never count.")
     ]
