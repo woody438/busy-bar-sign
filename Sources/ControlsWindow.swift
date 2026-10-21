@@ -38,7 +38,7 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
             let view = ControlsView(detector: detector, status: status, calendar: calendar, wall: wall, floating: floating,
                                     server: server, saver: saver)
             let controller = NSHostingController(rootView: view)
-            // the window follows the tab's height
+            // a fixed size: each section scrolls inside it
             controller.sizingOptions = [.preferredContentSize]
             let w = NSWindow(contentViewController: controller)
             w.styleMask = [.titled, .closable, .miniaturizable]
@@ -60,8 +60,9 @@ final class ControlsWindow: NSObject, NSWindowDelegate {
     }
 }
 
-/// The controls in five tabs: what the sign says and why, where it shows,
-/// what in your calendar drives it, what counts as a call, and Teams and Zoom.
+/// The controls in a sidebar of sections, as System Settings has them: what
+/// the sign says now; where it shows and how it looks after the screen; what
+/// it follows; and the Stream Deck and updates.
 struct ControlsView: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var status: StatusModel
@@ -70,62 +71,144 @@ struct ControlsView: View {
     @ObservedObject var floating: FloatingWindow
     @ObservedObject var server: LocalServer
     @ObservedObject var saver: SaverInstaller
-    @AppStorage("controlsTab") private var tab: Tab = .status
+    @AppStorage("settingsSection") private var section: Section = .status
 
-    enum Tab: String, CaseIterable {
-        case status, displays, calendar, microphone, meetings
-        var label: String { rawValue.capitalized }
+    enum Section: String, CaseIterable, Identifiable {
+        case status, displays, screenCare, away, calendar, microphone, callApps, streamDeck, updates
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .status: return "Status"
+            case .displays: return "Displays"
+            case .screenCare: return "Screen care"
+            case .away: return "Away & screen saver"
+            case .calendar: return "Calendar"
+            case .microphone: return "Microphone"
+            case .callApps: return "Call apps"
+            case .streamDeck: return "Stream Deck"
+            case .updates: return "Updates"
+            }
+        }
         var symbol: String {
             switch self {
             case .status: return "switch.2"
             case .displays: return "display"
+            case .screenCare: return "moon.fill"
+            case .away: return "door.left.hand.open"
             case .calendar: return "calendar"
-            case .microphone: return "mic"
-            case .meetings: return "video"
+            case .microphone: return "mic.fill"
+            case .callApps: return "video.fill"
+            case .streamDeck: return "square.grid.3x2.fill"
+            case .updates: return "arrow.triangle.2.circlepath"
+            }
+        }
+        var tint: Color {
+            switch self {
+            case .status, .updates: return .gray
+            case .displays: return .blue
+            case .screenCare: return .indigo
+            case .away: return .orange
+            case .calendar: return .red
+            case .microphone: return .pink
+            case .callApps: return .purple
+            case .streamDeck: return Color(white: 0.3)
             }
         }
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 4) {
-                ForEach(Tab.allCases, id: \.self) { t in
-                    Button { tab = t } label: {
-                        VStack(spacing: 3) {
-                            Image(systemName: t.symbol).font(.system(size: 18)).frame(height: 22)
-                            Text(t.label).font(.system(size: 11))
-                        }
-                        .frame(width: 78, height: 46)
-                        .contentShape(Rectangle())
-                        .foregroundStyle(tab == t ? Color.accentColor : Color.secondary)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(tab == t ? Color.primary.opacity(0.08) : .clear))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(tab == t ? .isSelected : [])
-                }
-            }
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(.bar)
-            Divider()
+    /// The sidebar's groups, Status on its own at the top.
+    static let groups: [(title: String?, sections: [Section])] = [
+        (nil, [.status]),
+        ("The sign", [.displays, .screenCare, .away]),
+        ("What it follows", [.calendar, .microphone, .callApps]),
+        ("Devices and the app", [.streamDeck, .updates])
+    ]
 
-            VStack(alignment: .leading, spacing: 14) {
-                switch tab {
-                case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
-                                        server: server)
-                case .displays: DisplaysTab(status: status, wall: wall, floating: floating, saver: saver)
-                case .calendar: CalendarTab(calendar: calendar)
-                case .microphone: MicrophoneTab(detector: detector)
-                case .meetings: MeetingsTab(meeting: status.meeting, mute: status.mute)
+    var body: some View {
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(section.label).font(.title2.weight(.semibold))
+                    pane
                 }
-                Text("Also in the menu-bar icon and the Dock icon's menu. Reopen this window by clicking the Dock icon.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(20)
+            .id(section)            // each section opens at its top
         }
-        .frame(width: 640)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 840, height: 660)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(Self.groups.indices, id: \.self) { g in
+                        if let title = Self.groups[g].title {
+                            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .padding(.horizontal, 8).padding(.top, 12).padding(.bottom, 3)
+                        }
+                        ForEach(Self.groups[g].sections) { s in
+                            SidebarRow(section: s, selected: section == s) { section = s }
+                        }
+                    }
+                }
+                .padding(10)
+            }
+            Text("Also in the menu-bar icon and the Dock icon's menu. Reopen this window by clicking the Dock icon.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(12)
+        }
+        .frame(width: 210)
+        .background(Color.primary.opacity(0.04))
+    }
+
+    @ViewBuilder private var pane: some View {
+        switch section {
+        case .status: StatusTab(detector: detector, status: status, away: status.away, calendar: calendar, wall: wall,
+                                server: server, updater: status.updater)
+        case .displays: DisplaysTab(wall: wall, floating: floating)
+        case .screenCare: ScreenCareTab(status: status)
+        case .away: AwayTab(away: status.away, saver: saver)
+        case .calendar: CalendarTab(calendar: calendar)
+        case .microphone: MicrophoneTab(detector: detector)
+        case .callApps: CallAppsTab(meeting: status.meeting, mute: status.mute)
+        case .streamDeck: StreamDeckTab(updater: status.updater, meeting: status.meeting, server: server)
+        case .updates: UpdatesTab(updater: status.updater)
+        }
+    }
+}
+
+/// A section in the sidebar: its icon in a coloured tile, its name; click to open it.
+private struct SidebarRow: View {
+    let section: ControlsView.Section
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: section.symbol)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(section.tint))
+                Text(section.label).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(RoundedRectangle(cornerRadius: 6)
+                .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0)))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -188,8 +271,29 @@ private struct Warning: View {
     }
 }
 
+/// A row that says what something is, in two lines: its name, and a line about it.
+private struct InfoRow: View {
+    let title: String
+    let detail: String
+    var divider = true
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if divider { Divider().padding(.leading, 12) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+    }
+}
+
 // MARK: - Status
 
+/// What the sign says and why, the controls you reach for day to day, and
+/// whether everything it depends on is working.
 private struct StatusTab: View {
     @ObservedObject var detector: CallDetector
     @ObservedObject var status: StatusModel
@@ -197,10 +301,7 @@ private struct StatusTab: View {
     @ObservedObject var calendar: CalendarSource
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var server: LocalServer
-    /// The Nearby key's word as it's being typed: set on Return, on leaving the field, or on closing
-    /// Settings or quitting, once it fits; emptied, NEARBY at once.
-    @State private var nearbyDraft = ""
-    @FocusState private var nearbyFocused: Bool
+    @ObservedObject var updater: Updater
 
     var body: some View {
         Card {
@@ -214,7 +315,6 @@ private struct StatusTab: View {
             }
             .padding(14)
         }
-
         Card {
             Row(label: "Sign", divider: false) {
                 Picker("Sign", selection: $detector.override) {
@@ -241,11 +341,7 @@ private struct StatusTab: View {
                     Button("I'm Here") { status.markInPerson() }
                 }
             }
-        }
-        Note("Double-click the bar, full-screen or floating, to start or end Do Not Disturb — or, while it says LATE FOR, to say you're there in person: MEETING till it ends. A call still shows ON A CALL.")
-
-        Card {
-            Row(label: "Away", divider: false) {
+            Row(label: "Away") {
                 if away.kind != nil {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(away.statusLine(at: context.date) ?? "").foregroundStyle(.secondary)
@@ -256,31 +352,11 @@ private struct StatusTab: View {
                 Button("Back In +10") { away.press(.backIn) }
                 if away.kind != nil { Button("I'm Back") { away.end() } }
             }
-            Row(label: "The Nearby key says") {
-                TextField("Nearby", text: $nearbyDraft)
-                    .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 140)
-                    .focused($nearbyFocused)
-                    .onSubmit(setNearbyWord)
-                    .onChange(of: nearbyFocused) { _, focused in if !focused { setNearbyWord() } }
-                    // emptied: NEARBY straight away, as the field's placeholder now says
-                    .onChange(of: nearbyDraft) { _, draft in if BarEngine.signWord(draft).isEmpty { setNearbyWord() } }
-                    .onAppear { nearbyDraft = away.nearbyWord }
-                    .onDisappear(perform: setNearbyWord)
-                    // Settings closed, or the app quit, before Return: keep the word typed
-                    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
-                        if (note.object as? NSWindow)?.contentViewController is NSHostingController<ControlsView> { setNearbyWord() }
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in setNearbyWord() }
-            }
-            Row(label: "Start the screen saver (and lock the Mac)") {
-                Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
-            }
         }
-        if let warning = nearbyWarning { Warning(text: warning) }
         if let problem = away.problem { Warning(text: problem) }
-        Note("As the Stream Deck's Nearby, Lunch and Back In keys: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen (Displays ▸ Screen saver). Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
-        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return, or close Settings, and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
+        Note("Double-click the bar, full-screen or floating, to start or end Do Not Disturb — or, while it says LATE FOR, to say you're there in person: MEETING till it ends. A call still shows ON A CALL. The away keys' word and the screen saver are under Away & screen saver.")
 
+        Heading("Working")
         Card {
             Row(label: "Microphone", divider: false) {
                 Text(detector.detection.sourceLine).foregroundStyle(.secondary).lineLimit(1)
@@ -292,39 +368,31 @@ private struct StatusTab: View {
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            Row(label: "Stream Deck") {
+                HStack(spacing: 6) {
+                    Circle().fill(server.problem == nil ? Color.green : Color.orange).frame(width: 7, height: 7)
+                    Text(server.problem == nil ? (updater.pluginInstalled.map { "Plugin \($0)" } ?? "The keys can reach the app")
+                                               : "Can't reach the app — see Stream Deck")
+                        .foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            Row(label: "Updates") {
+                Text(updater.statusLine).foregroundStyle(.secondary).lineLimit(1)
+            }
         }
         if wall.waitingForScreen {
             Warning(text: "Waiting for the wall display to reconnect.")
         } else if wall.onScaledScreen {
             Warning(text: "The wall display is in a scaled mode, so the LEDs may shimmer. Use its default or native resolution.")
         }
-        if let problem = server.problem { Warning(text: problem) }
-        UpdatesCard(updater: status.updater)
-    }
-
-    /// The word typed, once the sign can show it.
-    private func setNearbyWord() {
-        guard BarEngine.nearbyProblem(nearbyDraft) == nil, nearbyDraft != away.nearbyWord else { return }
-        away.nearbyWord = nearbyDraft
-    }
-
-    /// Why the sign can't show the word typed, or nil.
-    private var nearbyWarning: String? {
-        guard let problem = BarEngine.nearbyProblem(nearbyDraft) else { return nil }
-        let still = " The sign says \(BarEngine.nearbyWord) till then."
-        switch problem {
-        case .characters: return "Plain letters, numbers and punctuation only: the sign's LED fonts have no accents or symbols." + still
-        case .sign, .key: return "Too long: about seven letters fit, the most a Stream Deck key shows, so W HOUSE rather than WAREHOUSE." + still
-        }
     }
 }
 
 /// Which build this is, and newer ones from GitHub.
-private struct UpdatesCard: View {
+private struct UpdatesTab: View {
     @ObservedObject var updater: Updater
 
     var body: some View {
-        Heading("Updates")
         Card {
             Row(label: "Version", divider: false) {
                 Text("\(updater.version) (build \(updater.build))").foregroundStyle(.secondary)
@@ -363,31 +431,13 @@ private struct UpdatesCard: View {
                         .disabled(updater.phase == .downloading || updater.phase == .installing)
                 }
             }
-            if let plugin = updater.plugin {
-                Row(label: "Stream Deck plugin") {
-                    Text(updater.pluginIncomplete ? "\(plugin.installed) not fully installed"
-                                                  : "\(plugin.installed) installed · \(plugin.available) ready to install")
-                        .foregroundStyle(.secondary)
-                    Button(updater.pluginIncomplete ? "Reinstall…" : "Update…") { updater.updatePlugin() }
-                }
-            } else if let installed = updater.pluginInstalled {
-                Row(label: "Stream Deck plugin") {
-                    // up to date only once checked, with the app up to date too
-                    Text(updater.pluginIncomplete ? "\(installed) not fully installed"
-                         : updater.phase == .upToDate ? "\(installed) · up to date" : installed).foregroundStyle(.secondary)
-                }
-            }
-        }
-        .onAppear { updater.refreshPlugin() }
-        if updater.pluginIncomplete {
-            Warning(text: "Stream Deck has the plugin's new version number but older code: an install stopped part way, so the keys may not do what this version does. Reinstall it; if the keys don't change, quit Stream Deck and open it again.")
         }
         if updater.channel == "preview" {
             let pr = updater.previewPR.map { "pull request #\($0)" } ?? "a pull request"
             Note("This copy is a preview, built from \(pr) to try before it's merged. With Get preview builds on, it takes newer previews and main's releases. Off, it waits for main's next build — or Back to Main Release goes back now.")
         }
         if let problem = updater.installProblem { Warning(text: problem) }
-        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. A new Stream Deck plugin is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it. Get preview builds takes a pull request's build too, before it's merged, to try a change early: one at a time, whichever pull request was pushed last.")
+        Note("Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed. Get preview builds takes a pull request's build too, before it's merged, to try a change early: one at a time, whichever pull request was pushed last. The Stream Deck plugin's updates are under Stream Deck.")
     }
 }
 
@@ -412,10 +462,8 @@ private struct BarPreview: View {
 // MARK: - Displays
 
 private struct DisplaysTab: View {
-    @ObservedObject var status: StatusModel
     @ObservedObject var wall: DisplayWindow
     @ObservedObject var floating: FloatingWindow
-    @ObservedObject var saver: SaverInstaller
     @State private var screens = NSScreen.screens
     @AppStorage("wallLayout") private var wallLayout: BarLayout = .wide
 
@@ -464,34 +512,6 @@ private struct DisplaysTab: View {
             }
         }
         Note("Stacked fills small screens such as 960 × 540: the status on top and a big clock beneath. The floating window always uses the wide bar and stays above other windows, on every Space.")
-
-        OutOfHours(status: status)
-
-        Heading("Screen saver")
-        Card {
-            Row(label: "Busy Bar Sign screen saver", divider: false) {
-                Text(saver.installed ? "Installed" : "Not installed").foregroundStyle(.secondary)
-                Button("Choose It…") { saver.openSettings() }
-            }
-            Row(label: "Lock when it starts") {
-                Button("Lock Screen Settings…") { saver.openLockScreenSettings() }
-            }
-            Row(label: "Last showed on") {
-                if saver.seen.isEmpty {
-                    Text("Not yet, since the app opened").foregroundStyle(.secondary)
-                } else {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        ForEach(saver.seen.sorted { $0.value.name < $1.value.name }, id: \.key) { entry in
-                            Text(entry.value.name + (entry.value.drawing ? " — drawing · " : " — not drawing · ")
-                                 + DateFormatter.localizedString(from: entry.value.at, dateStyle: .none, timeStyle: .short))
-                                .foregroundStyle(entry.value.drawing ? Color.secondary : Color.orange)
-                        }
-                    }
-                }
-            }
-        }
-        if let problem = saver.problem { Warning(text: problem) }
-        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can. macOS gives each monitor its own screen saver, and sets the one System Settings is on: so drag System Settings to each monitor in turn and choose Busy Bar Sign under Wallpaper ▸ Screen Saver. Set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key (Status) locks the Mac with the sign on every screen — the wall as it's set here, the others as the wide bar. A monitor missing from Last showed on never ran it.")
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 screens = NSScreen.screens
             }
@@ -531,7 +551,7 @@ private struct DisplaysTab: View {
     }
 }
 
-/// When the wall goes dark: Settings ▸ Displays ▸ Out of hours.
+/// When the wall goes dark: Settings ▸ Screen care ▸ Out of hours.
 private struct OutOfHours: View {
     @ObservedObject var status: StatusModel
 
@@ -583,12 +603,136 @@ private struct OutOfHours: View {
     }
 }
 
+// MARK: - Away & screen saver
+
+/// The away keys' word, and the screen saver that keeps the sign up while the Mac's locked.
+private struct AwayTab: View {
+    @ObservedObject var away: Away
+    @ObservedObject var saver: SaverInstaller
+    /// The Nearby key's word as it's being typed: set on Return, on leaving the field, or on closing
+    /// Settings or quitting, once it fits; emptied, NEARBY at once.
+    @State private var nearbyDraft = ""
+    @FocusState private var nearbyFocused: Bool
+
+    var body: some View {
+        Card {
+            Row(label: "The Nearby key says", divider: false) {
+                TextField("Nearby", text: $nearbyDraft)
+                    .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 140)
+                    .focused($nearbyFocused)
+                    .onSubmit(setNearbyWord)
+                    .onChange(of: nearbyFocused) { _, focused in if !focused { setNearbyWord() } }
+                    // emptied: NEARBY straight away, as the field's placeholder now says
+                    .onChange(of: nearbyDraft) { _, draft in if BarEngine.signWord(draft).isEmpty { setNearbyWord() } }
+                    .onAppear { nearbyDraft = away.nearbyWord }
+                    .onDisappear(perform: setNearbyWord)
+                    // Settings closed, or the app quit, before Return: keep the word typed
+                    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
+                        if (note.object as? NSWindow)?.contentViewController is NSHostingController<ControlsView> { setNearbyWord() }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in setNearbyWord() }
+            }
+            Row(label: "Start the screen saver (and lock the Mac)") {
+                Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
+            }
+        }
+        if let warning = nearbyWarning { Warning(text: warning) }
+        if let problem = away.problem { Warning(text: problem) }
+        Note("As the Stream Deck's Nearby, Lunch and Back In keys, and the buttons under Status: Nearby and Lunch on or off, Back In ten minutes a press. Three seconds after the last press the screen saver starts, with the sign on every screen. Unlocking clears it. With no key on, a locked Mac says NEARBY — unless the calendar has something to say.")
+        Note("The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return, or close Settings, and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Empty it for NEARBY: that takes at once, no Return needed.")
+
+        Heading("Screen saver")
+        Card {
+            Row(label: "Busy Bar Sign screen saver", divider: false) {
+                Text(saver.installed ? "Installed" : "Not installed").foregroundStyle(.secondary)
+                Button("Choose It…") { saver.openSettings() }
+            }
+            Row(label: "Lock when it starts") {
+                Button("Lock Screen Settings…") { saver.openLockScreenSettings() }
+            }
+            Row(label: "Last showed on") {
+                if saver.seen.isEmpty {
+                    Text("Not yet, since the app opened").foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        ForEach(saver.seen.sorted { $0.value.name < $1.value.name }, id: \.key) { entry in
+                            Text(entry.value.name + (entry.value.drawing ? " — drawing · " : " — not drawing · ")
+                                 + DateFormatter.localizedString(from: entry.value.at, dateStyle: .none, timeStyle: .short))
+                                .foregroundStyle(entry.value.drawing ? Color.secondary : Color.orange)
+                        }
+                    }
+                }
+            }
+        }
+        if let problem = saver.problem { Warning(text: problem) }
+        Note("The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can. macOS gives each monitor its own screen saver, and sets the one System Settings is on: so drag System Settings to each monitor in turn and choose Busy Bar Sign under Wallpaper ▸ Screen Saver. Set Lock Screen ▸ “Require password after screen saver begins” to Immediately. Then an away key locks the Mac with the sign on every screen — the wall as it's set under Displays, the others as the wide bar. A monitor missing from Last showed on never ran it.")
+    }
+
+    /// The word typed, once the sign can show it.
+    private func setNearbyWord() {
+        guard BarEngine.nearbyProblem(nearbyDraft) == nil, nearbyDraft != away.nearbyWord else { return }
+        away.nearbyWord = nearbyDraft
+    }
+
+    /// Why the sign can't show the word typed, or nil.
+    private var nearbyWarning: String? {
+        guard let problem = BarEngine.nearbyProblem(nearbyDraft) else { return nil }
+        let still = " The sign says \(BarEngine.nearbyWord) till then."
+        switch problem {
+        case .characters: return "Plain letters, numbers and punctuation only: the sign's LED fonts have no accents or symbols." + still
+        case .sign, .key: return "Too long: about seven letters fit, the most a Stream Deck key shows, so W HOUSE rather than WAREHOUSE." + still
+        }
+    }
+}
+
+// MARK: - Screen care
+
+/// Looking after the wall's screen: dark out of hours, and what it does in hours.
+private struct ScreenCareTab: View {
+    @ObservedObject var status: StatusModel
+
+    var body: some View {
+        OutOfHours(status: status)
+        Heading("Always on, on the wall")
+        Card {
+            InfoRow(title: "The orbit", detail: "The LEDs move a pixel at a time through every position within an LED: one pass an hour.", divider: false)
+            InfoRow(title: "Resting", detail: "After half an hour of FREE or a not-here state unchanged, the LEDs ease down to about 60% of their light.")
+            InfoRow(title: "The scroll", detail: "Every 15 minutes of a quiet state, the pill's icon and word scroll out and back in.")
+        }
+        Note("Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark. The floating window, on your desk screen among everything else, does none of this.")
+    }
+}
+
 // MARK: - Calendar
 
 private struct CalendarTab: View {
     @ObservedObject var calendar: CalendarSource
+    @AppStorage("calendarPage") private var page: Page = .calendar
+
+    enum Page: String, CaseIterable {
+        case calendar, guide, words
+        var label: String {
+            switch self {
+            case .calendar: return "Calendar"
+            case .guide: return "Event guide"
+            case .words: return "Words"
+            }
+        }
+    }
 
     var body: some View {
+        Picker("Page", selection: $page) {
+            ForEach(Page.allCases, id: \.self) { Text($0.label).tag($0) }
+        }
+        .labelsHidden().pickerStyle(.segmented).fixedSize()
+        switch page {
+        case .calendar: settings
+        case .guide: guide
+        case .words: words
+        }
+    }
+
+    @ViewBuilder private var settings: some View {
         Card {
             Row(label: "Follow my calendar", divider: false) {
                 Toggle("Follow my calendar", isOn: $calendar.enabled).labelsHidden().toggleStyle(.switch)
@@ -630,7 +774,10 @@ private struct CalendarTab: View {
             }
         }
         if calendar.enabled, let problem = calendar.problem { Warning(text: problem) }
+        Note("The sign reads macOS Calendar, so any calendar synced to it works: Outlook or Exchange, Google, iCloud. Declined meetings leave the calendar, so they never count.")
+    }
 
+    @ViewBuilder private var guide: some View {
         Heading("What to put in your calendar")
         Card {
             ForEach(Array(Guide.rows.enumerated()), id: \.offset) { i, row in
@@ -656,7 +803,9 @@ private struct CalendarTab: View {
                 }
             }
         }
+    }
 
+    @ViewBuilder private var words: some View {
         Heading("Words the sign looks for")
         Card {
             keywordRow("LUNCH", $calendar.lunchWords, divider: false)
@@ -803,12 +952,12 @@ private struct MicrophoneTab: View {
     }
 }
 
-// MARK: - Meetings
+// MARK: - Call apps
 
-/// Teams and Zoom: whether you're muted (for the sign), the Stream Deck's
-/// Mute and Leave keys, the post-call survey, and what to send if a meeting
-/// app isn't read right.
-private struct MeetingsTab: View {
+/// The apps calls happen in: whether you're muted (for the sign), the
+/// post-call survey, and what to send if a call app isn't read right. Which
+/// apps light the sign is under Microphone; the Mute and Leave keys, Stream Deck.
+private struct CallAppsTab: View {
     @ObservedObject var meeting: MeetingKeys
     @ObservedObject var mute: MuteDetector
     @State private var output: String?
@@ -850,15 +999,10 @@ private struct MeetingsTab: View {
             Note("While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
         }
         Group {
-            Heading("Stream Deck keys")
+            Heading("After a call")
             Card {
-                Row(label: "Close the call-quality survey after a call", divider: false) {
+                Row(label: "Close the call-quality survey", divider: false) {
                     Toggle("Close the call-quality survey", isOn: $meeting.closeSurveys).labelsHidden().toggleStyle(.switch)
-                }
-                Row(label: "Last key press") {
-                    Text(meeting.lastPress.map { "\($0.at.formatted(date: .omitted, time: .shortened)) · \($0.message)" } ?? "None yet")
-                        .foregroundStyle(meeting.lastPress?.ok == false ? Color.orange : Color.secondary)
-                        .lineLimit(2).multilineTextAlignment(.trailing)
                 }
                 Row(label: "Last popup after a call") {
                     if let p = meeting.lastPopup {
@@ -871,10 +1015,10 @@ private struct MeetingsTab: View {
                     }
                 }
             }
-            Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. Hold Leave a second to end a Zoom meeting you're hosting for everyone. With both apps in meetings they act on the one joined last. The survey is only ever closed with a Dismiss, Close or Skip-type button, never Submit or a thumbs. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
+            Note("Teams' “rate your call” and Zoom's “How was the audio and video?” are only ever closed with a Dismiss, Close or Skip-type button, never Submit or a thumbs.")
         }
         Group {
-            Heading("If a meeting app isn't read right")
+            Heading("If a call app isn't read right")
             HStack {
                 Button("Inspect meeting controls") { run { meeting.inspect(then: $0) } }
                 Button("Capture popups") { run { meeting.capture(then: $0) } }
@@ -926,5 +1070,57 @@ private struct MeetingsTab: View {
             output = text
             working = false
         }
+    }
+}
+
+// MARK: - Stream Deck
+
+/// The Stream Deck plugin: its version and updates, whether its keys reach the app, and what each key does.
+private struct StreamDeckTab: View {
+    @ObservedObject var updater: Updater
+    @ObservedObject var meeting: MeetingKeys
+    @ObservedObject var server: LocalServer
+
+    var body: some View {
+        Card {
+            Row(label: "Plugin", divider: false) {
+                if let plugin = updater.plugin {
+                    Text(updater.pluginIncomplete ? "\(plugin.installed) not fully installed"
+                                                  : "\(plugin.installed) installed · \(plugin.available) ready to install")
+                        .foregroundStyle(.secondary)
+                    Button(updater.pluginIncomplete ? "Reinstall…" : "Update…") { updater.updatePlugin() }
+                } else if let installed = updater.pluginInstalled {
+                    // up to date only once checked, with the app up to date too
+                    Text(updater.pluginIncomplete ? "\(installed) not fully installed"
+                         : updater.phase == .upToDate ? "\(installed) · up to date" : installed).foregroundStyle(.secondary)
+                } else {
+                    Text("Not installed").foregroundStyle(.secondary)
+                }
+            }
+            Row(label: "Connection") {
+                Text(server.problem == nil ? "The keys reach the app on 127.0.0.1:\(LocalAPI.port)" : "The keys can't reach the app")
+                    .foregroundStyle(server.problem == nil ? Color.secondary : Color.orange)
+            }
+            Row(label: "Last key press") {
+                Text(meeting.lastPress.map { "\($0.at.formatted(date: .omitted, time: .shortened)) · \($0.message)" } ?? "None yet")
+                    .foregroundStyle(meeting.lastPress?.ok == false ? Color.orange : Color.secondary)
+                    .lineLimit(2).multilineTextAlignment(.trailing)
+            }
+        }
+        .onAppear { updater.refreshPlugin() }
+        if updater.pluginIncomplete {
+            Warning(text: "Stream Deck has the plugin's new version number but older code: an install stopped part way, so the keys may not do what this version does. Reinstall it; if the keys don't change, quit Stream Deck and open it again.")
+        }
+        if let problem = server.problem { Warning(text: problem) }
+        Note("The plugin comes with each release as BusyBarSign.streamDeckPlugin. A new one is opened in Stream Deck once, when you're off calls; Stream Deck asks before installing it.")
+
+        Heading("Keys")
+        Card {
+            InfoRow(title: "Status", detail: "Shows the sign. Press for Do Not Disturb, or while it says LATE FOR, to say you're there in person.", divider: false)
+            InfoRow(title: "Mute", detail: "LIVE or MUTED in your Teams or Zoom meeting. Press to switch.")
+            InfoRow(title: "Leave", detail: "Leaves the meeting. Hold it a second to end a Zoom meeting you're hosting for everyone.")
+            InfoRow(title: "Nearby, Lunch, Back In", detail: "The away keys: the Mac locks, with the sign on every screen (Away & screen saver).")
+        }
+        Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. With both apps in meetings they act on the one joined last. Each key's own options, such as Leave only when held, are in Stream Deck. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
     }
 }

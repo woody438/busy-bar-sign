@@ -65,7 +65,7 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 3. The full-screen display opens on your second monitor, and a **controls
    window** opens on your main one. Click the app's Dock icon to bring the
    controls back at any time.
-4. Allow **Accessibility** when it asks (or Settings ▸ Meetings ▸ **Allow…**):
+4. Allow **Accessibility** when it asks (or Settings ▸ Call apps ▸ **Allow…**):
    it's how the sign sees you're muted, and how the Stream Deck's Mute and
    Leave keys press Teams and Zoom. If Settings says it isn't allowed though
    Busy Bar Sign is switched on in System Settings, press **Reset and ask
@@ -81,7 +81,7 @@ It runs on Apple silicon and Intel Macs with macOS 14.4 or later. Every push
 to `main` rebuilds it on GitHub's Mac runners
 (`.github/workflows/build.yml`) and replaces the release. A pull request's
 build is published as the **preview** pre-release instead, for trying before
-it's merged: Settings ▸ Status ▸ Updates ▸ **Get preview builds** installs it
+it's merged: Settings ▸ Updates ▸ **Get preview builds** installs it
 too ([Updates](#updates)).
 
 > **In use on one Mac.** It runs day to day on its author's Mac — the sign,
@@ -159,7 +159,7 @@ The simulator shows all four: **Quiet hour** plays the orbit, resting and
 the scroll sped up, and **Out of hours** the dark (as does **Calendar
 day**, from 06:45 to 07:30).
 
-**Settings ▸ Displays ▸ Out of hours** sets the hours and the days, or turns
+**Settings ▸ Screen care ▸ Out of hours** sets the hours and the days, or turns
 it off. **Let the displays sleep then** (on by default) stops the app keeping
 the displays awake out of hours, so macOS switches them off by Lock Screen ▸
 "Turn display off when inactive" once the Mac's idle — and a TV can go to
@@ -253,7 +253,7 @@ menu and in Settings ▸ Status.
 
 ### Your own word for Nearby
 
-Settings ▸ Status ▸ **The Nearby key says**: type a word — *W House*,
+Settings ▸ Away & screen saver ▸ **The Nearby key says**: type a word — *W House*,
 *Studio 2*, *On site* — and press Return, or just close Settings (quitting
 keeps it too). The sign says it in capitals wherever it would say NEARBY:
 for the Nearby key, for a locked Mac with no key on, on the wall, on the
@@ -275,7 +275,7 @@ takes at once, everywhere, with no Return.
 
 **Setting it up**, once:
 
-1. **Settings ▸ Displays ▸ Screen saver ▸ Choose It…** opens System Settings
+1. **Settings ▸ Away & screen saver ▸ Choose It…** opens System Settings
    at Wallpaper: click **Screen Saver** and pick **Busy Bar Sign**. **Then
    drag the System Settings window to each of your other monitors and do it
    again there**: macOS gives every monitor its own screen saver, and sets
@@ -308,7 +308,7 @@ takes at once, everywhere, with no Return.
 - The screen saver asks the app once a second, as the Stream Deck does. If
   the app isn't answering, it says NEARBY — or your word for it, once it's
   heard it from the app.
-- **Settings ▸ Status ▸ Start the screen saver** off: the keys just change
+- **Settings ▸ Away & screen saver ▸ Start the screen saver** off: the keys just change
   the sign, and don't lock anything.
 
 Worth knowing:
@@ -318,7 +318,7 @@ Worth knowing:
   The app keeps the displays awake while the wall's up, and that may stop
   the screen saver starting by itself too — not yet checked. Lock with a
   key, or a hot corner set to **Start Screen Saver**.
-- **Settings ▸ Displays ▸ Screen saver ▸ Last showed on** lists the
+- **Settings ▸ Away & screen saver ▸ Last showed on** lists the
   monitors the screen saver has run on since the app opened, and whether
   it drew there. A monitor that isn't listed never ran it — choose it on
   that monitor (step 1). One listed as *not drawing* ran it but drew
@@ -363,7 +363,7 @@ engine and fonts:
    [latest release](https://github.com/woody438/busy-bar-sign/releases/latest)
    and double-click it. Stream Deck asks to install it. (Stream Deck 7.1 or
    later.) When there's a newer one, Busy Bar Sign offers it (Settings ▸
-   Status ▸ Updates).
+   Stream Deck).
 2. In Stream Deck, drag **Busy Bar Sign ▸ Status**, **▸ Mute**, **▸ Leave**,
    **▸ Nearby**, **▸ Lunch** and **▸ Back In** onto keys — on as many keys,
    pages and Stream Decks as you like.
@@ -458,22 +458,22 @@ the keys, the sign and the settings always agree:
   audio and video?") is closed — only ever with a Dismiss, Close, Skip or
   Cancel-type button, then the dialog's own cancel, its window's close button
   (never the main window's), then Escape; never Submit or a thumbs. Settings
-  ▸ Meetings switches it off and shows the last popup and what was done.
+  ▸ Call apps switches it off and shows the last popup and what was done.
 - The app does the pressing, with its own Accessibility permission, so the
   keys need it running. **Remove the old Teams Meeting Keys plugin**: the two
   would both press, and both close the survey.
-- Settings ▸ Meetings shows what the keys see — each app's meeting window and
+- Settings ▸ Call apps shows what the keys see — each app's meeting window and
   mute button — and lists every button it can find (**Inspect meeting
   controls**) if Teams or Zoom ever changes them:
 
-![Settings ▸ Meetings: Accessibility allowed; Teams in “Weekly review” with “Unmute mic”, muted, the keys acting there; Zoom not in a meeting; the sign's mute switch; the survey switch, the last key press and popup; Inspect, Capture, Edit patterns and Reload](docs/settings-meetings.png)
+![Settings, before 2.6, Meetings: Accessibility allowed; Teams in “Weekly review” with “Unmute mic”, muted, the keys acting there; Zoom not in a meeting; the sign's mute switch; the survey switch, the last key press and popup; Inspect, Capture, Edit patterns and Reload](docs/settings-meetings.png)
 
 ## Your calendar
 
 The sign follows the calendar macOS Calendar shows — for Outlook, add your
 Microsoft 365 account in Calendar ▸ Settings ▸ Accounts — read-only. Allow
 calendar access when it asks on first launch, then check **Calendar** in the
-controls window's Calendar tab is the one you use. It picks the Exchange
+controls window's Calendar section is the one you use. It picks the Exchange
 account's own "Calendar" by itself.
 
 | The bar | What puts it there |
@@ -521,7 +521,7 @@ location says where you'll be, a link only that others can dial in.
   dial-in number, a link: by the link, a call; without one, MEETING.
 
 The title words for your own events and the location words are in the
-Calendar tab: whole words, any case, separated by commas. Meetings are
+Calendar section (its Words tab): whole words, any case, separated by commas. Meetings are
 sorted by their location, invitees and join link, so their titles never
 matter.
 
@@ -553,15 +553,23 @@ Worth knowing:
 The same controls are in three places:
 
 - **The controls window** — click the app's Dock icon, or press ⌘, while the
-  app is in front. It opens by itself on first launch. Five tabs:
-  **Status** (the bar live, why it says what it says, Sign, Do Not
-  Disturb, the away keys and the Nearby key's word, and Updates), **Displays** (the full-screen
-  display and the floating window side by side, the wall's hours, and the screen saver), **Calendar** (which calendar, the warning
-  and late times, a guide to what to put in your calendar, and the title words),
-  **Microphone** (what counts as a call, and what's using the mic now, to
-  ignore) and **Meetings** (Accessibility, showing you're muted, the Stream
-  Deck's Mute and Leave keys, the post-call survey, and what to send if Teams
-  or Zoom isn't read right).
+  app is in front. It opens by itself on first launch. A list of
+  sections down the left, as in System Settings:
+  - **Status** — the bar live, why it says what it says, Sign, Do Not
+    Disturb, the away keys, and whether the mic, calendar, Stream Deck and
+    updates are working.
+  - *The sign:* **Displays** (the full-screen display and the floating
+    window side by side), **Screen care** (the wall's hours, and what it
+    does in them) and **Away & screen saver** (the Nearby key's word, and
+    the screen saver).
+  - *What it follows:* **Calendar** (which calendar and the warning and
+    late times; an event guide to what to put in your calendar; the title
+    and location words), **Microphone** (what counts as a call, and what's
+    using the mic now, to ignore) and **Call apps** (Accessibility, showing
+    you're muted, the post-call survey, and what to send if Teams or Zoom
+    isn't read right).
+  - *Devices and the app:* **Stream Deck** (the plugin, whether its keys
+    reach the app, what each key does) and **Updates**.
 - **The Dock icon's right-click menu** — full-screen on/off, which monitor,
   floating on/off.
 - **The menu-bar icon** — the state's own mark: a tick when free, a
@@ -578,7 +586,7 @@ The full menu:
 - **Do Not Disturb (30 min)** / **End Do Not Disturb**.
 - **In Person: “…”** — while the sign warns of a call or says you're late for
   one: you're there in person, so MEETING till it ends (in the Dock menu and
-  the controls' Status tab too).
+  the controls' Status section too).
 - **Nearby** (or your word for it) and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
   In: 10 More Minutes**) and **I'm Back**: the away keys.
 - **Microphone** — every app holding the mic right now, each with an
@@ -668,21 +676,21 @@ some apps upsets window managers such as Rectangle.
   with the project's certificate ([Signing](#signing)). If the app says it
   isn't allowed though Busy Bar Sign is switched on in that list, the entry
   belongs to a build signed differently, and switching it off and on doesn't
-  help: press **Reset and ask again** in Settings ▸ Meetings (or remove the
+  help: press **Reset and ask again** in Settings ▸ Call apps (or remove the
   entry with **–**, or run `tccutil reset Accessibility com.woodall.BusyBarSign`),
   then switch Busy Bar Sign on when System Settings opens.
 - If it can't tell — no permission, no mute button found, a label it doesn't
   know — it shows the mic as **live**. It never tells the room it can talk
   unless the app says you're muted.
 - A redesign of Teams' or Zoom's meeting window can hide the button until the
-  patterns are updated. Settings ▸ Meetings shows what it's reading, e.g.
+  patterns are updated. Settings ▸ Call apps shows what it's reading, e.g.
   "“Eagle Dragon crew | Microsoft Teams” · “Unmute mic” · muted", and
   **Inspect meeting controls** lists every button it can see — copy that and
   send it over. The words it reads (mute labels, survey wording, which
   buttons it may press) are in `~/Library/Application Support/Busy Bar
   Sign/meeting-ui.json` (**Edit patterns…**), in the same format as Teams
   Meeting Keys' `teams-ui.json`; **Reload** picks up a change.
-- Switch it off in Settings ▸ Meetings ▸ **Show when I'm muted**.
+- Switch it off in Settings ▸ Call apps ▸ **Show when I'm muted**.
 - The Stream Deck key still reads a muted call as ON A CALL; the local API
   adds `"muted": true` for it.
 
@@ -905,20 +913,20 @@ misbehaves on another Mac, these are the likeliest places:
 4. `FloatingWindow.swift` — the window's shadow, traced from the device's
    outline; if it's missing or boxy, that's where to look.
 5. `CalendarSource.swift` — the permission prompt, and how Exchange events
-   arrive through EventKit: does the Calendar tab list your Outlook
-   calendar, and during a Teams meeting does the Status tab say "On
+   arrive through EventKit: does the Calendar section list your Outlook
+   calendar, and during a Teams meeting does the Status section say "On
    “…”" rather than "Microphone in use"? If a Teams meeting shows MEETING
    instead of a call, its join link isn't where the rules look — or its
-   location names your office or a room. In a booked room, the Status tab
+   location names your office or a room. In a booked room, the Status section
    should say "In a meeting, in a room"; if it says "In a meeting", EventKit
    isn't marking the room as one, so add a word from its name to
    **Meeting rooms**.
 6. `LocalServer.swift` — if the Stream Deck key says APP OFF while the app
    is running, `curl http://127.0.0.1:47811/status` should answer with the
    sign's state; if it doesn't, the listener didn't start (the controls'
-   Status tab says why).
+   Status section says why).
 7. `Sources/Meeting/` and `MuteDetector.swift` — on a Teams call, Settings ▸
-   Meetings should show the meeting window and its mute button (“Unmute
+   Call apps should show the meeting window and its mute button (“Unmute
    mic” · muted). If it says "Not in a meeting" or "mute unknown", press
    **Inspect meeting controls**: it lists the meeting windows and every
    button with an id. No `#microphone-button` means Teams has renamed it, or
@@ -931,7 +939,7 @@ misbehaves on another Mac, these are the likeliest places:
 Busy Bar Sign updates itself from this repository's releases. It looks at
 launch and every four hours, and installs a newer build when you're not on a
 call or in a meeting: it closes, swaps in the new copy and reopens, in a
-second or two. **Settings ▸ Status ▸ Updates** shows the build you have,
+second or two. **Settings ▸ Updates** shows the build you have,
 checks or installs on demand, and can switch the automatic install off; the
 menu-bar menu has **Check for Updates** too.
 
@@ -942,7 +950,7 @@ menu-bar menu has **Check for Updates** too.
   numbered by its CI run, and only a higher number is an update
   (`Sources/UpdateCheck.swift`, checked by `Checks/update`), so a preview
   gives way to main's build once its pull request is merged.
-- A preview build says so in Settings ▸ Status ▸ Updates: an orange
+- A preview build says so in Settings ▸ Updates: an orange
   **PREVIEW** tag and the pull request it was built from (from 2.4.1). It
   starts with Get preview builds on. Switch it off and it waits for main's
   next build — or **Back to Main Release** installs main's current one now,
@@ -959,8 +967,8 @@ menu-bar menu has **Check for Updates** too.
   asks first — so once the app is up to date, a newer plugin is opened in
   Stream Deck for you, once per version and only when you're off calls (and
   installing updates automatically): click **Install** when Stream Deck
-  asks. Missed it? **Update…** in Settings ▸ Status, or the menu's **Update
-  the Stream Deck Plugin…**, opens it again. Settings ▸ Status shows the
+  asks. Missed it? **Update…** in Settings ▸ Stream Deck, or the menu's **Update
+  the Stream Deck Plugin…**, opens it again. Settings ▸ Stream Deck shows the
   plugin's version.
 - An install can stop part way, leaving the new version's number over the
   old plugin's code: the keys then do what the old one did, though the

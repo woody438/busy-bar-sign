@@ -1061,7 +1061,7 @@ enum BarEngine {
     // MARK: - The Nearby key's word
 
     /*
-     * NEARBY, or a word of your own (W HOUSE) from Settings ▸ Status. The
+     * NEARBY, or a word of your own (W HOUSE) from Settings ▸ Away & screen saver. The
      * sign says it wherever it would say NEARBY. One for every view of the
      * bar, set with setNearbyWord: the app sets it from its settings, the
      * screen saver from the app's answer.

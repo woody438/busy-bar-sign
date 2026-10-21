@@ -133,18 +133,32 @@
   .settings .lead{margin-bottom:28px}
   .mac{--m-bg:#1f1f21;--m-bar:#2a2a2d;--m-card:#2b2b2e;--m-line:rgba(255,255,255,.08);--m-ink:#ECECEE;--m-dim:#9A9AA0;--m-blue:#0A84FF;
     font:13px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;color:var(--m-ink);
-    width:100%;max-width:680px;margin:0 auto;background:var(--m-bg);border-radius:12px;overflow:hidden;
+    width:100%;max-width:880px;margin:0 auto;background:var(--m-bg);border-radius:12px;overflow:hidden;
     box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px rgba(0,0,0,.6)}
   .mac-bar{background:var(--m-bar);border-bottom:1px solid rgba(0,0,0,.5);padding:10px 12px 8px;position:relative}
   .mac-dots{position:absolute;left:14px;top:12px;display:flex;gap:8px}
   .mac-dots i{width:12px;height:12px;border-radius:50%;background:#ff5f57}
   .mac-dots i:nth-child(2){background:#febc2e}.mac-dots i:nth-child(3){background:#28c840}
   .mac-title{text-align:center;font-weight:600;color:var(--m-dim);margin:0 0 8px}
-  .mac-tabs{display:flex;justify-content:center;gap:4px}
-  .mac-tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:76px;padding:6px 10px 5px;border-radius:7px;
-    border:0;background:none;color:var(--m-dim);font:inherit;font-size:11px;cursor:pointer}
-  .mac-tab svg{width:22px;height:22px}
-  .mac-tab[aria-selected="true"]{background:rgba(255,255,255,.09);color:var(--m-blue)}
+  .mac-split{display:grid;grid-template-columns:200px minmax(0,1fr);height:640px}
+  .mac-side{background:#262628;border-right:1px solid rgba(0,0,0,.45);padding:10px 8px;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+  .mac-side-h{font-size:11px;font-weight:600;color:var(--m-dim);margin:12px 8px 3px}
+  .mac-tab{display:flex;align-items:center;gap:9px;width:100%;padding:5px 8px;border-radius:6px;border:0;background:none;color:var(--m-ink);font:inherit;text-align:left;cursor:pointer}
+  .mac-tab:hover{background:rgba(255,255,255,.05)}
+  .mac-tab[aria-selected="true"]{background:rgba(255,255,255,.10)}
+  .mac-tab:focus-visible{outline:2px solid var(--m-blue);outline-offset:-2px}
+  .m-tile{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none;color:#fff}
+  .m-tile svg{width:14px;height:14px}
+  .mac-side .m-foot{margin-top:auto;padding:12px 6px 4px;text-align:left}
+  .mac-panes{overflow-y:auto;min-width:0}
+  .mac-pane-title{font-size:19px;font-weight:600;margin:0 0 2px}
+  .m-subtabs{align-self:flex-start}
+  .m-sub-pane{display:none;flex-direction:column;gap:14px}
+  .m-sub-pane.on{display:flex}
+  .m-info .k{display:flex;flex-direction:column;gap:2px}
+  .m-info small{color:var(--m-dim);font-size:11.5px}
+  @media (max-width:760px){.mac-split{grid-template-columns:168px minmax(0,1fr)}.mac-tab{gap:7px;padding:5px 6px;font-size:12.5px}}
+  @media (max-width:520px){.mac-split{grid-template-columns:50px minmax(0,1fr)}.mac-tab{justify-content:center;padding:6px 0;font-size:0}.mac-side-h,.mac-side .m-foot{display:none}.m-tile{width:28px;height:28px}}
   .mac-body{padding:18px 20px 20px;display:none;flex-direction:column;gap:14px}
   .mac-body.on{display:flex}
   .m-card{background:var(--m-card);border-radius:9px;box-shadow:inset 0 0 0 1px var(--m-line)}
@@ -170,7 +184,7 @@
   .m-state b{font-size:15px}
   .m-state span{color:var(--m-dim)}
   .m-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media (max-width:620px){.m-two{grid-template-columns:1fr}.mac-tab{min-width:0;padding:6px 6px 5px}}
+  @media (max-width:620px){.m-two{grid-template-columns:1fr}}
   .m-card h4{margin:0;padding:12px 12px 2px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
   .m-pic{margin:8px 12px 4px;height:58px;border-radius:6px;background:linear-gradient(160deg,#283350,#2b2146);position:relative;overflow:hidden}
   .m-pic i{position:absolute;background:#ff1d35;border-radius:3px;box-shadow:0 0 0 1px #000}
@@ -249,21 +263,32 @@
 
 <section class="settings" id="settings">
   <p class="eyebrow">The settings window, redesigned</p>
-  <p class="lead">One window, five tabs, in place of the long list. <strong>Status</strong> shows the bar live and why it says what it says, and keeps the app up to date; <strong>Displays</strong> puts the wall and the floating window side by side; <strong>Calendar</strong> explains what to put in your calendar to trigger each state; <strong>Microphone</strong> holds the detection settings; <strong>Meetings</strong> covers Teams and Zoom — showing you're muted, and the Stream Deck's Mute and Leave keys. It's live: the preview follows the bar above, and the Sign buttons drive it.</p>
+  <p class="lead">One window, with a list of sections down the left as in System Settings. <strong>Status</strong> shows the bar live, why it says what it says and whether everything is working; <strong>Displays</strong> puts the wall and the floating window side by side; <strong>Screen care</strong> holds the wall's hours; <strong>Away &amp; screen saver</strong> the Nearby key's word and the screen saver; <strong>Calendar</strong> explains what to put in your calendar to trigger each state; <strong>Microphone</strong> holds the detection settings; <strong>Call apps</strong> covers Teams and Zoom and showing you're muted; <strong>Stream Deck</strong> the plugin and its keys. It's live: the preview follows the bar above, and the Sign buttons drive it.</p>
   <div class="mac" role="group" aria-label="Busy Bar Sign settings mock">
     <div class="mac-bar">
       <div class="mac-dots" aria-hidden="true"><i></i><i></i><i></i></div>
       <p class="mac-title">Busy Bar Sign</p>
-      <div class="mac-tabs" role="tablist">
-        <button class="mac-tab" role="tab" aria-selected="true" data-tab="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/></svg> Status</button>
-        <button class="mac-tab" role="tab" aria-selected="false" data-tab="displays"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6M12 17v4"/></svg> Displays</button>
-        <button class="mac-tab" role="tab" aria-selected="false" data-tab="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> Calendar</button>
-        <button class="mac-tab" role="tab" aria-selected="false" data-tab="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg> Microphone</button>
-        <button class="mac-tab" role="tab" aria-selected="false" data-tab="meetings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg> Meetings</button>
-      </div>
     </div>
+    <div class="mac-split">
+      <nav class="mac-side" role="tablist" aria-label="Settings sections">
+        <button class="mac-tab" role="tab" aria-selected="true" data-tab="status"><i class="m-tile" style="background:#8E8E93"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/></svg></i>Status</button>
+        <p class="mac-side-h">The sign</p>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="displays"><i class="m-tile" style="background:#0A84FF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M9 21h6M12 17v4"/></svg></i>Displays</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="care"><i class="m-tile" style="background:#5E5CE6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15a7.5 7.5 0 0 1-9-10 7.5 7.5 0 1 0 9 10z"/></svg></i>Screen care</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="away"><i class="m-tile" style="background:#FF9F0A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="9" height="18" rx="1"/><path d="M13 12h7M17 9l3 3-3 3"/></svg></i>Away &amp; screen saver</button>
+        <p class="mac-side-h">What it follows</p>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="calendar"><i class="m-tile" style="background:#FF453A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></i>Calendar</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="mic"><i class="m-tile" style="background:#FF375F"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></i>Microphone</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="callapps"><i class="m-tile" style="background:#BF5AF2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg></i>Call apps</button>
+        <p class="mac-side-h">Devices and the app</p>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="deck"><i class="m-tile" style="background:#48484A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 9h2M11 9h2M15 9h2M7 13h2M11 13h2M15 13h2"/></svg></i>Stream Deck</button>
+        <button class="mac-tab" role="tab" aria-selected="false" data-tab="updates"><i class="m-tile" style="background:#8E8E93"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.3h-4.3"/></svg></i>Updates</button>
+        <p class="m-foot">Also in the menu-bar icon and the Dock icon's menu. Reopen this window from the Dock.</p>
+      </nav>
+      <div class="mac-panes">
+      <div class="mac-body on" data-pane="status" role="tabpanel">
+        <p class="mac-pane-title">Status</p>
 
-    <div class="mac-body on" data-pane="status" role="tabpanel">
       <div class="m-card m-live">
         <canvas id="m-preview" aria-label="Live preview of the bar"></canvas>
         <div class="m-state"><b id="m-state">Free</b><span id="m-why">Nothing on</span></div>
@@ -274,25 +299,17 @@
         <div class="m-row"><span class="k">Do Not Disturb</span><button class="m-btn" id="m-dnd">Start (30 min)</button></div>
       </div>
       <p class="m-sub">Double-click the bar to start or end Do Not Disturb. A call still shows ON A CALL.</p>
-      <div class="m-card">
-        <div class="m-row"><span class="k">The Nearby key says</span><span class="m-kw"><input id="m-nearby" placeholder="Nearby" aria-label="The Nearby key's word" style="width:140px"></span></div>
-        <div class="m-warn" id="m-nearby-warn" style="display:none"></div>
-      </div>
-      <p class="m-sub">The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.</p>
+      <p class="m-h">Working</p>
       <div class="m-card">
         <div class="m-row"><span class="k">Microphone</span><span style="color:var(--m-dim)">idle</span></div>
         <div class="m-row"><span class="k">Calendar</span><span style="color:var(--m-dim)"><span class="m-ok">●</span> up to date · checked 1 min ago</span></div>
+        <div class="m-row"><span class="k">Stream Deck</span><span style="color:var(--m-dim)"><span class="m-ok">●</span> Plugin 2.5</span></div>
+        <div class="m-row"><span class="k">Updates</span><span style="color:var(--m-dim)">Up to date · checked 14:30</span></div>
       </div>
-      <p class="m-h">Updates</p>
-      <div class="m-card">
-        <div class="m-row"><span class="k">Version</span><span style="color:var(--m-dim)">2.1 (build 37)</span></div>
-        <div class="m-row"><span class="k">Updates</span><span style="display:flex;gap:10px;align-items:center;color:var(--m-dim)">Up to date · checked 14:30 <button class="m-btn">Check Now</button></span></div>
-        <div class="m-row"><span class="k">Install updates automatically</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Install updates automatically"></button></div>
       </div>
-      <p class="m-sub">Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed.</p>
-    </div>
+      <div class="mac-body" data-pane="displays" role="tabpanel">
+        <p class="mac-pane-title">Displays</p>
 
-    <div class="mac-body" data-pane="displays" role="tabpanel">
       <div class="m-two">
         <div class="m-card">
           <h4>Wall display <button class="m-switch" role="switch" aria-checked="true" aria-label="Show wall display"></button></h4>
@@ -308,6 +325,9 @@
         </div>
       </div>
       <p class="m-sub">Stacked fills small screens such as 960 × 540 with the status on top and a big clock beneath. The floating window always uses the wide bar. Warnings — a scaled display mode, a monitor that's gone to sleep — appear on the card.</p>
+      </div>
+      <div class="mac-body" data-pane="care" role="tabpanel">
+        <p class="mac-pane-title">Screen care</p>
       <p class="m-h">Out of hours</p>
       <div class="m-card">
         <div class="m-row"><span class="k">Dark out of hours</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Dark out of hours"></button></div>
@@ -316,17 +336,48 @@
         <div class="m-row"><span class="k">Let the displays sleep then</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Let the displays sleep then"></button></div>
       </div>
       <p class="m-sub">Outside these hours, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning lights it as usual. The <b>Out of hours</b> button above shows it.</p>
-    </div>
+      <p class="m-h">Always on, on the wall</p>
+      <div class="m-card">
+        <div class="m-row m-info"><span class="k">The orbit<small>The LEDs move a pixel at a time through every position within an LED: one pass an hour.</small></span></div>
+        <div class="m-row m-info"><span class="k">Resting<small>After half an hour of FREE or a not-here state unchanged, the LEDs ease down to about 60% of their light.</small></span></div>
+        <div class="m-row m-info"><span class="k">The scroll<small>Every 15 minutes of a quiet state, the pill's icon and word scroll out and back in.</small></span></div>
+      </div>
+      <p class="m-sub">Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark. The floating window does none of this.</p>
+      </div>
+      <div class="mac-body" data-pane="away" role="tabpanel">
+        <p class="mac-pane-title">Away &amp; screen saver</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">The Nearby key says</span><span class="m-kw"><input id="m-nearby" placeholder="Nearby" aria-label="The Nearby key's word" style="width:140px"></span></div>
+        <div class="m-warn" id="m-nearby-warn" style="display:none"></div>
+        <div class="m-row"><span class="k">Start the screen saver (and lock the Mac)</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Start the screen saver"></button></div>
+      </div>
+      <p class="m-sub">The Nearby key's word is yours to change: W HOUSE, STUDIO 2, ON SITE — about seven letters. Press Return and the sign says it wherever it would say NEARBY: on the wall, the Stream Deck and the screen saver. Leave it empty for NEARBY.</p>
+      <p class="m-h">Screen saver</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Busy Bar Sign screen saver</span><span style="display:flex;gap:10px;align-items:center;color:var(--m-dim)">Installed <button class="m-btn">Choose It…</button></span></div>
+        <div class="m-row"><span class="k">Lock when it starts</span><button class="m-btn">Lock Screen Settings…</button></div>
+        <div class="m-row"><span class="k">Last showed on</span><span style="color:var(--m-dim)">LG UltraFine — drawing · 12:58</span></div>
+      </div>
+      <p class="m-sub">The lock screen covers every display, the wall included, and no app can draw over it. A screen saver can: choose Busy Bar Sign on each monitor, and the away keys lock the Mac with the sign on every screen.</p>
+      </div>
+      <div class="mac-body" data-pane="calendar" role="tabpanel">
+        <p class="mac-pane-title">Calendar</p>
+      <span class="m-seg m-subtabs" id="m-cal-tabs"><button data-sub="main" aria-pressed="true">Calendar</button><button data-sub="guide" aria-pressed="false">Event guide</button><button data-sub="words" aria-pressed="false">Words</button></span>
+      <div class="m-sub-pane on" data-sub="main">
 
-    <div class="mac-body" data-pane="calendar" role="tabpanel">
       <div class="m-card">
         <div class="m-row"><span class="k">Use my calendar</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Use my calendar"></button></div>
         <div class="m-row"><span class="k">Calendar</span><span class="m-pop">Calendar — Exchange</span></div>
         <div class="m-row"><span class="k">Warn before calls and meetings</span><span class="m-pop">10 minutes</span></div>
         <div class="m-row"><span class="k">Show LATE FOR CALL or MTG for up to</span><span class="m-pop">10 minutes</span></div>
       </div>
+      <p class="m-sub">The sign reads macOS Calendar, so any calendar synced to it works: Outlook or Exchange, Google, iCloud.</p>
+      </div>
+      <div class="m-sub-pane" data-sub="guide">
       <p class="m-h">What to put in your calendar</p>
       <div class="m-card"><table class="m-guide" id="m-guide"></table></div>
+      </div>
+      <div class="m-sub-pane" data-sub="words">
       <p class="m-h">Words the sign looks for</p>
       <div class="m-card">
         <div class="m-row"><span class="k">LUNCH</span><span class="m-kw"><input value="lunch" aria-label="Lunch words"></span></div>
@@ -343,9 +394,11 @@
         <div class="m-row"><span class="k">COMPANY SITES</span><span class="m-kw"><input value="" placeholder="Your company's name" aria-label="Company site words"></span></div>
       </div>
       <p class="m-sub">A meeting’s location says where you’ll be; a Teams or Zoom link only that others can dial in. Your office, a meeting room — a room booked on the invite, a location with one of these words, or a code like MTL-210 — or one of your company’s sites — a location with one of the Company sites words, such as your company’s name — is MEETING, even with a link (a room, and LATE FOR MTG if you’re still at the Mac). Anywhere else is OUT ON SITE. No location, or one like “TBC” or a dial-in, goes by the link: a call, else MEETING.</p>
-    </div>
+      </div>
+      </div>
+      <div class="mac-body" data-pane="mic" role="tabpanel">
+        <p class="mac-pane-title">Microphone</p>
 
-    <div class="mac-body" data-pane="mic" role="tabpanel">
       <div class="m-card">
         <div class="m-row"><span class="k">Count as a call</span><span class="m-seg" data-seg><button aria-pressed="true">Any app except ignored</button><button aria-pressed="false">Known call apps</button></span></div>
         <div class="m-row"><span class="k">Status</span><span style="color:var(--m-dim)">Source — Microsoft Teams · mic active</span></div>
@@ -356,9 +409,10 @@
         <div class="m-row"><span class="m-app"><i style="background:#8E5CF7"></i>Wispr Flow</span><span style="display:flex;gap:8px;align-items:center;color:var(--m-dim)">Ignored (dictation)</span></div>
       </div>
       <p class="m-sub">The sign lights 2 seconds after an app takes the mic and goes dark 10 seconds after it lets go. Dictation tools and Apple's own listeners are ignored already; switch on Ignore for anything else that isn't a call.</p>
-    </div>
+      </div>
+      <div class="mac-body" data-pane="callapps" role="tabpanel">
+        <p class="mac-pane-title">Call apps</p>
 
-    <div class="mac-body" data-pane="meetings" role="tabpanel">
       <div class="m-card">
         <div class="m-row"><span class="k">Accessibility</span><span style="color:var(--m-dim)">Allowed</span></div>
         <div class="m-row"><span class="k">Microsoft Teams</span><span style="color:var(--m-dim)">“Weekly review | Microsoft Teams” · “Unmute mic” · muted · the keys act here</span></div>
@@ -370,21 +424,47 @@
         <div class="m-row"><span class="k">Now</span><span style="color:var(--m-dim)">Teams · “Unmute mic” · muted</span></div>
       </div>
       <p class="m-sub">While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.</p>
-      <p class="m-h">Stream Deck keys</p>
+      <p class="m-h">After a call</p>
       <div class="m-card">
-        <div class="m-row"><span class="k">Close the call-quality survey after a call</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Close the call-quality survey"></button></div>
-        <div class="m-row"><span class="k">Last key press</span><span style="color:var(--m-dim)">14:02 · Pressed Teams's own mute button.</span></div>
+        <div class="m-row"><span class="k">Close the call-quality survey</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Close the call-quality survey"></button></div>
         <div class="m-row"><span class="k">Last popup after a call</span><span style="color:var(--m-blue)">13:31 · Teams: pressed “Dismiss”</span></div>
       </div>
-      <p class="m-sub">The Mute and Leave keys press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. Hold Leave a second to end a Zoom meeting you're hosting for everyone. The survey is only ever closed with a Dismiss, Close or Skip-type button.</p>
-      <p class="m-h">If a meeting app isn't read right</p>
+      <p class="m-h">If a call app isn't read right</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 2px">
         <button class="m-btn">Inspect meeting controls</button><button class="m-btn">Capture popups</button>
         <span style="flex:1"></span><button class="m-btn">Edit patterns…</button><button class="m-btn">Reload</button>
       </div>
       <p class="m-sub">Inspect lists the buttons Busy Bar Sign can see in a Teams meeting window and Zoom's Meeting menu; Capture lists what's open after a call, touching nothing. Copy either and send it over if the sign or a key gets it wrong.</p>
+      </div>
+      <div class="mac-body" data-pane="deck" role="tabpanel">
+        <p class="mac-pane-title">Stream Deck</p>
+
+      <div class="m-card">
+        <div class="m-row"><span class="k">Plugin</span><span style="color:var(--m-dim)">2.5 · up to date</span></div>
+        <div class="m-row"><span class="k">Connection</span><span style="color:var(--m-dim)">The keys reach the app on 127.0.0.1:47811</span></div>
+        <div class="m-row"><span class="k">Last key press</span><span style="color:var(--m-dim)">14:02 · Pressed Teams's own mute button.</span></div>
+      </div>
+      <p class="m-h">Keys</p>
+      <div class="m-card">
+        <div class="m-row m-info"><span class="k">Status<small>Shows the sign. Press for Do Not Disturb, or while it says LATE FOR, to say you're there in person.</small></span></div>
+        <div class="m-row m-info"><span class="k">Mute<small>LIVE or MUTED in your Teams or Zoom meeting. Press to switch.</small></span></div>
+        <div class="m-row m-info"><span class="k">Leave<small>Leaves the meeting. Hold it a second to end a Zoom meeting you're hosting for everyone.</small></span></div>
+        <div class="m-row m-info"><span class="k">Nearby, Lunch, Back In<small>The away keys: the Mac locks, with the sign on every screen.</small></span></div>
+      </div>
+      <p class="m-sub">The Mute and Leave keys press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in.</p>
+      </div>
+      <div class="mac-body" data-pane="updates" role="tabpanel">
+        <p class="mac-pane-title">Updates</p>
+      <div class="m-card">
+        <div class="m-row"><span class="k">Version</span><span style="color:var(--m-dim)">2.1 (build 37)</span></div>
+        <div class="m-row"><span class="k">Updates</span><span style="display:flex;gap:10px;align-items:center;color:var(--m-dim)">Up to date · checked 14:30 <button class="m-btn">Check Now</button></span></div>
+        <div class="m-row"><span class="k">Install updates automatically</span><button class="m-switch" role="switch" aria-checked="true" aria-label="Install updates automatically"></button></div>
+        <div class="m-row"><span class="k">Get preview builds</span><button class="m-switch" role="switch" aria-checked="false" aria-label="Get preview builds"></button></div>
+      </div>
+      <p class="m-sub">Busy Bar Sign looks for a new build every four hours and installs it when you're not on a call or in a meeting: it closes and reopens itself in a second or two, keeping its permissions. Only a build signed with the project's certificate is installed.</p>
+      </div>
+      </div>
     </div>
-    <div class="mac-body on" style="padding-top:0"><p class="m-foot">Also in the menu-bar icon and the Dock icon's menu. Reopen this window from the Dock.</p></div>
   </div>
 </section>
 <section class="notes">
@@ -705,8 +785,13 @@
     tab.onclick = () => {
       for (const t of document.querySelectorAll('.mac-tab')) t.setAttribute('aria-selected', String(t === tab));
       for (const pane of document.querySelectorAll('.mac-body[data-pane]')) pane.classList.toggle('on', pane.dataset.pane === tab.dataset.tab);
+      document.querySelector('.mac-panes').scrollTop = 0;
     };
   }
+  for (const b of document.querySelectorAll('#m-cal-tabs button')) b.onclick = () => {
+    for (const o of document.querySelectorAll('#m-cal-tabs button')) o.setAttribute('aria-pressed', String(o === b));
+    for (const sp of document.querySelectorAll('.m-sub-pane')) sp.classList.toggle('on', sp.dataset.sub === b.dataset.sub);
+  };
   for (const b of document.querySelectorAll('#m-sign button')) b.onclick = () => setMode(b.dataset.mode);
   document.getElementById('m-dnd').onclick = () => setMode(state === 'dnd' ? 'free' : 'dnd');
   // the Nearby key's word: warned of as it's typed, set on Return or leaving the field once it fits
