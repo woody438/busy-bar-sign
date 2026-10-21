@@ -230,20 +230,19 @@ ticked till you tick more.
 | **Now and then** | The whole bar rolls over to a four-column world board, each city above its time, local in FREE's green, then rolls back. | Every 1–60 min (10), for 5–60 s (20) |
 | **Ticker** | The word slides out of the pill, the other cities run through it right to left, and the word comes back. | Every 5–120 min (15) |
 
-**When layouts meet** sets how they combine: whether the board holds off
-while Resting is up or still runs over it; when the board and the ticker
-fall together, whether the second waits for the first or is skipped; and
-whether the ticker replaces the word's quarter-hourly scroll or runs as well
-as it. The ticker needs the pill, so it never runs while Resting is up. A
-call, a warning or Do Not Disturb takes the bar back at once, whatever's
+They take turns: when two come round together, the second waits for the
+first. The board holds off while Resting is up, the ticker never runs then
+(it needs the pill), and the ticker takes the place of the word's
+quarter-hourly scroll. A call, a warning or Do Not Disturb takes the bar back at once, whatever's
 showing: FREE's face — split, board, chip or ticker — is pressed down as the
 wave hits it, as any state's is.
 
 **Cities** lists about fifty major cities west to east, each with its zone
 and offset as they are today — "Chicago — CDT, GMT−5" — from macOS, so they
 stay right when the clocks change; beside each, how far it is from you.
-Local is the Mac's own time zone and always shows; set any of the other three
-to **None** for fewer, and the layouts close up around the ones left. The sign calls each city by three letters
+Local is the Mac's own time zone and always shows; untick **Show** on any of
+the other three to take it off the sign, keeping its city, and the layouts
+close up around the ones left. The sign calls each city by three letters
 (NYC, LON, TYO; +1 or −1 when it's tomorrow or yesterday there): type your
 own, or leave it empty for the city's. **Preview** plays each layout a few
 seconds after a call ends, or all of them with your timings.

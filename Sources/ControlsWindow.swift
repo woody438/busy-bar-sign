@@ -143,8 +143,6 @@ struct ControlsView: View {
             .id(section)            // each section opens at its top
         }
         .frame(width: 840, height: 660)
-        // switches and checkboxes green when on, as the sign's FREE; off stays grey
-        .tint(.green)
     }
 
     private var sidebar: some View {
@@ -458,10 +456,10 @@ private struct UpdatesTab: View {
                 }
             }
             Row(label: "Install updates automatically") {
-                Toggle("Install updates automatically", isOn: $updater.automatic).labelsHidden().toggleStyle(.switch)
+                Toggle("Install updates automatically", isOn: $updater.automatic).labelsHidden().toggleStyle(.switch).tint(.green)
             }
             Row(label: "Get preview builds") {
-                Toggle("Get preview builds", isOn: $updater.previews).labelsHidden().toggleStyle(.switch)
+                Toggle("Get preview builds", isOn: $updater.previews).labelsHidden().toggleStyle(.switch).tint(.green)
             }
             // previews off on a preview: main's build is older by number, so going back is by hand
             if let main = updater.mainRelease {
@@ -562,7 +560,7 @@ private struct DisplaysTab: View {
         HStack {
             Text(title).font(.headline)
             Spacer()
-            Toggle(title, isOn: isOn).labelsHidden().toggleStyle(.switch)
+            Toggle(title, isOn: isOn).labelsHidden().toggleStyle(.switch).tint(.green)
         }
         .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 4)
     }
@@ -601,7 +599,7 @@ private struct OutOfHours: View {
         Card {
             Row(label: "Go dark outside working hours", divider: false) {
                 if status.wallDark { Text("Dark now").foregroundStyle(.secondary) }
-                Toggle("Go dark outside working hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
+                Toggle("Go dark outside working hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch).tint(.green)
             }
             if status.wallHours.on {
                 Row(label: "Lit during") {
@@ -615,13 +613,13 @@ private struct OutOfHours: View {
                                 set: { on in
                                     if on { status.wallHours.days.insert(day) } else { status.wallHours.days.remove(day) }
                                 }))
-                                .toggleStyle(.button)
+                                .toggleStyle(.button).tint(.green)
                         }
                     }
                 }
                 InfoRow(title: "So", detail: summary)
                 Row(label: "Let the displays sleep while it's dark") {
-                    Toggle("Let the displays sleep while it's dark", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
+                    Toggle("Let the displays sleep while it's dark", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch).tint(.green)
                 }
             }
         }
@@ -684,7 +682,7 @@ private struct AwayTab: View {
                     .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in setNearbyWord() }
             }
             Row(label: "Start the screen saver (and lock the Mac)") {
-                Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch)
+                Toggle("Start the screen saver", isOn: $away.startsScreenSaver).labelsHidden().toggleStyle(.switch).tint(.green)
             }
         }
         if let warning = nearbyWarning { Warning(text: warning) }
@@ -753,24 +751,24 @@ private struct WorldClocksTab: View {
     @AppStorage(WorldClocks.Key.boardSecs) private var boardSecs = WorldClocks.Settings.defaults.boardSecs
     @AppStorage(WorldClocks.Key.ticker) private var ticker = WorldClocks.Settings.defaults.ticker
     @AppStorage(WorldClocks.Key.tickerMins) private var tickerMins = WorldClocks.Settings.defaults.tickerMins
-    @AppStorage(WorldClocks.Key.restHolds) private var restHolds = WorldClocks.Settings.defaults.restHolds
-    @AppStorage(WorldClocks.Key.clash) private var clash = WorldClocks.Settings.defaults.clash
-    @AppStorage(WorldClocks.Key.tickerForScroll) private var tickerForScroll = WorldClocks.Settings.defaults.tickerForScroll
     @AppStorage(WorldClocks.Key.localCode) private var localCode = WorldClocks.Settings.defaults.localCode
     @AppStorage(WorldClocks.Key.city(1)) private var city1 = WorldClocks.Settings.defaults.cities[0]
     @AppStorage(WorldClocks.Key.city(2)) private var city2 = WorldClocks.Settings.defaults.cities[1]
     @AppStorage(WorldClocks.Key.city(3)) private var city3 = WorldClocks.Settings.defaults.cities[2]
+    @AppStorage(WorldClocks.Key.shown(1)) private var shown1 = true
+    @AppStorage(WorldClocks.Key.shown(2)) private var shown2 = true
+    @AppStorage(WorldClocks.Key.shown(3)) private var shown3 = true
     @AppStorage("worldWatch") private var watch: WorldClocks.Watch = .asSet
     @State private var replays = 0
 
     var body: some View {
         Card {
             Row(label: "Show world clocks", divider: false) {
-                Toggle("Show world clocks", isOn: $on).labelsHidden().toggleStyle(.switch)
+                Toggle("Show world clocks", isOn: $on).labelsHidden().toggleStyle(.switch).tint(.green)
             }
             Row(label: "Show on") {
-                Toggle("Wall display", isOn: $onWall).toggleStyle(.checkbox)
-                Toggle("Floating window", isOn: $onFloating).toggleStyle(.checkbox)
+                Toggle("Wall display", isOn: $onWall).toggleStyle(.checkbox).tint(.green)
+                Toggle("Floating window", isOn: $onFloating).toggleStyle(.checkbox).tint(.green)
             }
         }
         Note("Only while the sign says FREE: a call, a warning or Do Not Disturb takes the bar back at once, as it always has. The screen saver keeps to the sign as it is.")
@@ -801,6 +799,7 @@ private struct WorldClocksTab: View {
         if !(turns || rest || board || ticker) {
             Warning(text: "No layout ticked: FREE looks as it always has.")
         }
+        Note("One at a time: if two come round together, the second waits its turn. The board holds off while Resting is up, and the ticker takes the place of the word's 15-minute scroll.")
 
         Heading("Preview")
         Card {
@@ -820,35 +819,6 @@ private struct WorldClocksTab: View {
         }
         Note("The preview plays from a call ending, with your cities, whether or not the world clocks are on. Each layout comes round a few seconds in, and again every few seconds; As set keeps your timings, so its first board or ticker is minutes away.")
 
-        Heading("When layouts meet")
-        Card {
-            Row(label: "While Resting is up", divider: false) {
-                Picker("While Resting is up", selection: $restHolds) {
-                    Text("Hold the board").tag(true)
-                    Text("Board still runs").tag(false)
-                }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-            }
-            .disabled(!(rest && board))
-            Row(label: "When two fall together") {
-                Picker("When two fall together", selection: $clash) {
-                    Text("Second waits").tag("wait")
-                    Text("Skip the second").tag("skip")
-                }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-            }
-            .disabled(!(board && ticker))
-            Row(label: "The ticker") {
-                Picker("The ticker", selection: $tickerForScroll) {
-                    Text("Instead of the word's scroll").tag(true)
-                    Text("As well as it").tag(false)
-                }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-            }
-            .disabled(!ticker)
-        }
-        Note("In turns sets how FREE looks. Resting takes over after its wait, till anything changes. Now and then and the ticker come in at their times, one at a time; the ticker needs the pill, so it never runs while Resting is up. A rule that doesn't apply to what's ticked is greyed out.")
-
         Heading("Cities")
         Card {
             LocalCityRow(code: $localCode)
@@ -856,10 +826,10 @@ private struct WorldClocksTab: View {
             CityRow(slot: 2)
             CityRow(slot: 3)
         }
-        if [city1, city2, city3].allSatisfy({ WorldClocks.city(named: $0) == nil }) {
+        if ![(shown1, city1), (shown2, city2), (shown3, city3)].contains(where: { $0.0 && WorldClocks.city(named: $0.1) != nil }) {
             Warning(text: "No cities but local: FREE looks as it always has.")
         }
-        Note("Each list runs west to east by the city's offset today, from macOS, so it stays right when the clocks change. Set a clock to None for fewer: the layouts close up around the ones left. Local is the Mac's own time zone, from System Settings ▸ General ▸ Date & Time, and always shows. The sign calls each city by three letters: type your own, or leave it empty for the city's.")
+        Note("Each list runs west to east by the city's offset today, from macOS, so it stays right when the clocks change. Untick a clock to take it off the sign, keeping its city: the layouts close up around the ones left. Local is the Mac's own time zone, from System Settings ▸ General ▸ Date & Time, and always shows. The sign calls each city by three letters: type your own, or leave it empty for the city's.")
     }
 }
 
@@ -881,7 +851,7 @@ private struct LayoutRow<Controls: View>: View {
                         Text(detail).font(.callout).foregroundStyle(.secondary)
                     }
                 }
-                .toggleStyle(.checkbox)
+                .toggleStyle(.checkbox).tint(.green)
                 Spacer(minLength: 8)
                 HStack(spacing: 6) { controls }
                     .disabled(!isOn)
@@ -986,25 +956,30 @@ private struct CityRow: View {
     let slot: Int
     @AppStorage private var city: String
     @AppStorage private var code: String
+    @AppStorage private var shown: Bool
 
     init(slot: Int) {
         self.slot = slot
         _city = AppStorage(wrappedValue: WorldClocks.Settings.defaults.cities[slot - 1], WorldClocks.Key.city(slot))
         _code = AppStorage(wrappedValue: "", WorldClocks.Key.code(slot))
+        _shown = AppStorage(wrappedValue: true, WorldClocks.Key.shown(slot))
     }
 
     var body: some View {
         let now = Date()
         let picked = WorldClocks.city(named: city)
-        CityLine(title: "Clock \(slot + 1)", detail: picked.map { WorldClocks.fromLocal($0.timeZone, at: now) } ?? "Not shown") {
+        let detail = !shown || picked == nil ? "Not shown" : picked.map { WorldClocks.fromLocal($0.timeZone, at: now) } ?? ""
+        CityLine(title: "Clock \(slot + 1)", detail: detail) {
+            Toggle("Show", isOn: $shown).toggleStyle(.checkbox).tint(.green)
             Picker("Clock \(slot + 1)", selection: $city) {
                 Text("None").tag("")
                 Divider()
                 ForEach(WorldClocks.listed(at: now)) { c in Text(c.label(at: now)).tag(c.name) }
             }
             .labelsHidden().frame(width: 260)
+            .disabled(!shown)
             CodeField(code: $code, placeholder: picked?.code ?? "")
-                .disabled(picked == nil)
+                .disabled(!shown || picked == nil)
         }
         // a new city goes by its own code
         .onChange(of: city) { _, _ in code = "" }
@@ -1061,7 +1036,7 @@ private struct CalendarTab: View {
     @ViewBuilder private var settings: some View {
         Card {
             Row(label: "Follow my calendar", divider: false) {
-                Toggle("Follow my calendar", isOn: $calendar.enabled).labelsHidden().toggleStyle(.switch)
+                Toggle("Follow my calendar", isOn: $calendar.enabled).labelsHidden().toggleStyle(.switch).tint(.green)
             }
             if calendar.enabled {
                 if calendar.access == .unknown {
@@ -1245,7 +1220,7 @@ private struct MicrophoneTab: View {
                     if holder.counts || detector.userIgnored.contains(id) {
                         Toggle("Ignore", isOn: Binding(get: { detector.userIgnored.contains(id) },
                                                        set: { detector.setIgnored(id, $0) }))
-                            .toggleStyle(.switch)
+                            .toggleStyle(.switch).tint(.green)
                     } else {
                         Text("Ignored already").foregroundStyle(.secondary)
                     }
@@ -1330,7 +1305,7 @@ private struct CallAppsTab: View {
             Heading("On the sign")
             Card {
                 Row(label: "Show when I'm muted", divider: false) {
-                    Toggle("Show when I'm muted", isOn: $mute.enabled).labelsHidden().toggleStyle(.switch)
+                    Toggle("Show when I'm muted", isOn: $mute.enabled).labelsHidden().toggleStyle(.switch).tint(.green)
                 }
                 if mute.enabled {
                     Row(label: "Now") {
@@ -1344,7 +1319,7 @@ private struct CallAppsTab: View {
             Heading("After a call")
             Card {
                 Row(label: "Close the call-quality survey", divider: false) {
-                    Toggle("Close the call-quality survey", isOn: $meeting.closeSurveys).labelsHidden().toggleStyle(.switch)
+                    Toggle("Close the call-quality survey", isOn: $meeting.closeSurveys).labelsHidden().toggleStyle(.switch).tint(.green)
                 }
                 Row(label: "Last popup after a call") {
                     if let p = meeting.lastPopup {
