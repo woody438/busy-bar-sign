@@ -530,9 +530,9 @@ account's own "Calendar" by itself.
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
-| **AWAY** | Any other event of your own (no invitees): "Gym", "Drive home". |
+| **AWAY** | Any other event of your own (no invitees) with no location, or one that says nothing about where (TBC, a dial-in, a call app, your office, a meeting room): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office** (except your own lunch), an all-day busy event, or **✈** in the title (flight apps put it there). |
-| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. An event of your own with a location like that too, unless its title says lunch, focus or call — the dentist's included: anywhere with an address. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.

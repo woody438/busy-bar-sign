@@ -188,7 +188,8 @@ enum StatusRules {
      *   ignore   — cancelled (or titled "Canceled: …"), Show As Free, or an all-day event that isn't busy
      *   ooo      — Show As Out of Office (but not your own lunch), an all-day busy event, or ✈ in
      *              your own block's title
-     *   onSite   — the same with "on site" in the title, or a meeting somewhere that isn't your company's
+     *   onSite   — the same with "on site" in the title, or a meeting — or an event of your own with
+     *              no title word — somewhere that isn't your company's
      *   call     — has a Teams / Zoom / Meet link, and no location that says where
      *   inPerson — has invitees and no link, or a link and your office, a room or a company site
      *              as the location; `room` when it's in a meeting room (LATE FOR MTG)
@@ -223,6 +224,8 @@ enum StatusRules {
         if matches(ev.title, kw.lunch) { return out(.lunch) }
         if matches(ev.title, kw.dnd) { return out(.dndBlock) }
         if matches(ev.title, kw.call) { return out(.phone) }
+        // your own appointment somewhere else (a client, a venue) is out on site
+        if placeOf(ev, cfg) == .away { return out(.onSite) }
         return out(.away)
     }
 
