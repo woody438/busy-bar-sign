@@ -98,7 +98,9 @@ check(() => assert.doesNotThrow(() => keyImage({ state: 'notAState', moment: nul
 
 // the app's answer, as the keys read it
 check(() => assert.deepEqual(viewOf({ state: 'call', muted: true, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }),
-  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null, nearbyWord: null }));
+  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null, nearbyWord: null, canEnd: false }));
+check(() => assert.equal(viewOf({ state: 'meeting', dnd: false, canEnd: true }).canEnd, true));
+check(() => assert.equal(viewOf({ state: 'meeting', dnd: false }).canEnd, false));
 check(() => assert.equal(viewOf({ state: 'nearby', dnd: false, nearbyWord: 'W HOUSE' }).nearbyWord, 'W HOUSE'));
 check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, meeting: { app: 'zoom', canLeave: true } }).meeting,
   { app: 'zoom', muted: null, canLeave: true }));
@@ -152,6 +154,8 @@ check(() => assert.equal(leaveFace(null), 'off'));
 check(() => assert.equal(leaveFace(inMeeting(false)), 'active'));
 check(() => assert.equal(leaveFace(inMeeting(false, false)), 'active'));   // a press leaves through the shortcut
 check(() => assert.equal(leaveFace({ state: 'free', moment: null, dnd: false, meeting: null }), 'idle'));
+check(() => assert.equal(leaveFace({ state: 'meeting', moment: null, dnd: false, meeting: null, canEnd: true }), 'end'));
+check(() => assert.equal(leaveFace(Object.assign(inMeeting(false), { canEnd: true })), 'active'));   // a meeting to leave comes first
 for (const face of [...MEETING_FACES.map((f) => f.split(':')), ['leave', 'active', true], ['mute', 'off']]) {
   const frame = drawMeetingKey(...face);
   let lit = 0;

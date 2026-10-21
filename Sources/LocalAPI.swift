@@ -15,6 +15,8 @@ import Foundation
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
  *                         (else leaves); each answers with the status and how
  *                         the press went: "pressed":{"ok":true,"message":"…"}
+ *   POST /event/end       the calendar event on the sign is over early (End
+ *                         Now): answers as the meeting keys do
  *   POST /away/nearby  the away keys: Nearby or Lunch on, or off if on;
  *   POST /away/lunch      Back In ten minutes more; End back at your desk.
  *   POST /away/back-in    Each answers with the new status
@@ -35,6 +37,9 @@ import Foundation
  * sign says in place of NEARBY. `wall` appears while the full-screen display
  * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
  * layout, for the screen saver to draw the wall as the wall is drawn.
+ * `canEnd` appears, true, only while the sign shows a calendar event that
+ * can be ended early (POST /event/end), with no Teams or Zoom meeting to
+ * leave: the Leave key says END then.
  * `dark` appears, true, only while the wall's dark out of hours (nothing
  * going on, outside Settings ▸ Screen care ▸ Working hours): the screen saver
  * goes black too. `state` is still what the sign would say.
@@ -86,7 +91,7 @@ enum LocalAPI {
     }
 
     enum Route: Equatable {
-        case status, toggleDND, meetingMute, meetingLeave, meetingEnd
+        case status, toggleDND, meetingMute, meetingLeave, meetingEnd, eventEnd
         case away(String)                       // an away key: nearby, lunch, backIn
         case awayEnd
         case reject(Int)
@@ -102,12 +107,13 @@ enum LocalAPI {
         case ("POST", "/dnd/toggle"): return .toggleDND
         case ("POST", "/meeting/mute"): return .meetingMute
         case ("POST", "/meeting/leave"): return .meetingLeave
+        case ("POST", "/event/end"): return .eventEnd
         case ("POST", "/meeting/end"): return .meetingEnd
         case ("POST", "/away/nearby"): return .away("nearby")
         case ("POST", "/away/lunch"): return .away("lunch")
         case ("POST", "/away/back-in"): return .away("backIn")
         case ("POST", "/away/end"): return .awayEnd
-        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"),
+        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"), (_, "/event/end"),
              (_, "/away/nearby"), (_, "/away/lunch"), (_, "/away/back-in"), (_, "/away/end"):
             return .reject(405)
         default: return .reject(404)
@@ -185,6 +191,8 @@ enum LocalAPI {
         var nearbyWord: String? = nil
         /// Only there, and true, while the wall's dark out of hours.
         var dark: Bool? = nil
+        /// Only there, and true, while the calendar event on the sign can be ended early.
+        var canEnd: Bool? = nil
     }
 
     static func encode(_ status: Status) -> Data {

@@ -73,6 +73,7 @@ struct StatusInput {
     var locked = false                  // the Mac is locked, or its screen saver is on
     var active = false                  // someone's used the Mac in the last couple of minutes
     var inPerson: [String] = []         // the ids of calls you said you're at in person
+    var ended: [String] = []            // the ids of events you said are over early
     var micSessions: [MicSession] = []
     var events: [CalEvent] = []
     var config = StatusConfig()
@@ -302,13 +303,17 @@ enum StatusRules {
             let kind: Kind = here && c.kind == .call ? .inPerson : c.kind
             if kind != .ignore { numbered.append((i, Sorted(ev: e, kind: kind, tentative: c.tentative, room: c.room, here: here))) }
         }
-        let evs: [Sorted] = numbered
+        let all: [Sorted] = numbered
             .sorted { a, b in
                 if a.s.start != b.s.start { return a.s.start < b.s.start }
                 if a.s.end != b.s.end { return a.s.end < b.s.end }
                 return a.i < b.i                         // stable, as JavaScript's sort
             }
             .map { $0.s }
+        // an event you've said is over early: gone from the sign, as if it had just ended
+        let ended = Set(input.ended)
+        let evs = all.filter { !ended.contains($0.ev.id) }
+        let over = all.filter { ended.contains($0.ev.id) && $0.start <= now && now < $0.end }
         let current = evs.filter { $0.start <= now && now < $0.end }
         let lead = cfg.leadMinutes * minute, late = cfg.lateMinutes * minute
         func first(_ pred: (Sorted) -> Bool) -> Sorted? { current.first(where: pred) }
@@ -387,6 +392,10 @@ enum StatusRules {
         if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }
         if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) && followed($0, evs, now, cfg) }) {
             return sign("freeTil", "Left " + quote(e) + " early", event: e, at: e.end)
+        }
+        // ...or an event you've ended early, the same way
+        if let e = over.first(where: { followed($0, evs, now, cfg) }) {
+            return sign("freeTil", "Ended " + quote(e) + " early", event: e, at: e.end)
         }
 
         // 6. nothing on

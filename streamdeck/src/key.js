@@ -217,10 +217,13 @@ export function muteFace(view) {
 
 /* What the Leave key shows: 'active' in a meeting. A press leaves it either
    way — through the meeting's own button if it's been found, else its
-   keyboard shortcut — so the key doesn't wait on the button being found. */
+   keyboard shortcut — so the key doesn't wait on the button being found.
+   Outside one, 'end' while the sign shows a calendar event that can be
+   ended early: a press says it's over. */
 export function leaveFace(view) {
   if (!view) return 'off';
-  return view.meeting ? 'active' : 'idle';
+  if (view.meeting) return 'active';
+  return view.canEnd ? 'end' : 'idle';
 }
 
 /* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE. */
@@ -230,6 +233,7 @@ const FACES = {
   'mute:unknown': { state: 'away', icon: 'mic', word: 'MIC ?' },
   'mute:idle': { state: 'away', icon: 'mic', word: 'MUTE', dim: 0.62 },
   'leave:active': { state: 'call', icon: 'handset', word: 'LEAVE' },
+  'leave:end': { state: 'call', icon: 'handset', word: 'END' },
   'leave:idle': { state: 'away', icon: 'handset', word: 'LEAVE', dim: 0.62 }
 };
 export const MEETING_FACES = Object.keys(FACES);

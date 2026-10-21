@@ -30,6 +30,9 @@ final class StatusModel: ObservableObject {
     /// The calendar events you've said you're at in person (In Person, or the
     /// Status key during LATE): a call there shows MEETING, and never LATE.
     @Published private(set) var inPerson: Set<String> = []
+    /// The calendar events you've said are over early (End Now, or the Leave
+    /// key outside a Teams or Zoom meeting): off the sign as if they'd ended.
+    @Published private(set) var ended: Set<String> = []
     /// What the sign says, in words, for the menus and the controls: the
     /// Nearby key's own word for .nearby.
     var stateName: String { state == .nearby ? away.nearbyName : state.name }
@@ -94,6 +97,24 @@ final class StatusModel: ObservableObject {
         evaluate()
     }
 
+    /// The calendar event End Now would end: the one the sign is showing, while
+    /// it's on and the sign isn't following the mic. Nil when there's none.
+    var endableEvent: (id: String, title: String)? {
+        guard !detector.micOn, state != .freeTil, let id = decision.eventID, calendar.isActive,
+              let event = calendar.events.first(where: { $0.id == id }) else { return nil }
+        let now = Date().timeIntervalSince1970 * 1000
+        guard event.start <= now && now < event.end else { return nil }
+        return (id, decision.eventTitle ?? "")
+    }
+
+    /// "It's finished": the event on the sign is over, early. The sign moves on
+    /// to whatever's next — FREE, or FREE TILL if something follows straight after.
+    func endEvent() {
+        guard let event = endableEvent else { return }
+        ended.insert(event.id)
+        evaluate()
+    }
+
     /// The Stream Deck's Status key, or a double-click on the bar: during LATE
     /// FOR CALL or MTG you're there in person; otherwise Do Not Disturb on or off.
     func pressStatus() {
@@ -116,6 +137,9 @@ final class StatusModel: ObservableObject {
         let known = inPerson.filter { id in input.events.contains { $0.id == id } }
         if known != inPerson { inPerson = known }
         input.inPerson = Array(known)
+        let over = ended.filter { id in input.events.contains { $0.id == id } }
+        if over != ended { ended = over }
+        input.ended = Array(over)
         let d = StatusRules.decide(input)
         var next = BarState(rawValue: d.state) ?? .free
 

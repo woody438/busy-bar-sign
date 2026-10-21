@@ -120,6 +120,14 @@ scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, 
 scenario([ev({ id: 'm', title: 'm', start: 600 * M, end: 660 * M, attendees: 2, location: 'Studio 3' })], [], [603],
   { active: true, config: { places: { rooms: ['studio'] } } });
 scenario([ev({ id: 'c', title: 'Client day', start: 600 * M, end: 660 * M })], [], [610], { config: { keywords: { onSite: ['client day'] } } });
+// ended early: End Now, or the Leave key outside a call-app meeting
+const ownOffice = ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 2, location: "Woody's office" });
+for (const extra of [{ ended: ['o'] }, { ended: ['o', 'c'] }, { ended: ['x'] }]) {
+  scenario([ownOffice, call('c', 660, 690)], [], [605, 620, 652, 665], extra);
+  scenario([ownOffice, call('c', 700, 730)], [[605, 615]], [610, 620], extra);
+}
+scenario([ev({ id: 's', title: 'Site visit', start: 600 * M, end: 720 * M, location: 'O2 Arena' }), call('c', 720, 750)], [], [620, 715],
+  { ended: ['s'] });
 for (const t of ['09:46', '11:10', '14:05', '14:11', '15:40']) {
   for (const extra of [{ active: true }, { inPerson: ['oneone', 'network'] }]) {
     add(Object.assign({ now: D.at(0, t), override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions }, extra));

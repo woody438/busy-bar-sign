@@ -293,5 +293,23 @@ expect('custom on-site word', R.decide({ now: 610 * M, events: [own('Client day'
 expect('custom lunch word', R.decide({ now: 600 * M, events: [ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })],
   config: { keywords: { lunch: ['déjeuner'] } } }).state, 'lunch');
 
+// --- ended early: End Now, or the Leave key outside a call-app meeting --------
+const inOffice = (id, s, e) => ev({ id: id, title: id, start: s * M, end: e * M, attendees: 3, location: "Woody's office" });
+const endedAt = (now, events, mic, ids) => decideWith(now, events, mic, { ended: ids });
+expect('a meeting ended early: free', endedAt(620, [inOffice('m', 600, 660)], [], ['m']).state, 'free');
+expect('…with something straight after: free till', endedAt(620, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'freeTil');
+expect('…till when it would have ended', endedAt(620, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).at, 660 * M);
+expect('…and the next one still warns', endedAt(652, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'callIn');
+expect('…and comes on as usual', endedAt(661, [inOffice('m', 600, 660), call('c', 660, 690)], [], ['m']).state, 'late');
+expect('a call never joined (MEETING), ended: free', endedAt(625, [call('c', 600, 660)], [], ['c']).state, 'free');
+expect('late for a call, ended: free', endedAt(603, [call('c', 600, 660)], [], ['c']).state, 'free');
+expect('out on site, ended: free', endedAt(620, [ev({ id: 's', title: 'Site visit', start: 600 * M, end: 720 * M, location: 'O2 Arena' })], [], ['s']).state, 'free');
+expect('lunch, ended: free', endedAt(740, [ev({ id: 'l', title: 'Lunch', start: 720 * M, end: 780 * M })], [], ['l']).state, 'free');
+expect('another event over it still shows', endedAt(620, [inOffice('m', 600, 660), inOffice('n', 610, 640)], [], ['m']).state, 'meeting');
+expect('…counting down to its own end', endedAt(620, [inOffice('m', 600, 660), inOffice('n', 610, 640)], [], ['m']).at, 640 * M);
+expect('the mic still says on a call', endedAt(620, [call('c', 600, 660)], [[605, null]], ['c']).state, 'call');
+expect('an id not in the calendar changes nothing', endedAt(620, [inOffice('m', 600, 660)], [], ['x']).state, 'meeting');
+expect('ended, then over: free as ever', endedAt(665, [inOffice('m', 600, 660)], [], ['m']).state, 'free');
+
 console.log(failed ? `rules: ${failed} failed, ${passed} passed` : `rules: all ${passed} cases pass`);
 process.exit(failed ? 1 : 0);

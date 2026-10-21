@@ -6,17 +6,20 @@
  *
  *   Mute   green LIVE, red MUTED, MIC ? when the meeting's mute can't be
  *          read, dark outside a meeting
- *   Leave  red LEAVE in a meeting, dark otherwise. A press leaves (on
- *          release); held a second, it ends a Zoom meeting you host for
- *          everyone (anything else, it leaves). Set to "hold" in its
- *          settings, it leaves only when held half a second — a tap says
- *          HOLD — and ends at 1.6 seconds
+ *   Leave  red LEAVE in a meeting. A press leaves (on release); held a
+ *          second, it ends a Zoom meeting you host for everyone (anything
+ *          else, it leaves). Set to "hold" in its settings, it leaves only
+ *          when held half a second — a tap says HOLD — and ends at 1.6
+ *          seconds. Outside a meeting, red END while the sign shows a
+ *          calendar event that can be ended early (a call taken on your
+ *          phone, a meeting that finished early): a press — or a hold, set
+ *          to "hold" — says it's over, and the sign moves on. Dark otherwise
  *
  * A press while the last one is still going is ignored, so mute can't
  * toggle twice. One the app couldn't do shows the warning triangle.
  */
 import streamDeck, { SingletonAction } from '@elgato/streamdeck';
-import { pressEnd, pressLeave, pressMute } from './app.js';
+import { pressEnd, pressEndEvent, pressLeave, pressMute } from './app.js';
 import { leaveFace, meetingKeyImage, muteFace } from './key.js';
 import { latest, lost, ready, share, watch } from './live.js';
 
@@ -109,16 +112,19 @@ export class LeaveAction extends MeetingAction {
   }
 
   onKeyDown(ev) {
-    // a multi-action has no key-up: just leave
-    if (ev.payload.isInMultiAction) return this.press(ev.action, pressLeave);
+    // no Teams or Zoom meeting, but an event on the sign: END says it's over
+    const view = latest();
+    const ending = !!(view && !view.meeting && view.canEnd);
+    // a multi-action has no key-up: just leave (or end)
+    if (ev.payload.isInMultiAction) return this.press(ev.action, ending ? pressEndEvent : pressLeave);
     const hold = !!(ev.payload.settings && ev.payload.settings.confirm === 'hold');
     this.clear(ev.action.id);
-    // held long enough: end it for everyone, there and then
-    const timer = setTimeout(() => {
+    // held long enough in a meeting: end it for everyone, there and then
+    const timer = ending ? null : setTimeout(() => {
       this.downs.delete(ev.action.id);
       this.press(ev.action, pressEnd);
     }, hold ? END_MS.hold : END_MS.press);
-    this.downs.set(ev.action.id, { at: Date.now(), hold, timer });
+    this.downs.set(ev.action.id, { at: Date.now(), hold, timer, ending });
   }
 
   onKeyUp(ev) {
@@ -126,7 +132,7 @@ export class LeaveAction extends MeetingAction {
     if (!down) return;                            // ended already
     this.clear(ev.action.id);
     if (down.hold && Date.now() - down.at < LEAVE_HOLD_MS) return this.sayHold(ev.action.id);
-    return this.press(ev.action, pressLeave);
+    return this.press(ev.action, down.ending ? pressEndEvent : pressLeave);
   }
 
   /* Let go too soon on a held key: say to hold it. */

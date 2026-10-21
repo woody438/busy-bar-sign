@@ -82,6 +82,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             menu.insertItem(NSMenuItem(title: "In Person: “\(event.title)”", action: #selector(markInPerson), keyEquivalent: ""), at: top)
             top += 1
         }
+        // the event on the sign finished early
+        if let event = status.endableEvent {
+            menu.insertItem(NSMenuItem(title: "End Now: “\(event.title)”", action: #selector(endEvent), keyEquivalent: ""), at: top)
+            top += 1
+        }
         menu.insertItem(.separator(), at: top)
 
         let float = NSMenuItem(title: "Floating Window", action: #selector(toggleFloating), keyEquivalent: "")
@@ -99,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @objc private func openControls() { controls.show() }
     @objc private func toggleDND() { detector.toggleDND() }
     @objc private func markInPerson() { status.markInPerson() }
+    @objc private func endEvent() { status.endEvent() }
     @objc private func showOnScreen(_ item: NSMenuItem) {
         if let id = item.representedObject as? String { window.show(onScreenID: id) }
     }
@@ -169,6 +175,10 @@ private struct MenuContent: View {
         // a call the sign's warning about or says you're late for: you're there in person
         if let event = status.inPersonEvent {
             Button("In Person: “\(event.title)”") { status.markInPerson() }
+        }
+        // the event on the sign finished early
+        if let event = status.endableEvent {
+            Button("End Now: “\(event.title)”") { status.endEvent() }
         }
 
         Divider()

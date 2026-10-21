@@ -10,6 +10,8 @@
  *   pressLeave()  leaves it;
  *   pressEnd()    ends it for everyone if it's a Zoom meeting you host (else
  *                 leaves); each resolves to { view, pressed: { ok, message } }
+ *   pressEndEvent()  the calendar event on the sign is over early (the Leave
+ *                 key's END, while "canEnd" is true); resolves as the others
  *   pressAway(k)  an away key: 'nearby' or 'lunch' on or off, 'backIn'
  *                 ten minutes more; resolves to the new status
  *   endAway()     back at your desk
@@ -31,7 +33,10 @@ export function viewOf(status) {
   const away = a && typeof a.kind === 'string' ? { kind: a.kind, until: typeof a.until === 'number' ? a.until : null } : null;
   // the Nearby key's own word, if it's been given one: what the sign says in place of NEARBY
   const nearbyWord = typeof status.nearbyWord === 'string' ? status.nearbyWord : null;
-  return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting, away: away, nearbyWord: nearbyWord };
+  // a calendar event on the sign that can be ended early, with no meeting to leave: the Leave key says END
+  const canEnd = status.canEnd === true;
+  return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting, away: away, nearbyWord: nearbyWord,
+    canEnd: canEnd };
 }
 
 function ask(method, path, timeout) {
@@ -65,6 +70,7 @@ export const toggleDND = () => ask('POST', '/dnd/toggle', 800).then((a) => a.vie
 export const pressMute = () => ask('POST', '/meeting/mute', 12000);
 export const pressLeave = () => ask('POST', '/meeting/leave', 12000);
 export const pressEnd = () => ask('POST', '/meeting/end', 12000);
+export const pressEndEvent = () => ask('POST', '/event/end', 2000);
 const AWAY_PATHS = { nearby: '/away/nearby', lunch: '/away/lunch', backIn: '/away/back-in' };
 export const pressAway = (kind) => ask('POST', AWAY_PATHS[kind], 800).then((a) => a.view);
 export const endAway = () => ask('POST', '/away/end', 800).then((a) => a.view);

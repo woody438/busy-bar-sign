@@ -210,9 +210,10 @@
     const now = input.now;
     const sessions = input.micSessions || [];
     const marked = input.inPerson || [];
+    const ended = input.ended || [];       // the events you've said are over early
     const sign = (state, why, extra) => Object.assign({ state: state, why: why, event: null }, extra || {});
 
-    const evs = (input.events || []).map((e) => {
+    const all = (input.events || []).map((e) => {
       const c = classify(e, cfg);
       // you said you're there in person: a call becomes a meeting, and a room never says LATE
       c.here = marked.indexOf(e.id) >= 0;
@@ -221,6 +222,9 @@
     })
       .filter((e) => e.kind !== 'ignore')
       .sort((a, b) => a.start - b.start || a.end - b.end);
+    // an event you've said is over early: gone from the sign, as if it had just ended
+    const evs = all.filter((e) => ended.indexOf(e.id) < 0);
+    const over = all.filter((e) => ended.indexOf(e.id) >= 0 && e.start <= now && now < e.end);
     const current = evs.filter((e) => e.start <= now && now < e.end);
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
     const first = (pred) => current.find(pred);
@@ -301,6 +305,8 @@
     if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg) && followed(x, evs, now, cfg)))) {
       return sign('freeTil', 'Left ' + quote(e) + ' early', { event: e, at: e.end });
     }
+    // ...or an event you've ended early, the same way
+    if ((e = over.find((x) => followed(x, evs, now, cfg)))) return sign('freeTil', 'Ended ' + quote(e) + ' early', { event: e, at: e.end });
 
     // 6. nothing on
     return sign('free', 'Free');

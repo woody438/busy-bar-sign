@@ -22,7 +22,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out: ${what}`)), ms));
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
-const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, nearbyWord: null, pressWorks: true, requests: [] };
+const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, nearbyWord: null, canEnd: false, pressWorks: true,
+  requests: [] };
 const AWAY_KEYS = { '/away/nearby': 'nearby', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
@@ -36,6 +37,9 @@ function appHandler(req, res) {
   } else if (req.method === 'POST' && (req.url === '/meeting/leave' || req.url === '/meeting/end')) {
     pressed = { ok: !!app.meeting, message: req.url === '/meeting/end' ? 'Ended it for everyone.' : 'Pressed Teams’s own leave button.' };
     app.meeting = null;
+  } else if (req.method === 'POST' && req.url === '/event/end') {
+    pressed = { ok: app.canEnd, message: app.canEnd ? 'Ended “Weekly review” early.' : 'Nothing on the sign to end.' };
+    if (app.canEnd) { app.canEnd = false; app.state = 'free'; }
   } else if (req.method === 'POST' && req.url === '/away/end') {
     app.away = null;
   } else if (req.method === 'POST' && AWAY_KEYS[req.url]) {
@@ -51,7 +55,7 @@ function appHandler(req, res) {
   }
   const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {},
     app.meeting ? { meeting: app.meeting } : {}, app.away ? { away: app.away } : {}, pressed ? { pressed } : {},
-    app.nearbyWord ? { nearbyWord: app.nearbyWord } : {}));
+    app.nearbyWord ? { nearbyWord: app.nearbyWord } : {}, app.canEnd ? { canEnd: true } : {}));
   res.writeHead(200, { 'Content-Type': 'application/json', Connection: 'close' }).end(body);
 }
 let appServer = http.createServer(appHandler);
@@ -225,6 +229,22 @@ try {
   await wait(300);
   assert.equal(posts('/meeting/leave'), 2, 'and letting go after doesn\'t leave as well');
   console.log('ok  a Leave key leaves on a press, and ends it for everyone when held a second');
+
+  // outside a Teams or Zoom meeting, with a meeting from the calendar on the sign: END; a press ends it there
+  app.meeting = null;
+  app.state = 'meeting';
+  app.canEnd = true;
+  await imageOn('l2', 'red', 3000, 'END on the Leave key');
+  toPlugin(Object.assign({ event: 'keyDown' }, quick));
+  await wait(1200);
+  assert.equal(posts('/meeting/end'), 1, 'holding END ends no meeting for everyone');
+  const released = sent.length;
+  toPlugin(Object.assign({ event: 'keyUp' }, quick));
+  await next((m) => m.event === 'showOk' && m.context === 'l2', 2000, 'a tick once the event is ended');
+  assert.equal(posts('/event/end'), 1, 'a press ends the event on the sign');
+  assert.equal(posts('/meeting/leave'), 2, 'and leaves no meeting');
+  await imageOn('l2', 'dark', 3000, 'LEAVE dark again once it\'s over', released);
+  console.log('ok  outside a meeting, the Leave key says END and ends the event on the sign');
 
   toPlugin(Object.assign({ event: 'willDisappear' }, mute));
   toPlugin(Object.assign({ event: 'willDisappear' }, leave));

@@ -28,6 +28,7 @@ func input(_ o: [String: Any]) -> StatusInput {
     i.locked = o["locked"] as? Bool ?? false
     i.active = o["active"] as? Bool ?? false
     i.inPerson = o["inPerson"] as? [String] ?? []
+    i.ended = o["ended"] as? [String] ?? []
     i.micSessions = (o["micSessions"] as? [[String: Any]] ?? []).map { MicSession(start: num($0["start"])!, end: num($0["end"])) }
     i.events = (o["events"] as? [[String: Any]] ?? []).map(event)
     if let config = o["config"] as? [String: Any], let places = config["places"] as? [String: [String]] {

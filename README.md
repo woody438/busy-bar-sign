@@ -484,6 +484,14 @@ the keys, the sign and the settings always agree:
   just leaves — ending a Teams meeting for everyone isn't done yet. In its
   settings it can be set to leave only when **held** half a second, so a
   stray tap just says HOLD; it then ends for everyone at 1.6 seconds.
+- **Outside a Teams or Zoom meeting**, while the sign shows a meeting or
+  call from your calendar — MEETING after a call you took on your phone,
+  LATE FOR, OUT ON SITE, an event of your own — **Leave** says **END** in
+  red. Press it (or hold it, if it's set to hold) when it finished early: the
+  sign moves straight on to what's next, FREE, or **FREE TILL** if something
+  follows straight after. **End Now** in either menu and **Finished early?**
+  under Settings ▸ Status do the same. Not while the mic's in use: the sign's
+  following the call then.
 - A press clicks the meeting's own button through Accessibility and checks
   it took. If it can't, it brings the meeting window forward, sends the
   app's shortcut (Teams ⌘⇧M / ⌘⇧H, Zoom ⌘⇧A / ⌘W, then Zoom's "Leave
@@ -543,7 +551,9 @@ while the Mac's locked); then the calendar — out of office, out on site,
 lunch, away, a phone-call block, a meeting in a room you're late for, an
 in-person meeting, a call you're late for, a call never joined, a warning, a
 tentative meeting; then, with the Mac locked, NEARBY; then a no-meetings
-block, and a call you left early with something straight after it.
+block, and a call you left early — or an event you ended early — with
+something straight after it. An event you've ended early is off the sign
+from then on, as if it had finished.
 
 **Where a meeting is** decides it before its Teams or Zoom link does: the
 location says where you'll be, a link only that others can dial in.
@@ -632,6 +642,9 @@ The full menu:
 - **In Person: “…”** — while the sign warns of a call or says you're late for
   one: you're there in person, so MEETING till it ends (in the Dock menu and
   the controls' Status section too).
+- **End Now: “…”** — while the sign shows an event from your calendar that
+  finished early: the sign moves on to what's next (also the Leave key's
+  END, the Dock menu and Settings ▸ Status ▸ Finished early?).
 - **Nearby** (or your word for it) and **Lunch** (on/off), **Back In 10 Minutes** (then **Back
   In: 10 More Minutes**) and **I'm Back**: the away keys.
 - **Microphone** — every app holding the mic right now, each with an
