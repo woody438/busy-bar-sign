@@ -620,9 +620,12 @@ The same controls are in three places:
   - *What it follows:* **Calendar** (which calendar and the warning and
     late times; an event guide to what to put in your calendar; the title
     and location words), **Microphone** (what counts as a call, and what's
-    using the mic now, to ignore) and **Call apps** (Accessibility, showing
-    you're muted, the post-call survey, and what to send if Teams or Zoom
-    isn't read right).
+    using the mic now, to ignore) and **Call apps** (Accessibility; which
+    apps count as calls and what the sign can do in each — Teams and Zoom
+    in full, Meet, FaceTime, Slack, WhatsApp and the rest on a call and
+    muted where it finds the button — and **Add App…** for one of your own;
+    showing you're muted, the post-call survey, and what to send if Teams or
+    Zoom isn't read right).
   - *Devices and the app:* **Stream Deck** (the plugin, whether its keys
     reach the app, what each key does) and **Updates**.
 - **The Dock icon's right-click menu** — full-screen on/off, which monitor,
@@ -676,7 +679,11 @@ running (`kAudioProcessPropertyIsRunningInput`, macOS 14.2+). For each one:
    Sound Recognition (which listens all the time) — **except** FaceTime (whose
    audio runs in `avconferenced`) and Safari (whose audio runs in WebKit).
 4. **Anything else counts**, under the default policy. *Known call apps only*
-   restricts it to a list in `CallDetector.swift`.
+   restricts it to a list in `CallDetector.swift`, plus any app you add under
+   **Settings ▸ Call apps ▸ Add App…** (from Applications, or anywhere: a
+   Chrome web app such as Meet's works too). An app you add always counts —
+   whatever Detect says, and even if it was ignored — and is searched for a
+   mute button while you're on a call in it.
 
 The sign follows only once a change has held: **2 seconds** before it lights,
 **10 seconds** before it goes dark, so a moment's silence never flickers it.

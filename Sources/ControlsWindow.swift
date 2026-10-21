@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// An ordinary window with every setting in it, for when the menu-bar icon is
 /// out of sight — hidden on a crowded menu bar, or under the wall display.
@@ -181,7 +182,7 @@ struct ControlsView: View {
         case .away: AwayTab(away: status.away, saver: saver)
         case .calendar: CalendarTab(calendar: calendar)
         case .microphone: MicrophoneTab(detector: detector)
-        case .callApps: CallAppsTab(meeting: status.meeting, mute: status.mute)
+        case .callApps: CallAppsTab(detector: detector, meeting: status.meeting, mute: status.mute)
         case .streamDeck: StreamDeckTab(updater: status.updater, meeting: status.meeting, server: server)
         case .updates: UpdatesTab(updater: status.updater)
         }
@@ -1257,10 +1258,12 @@ private struct MicrophoneTab: View {
 /// post-call survey, and what to send if a call app isn't read right. Which
 /// apps light the sign is under Microphone; the Mute and Leave keys, Stream Deck.
 private struct CallAppsTab: View {
+    @ObservedObject var detector: CallDetector
     @ObservedObject var meeting: MeetingKeys
     @ObservedObject var mute: MuteDetector
     @State private var output: String?
     @State private var working = false
+    @State private var notAnApp: String?
 
     var body: some View {
         Group {
@@ -1273,15 +1276,31 @@ private struct CallAppsTab: View {
                         Button("Reset and ask again") { mute.resetTrust() }
                     }
                 }
-                ForEach(MeetingApp.allCases, id: \.self) { app in
-                    Row(label: app == .teams ? "Microsoft Teams" : "Zoom") {
-                        Text(line(app)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                    }
-                }
             }
             if !mute.trusted {
                 Warning(text: "Without Accessibility the sign can't tell you're muted, and the Stream Deck's Mute and Leave keys can't press anything. Switched on already? Then that entry belongs to an older build, signed differently, and switching it off and on doesn't help. Press Reset and ask again, then switch Busy Bar Sign on when System Settings opens.")
             }
+        }
+        Group {
+            Heading("Which apps count, and what the sign can do in them")
+            Card {
+                ForEach(Array(MeetingApp.allCases.enumerated()), id: \.element) { i, app in
+                    CallAppRow(name: app == .teams ? "Microsoft Teams" : "Zoom", can: "On a call · muted · Mute and Leave keys",
+                               now: line(app), divider: i > 0)
+                }
+                CallAppRow(name: "Google Meet, FaceTime, Slack, WhatsApp, Webex, Discord, Skype, Signal, Telegram, RingCentral, GoTo, BlueJeans",
+                           can: "On a call · muted, when it finds the app's mute button · no Mute or Leave keys", now: nil)
+                ForEach(detector.addedCallApps) { app in
+                    CallAppRow(name: app.name, can: "Added by you · on a call · muted, when it finds a mute button", now: nil) {
+                        Button("Remove") { detector.removeCallApp(app.id) }
+                    }
+                }
+                Row(label: "Another call app") {
+                    Button("Add App…") { addApps() }
+                }
+            }
+            if let notAnApp { Warning(text: notAnApp) }
+            Note("Meet counts in Chrome, Edge, Arc, Brave, Firefox and Safari. With Microphone ▸ Detect on Any app except ignored, as it starts, any app using the mic lights the sign, so most apps never need adding. An app added here counts under Known call apps only too, is never ignored, and is searched for a mute button while you're on a call in it. The END on the Leave key works whatever the app: it ends the calendar event, not the call.")
         }
         Group {
             Heading("On the sign")
@@ -1354,6 +1373,29 @@ private struct CallAppsTab: View {
         }
     }
 
+    /// Apps from Applications (or anywhere), counted as calls from now on.
+    private func addApps() {
+        let panel = NSOpenPanel()
+        panel.title = "Add a call app"
+        panel.prompt = "Add"
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK else { return }
+        notAnApp = nil
+        for url in panel.urls {
+            guard let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else {
+                notAnApp = "\(url.deletingPathExtension().lastPathComponent) has no bundle ID, so the sign can't tell it's using the mic."
+                continue
+            }
+            let name = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+                ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+                ?? url.deletingPathExtension().lastPathComponent
+            detector.addCallApp(CallApp(id: id, name: name))
+        }
+    }
+
     /// One line for an app: its meeting, mute button and state.
     private func line(_ app: MeetingApp) -> String {
         guard let s = meeting.snapshot.apps[app], s.running else { return "Not running" }
@@ -1369,6 +1411,37 @@ private struct CallAppsTab: View {
             output = text
             working = false
         }
+    }
+}
+
+/// A call app, or a group of them: what the sign can do there, and what it sees now.
+private struct CallAppRow<Trailing: View>: View {
+    let name: String
+    let can: String
+    let now: String?
+    var divider = true
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if divider { Divider().padding(.leading, 12) }
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).fixedSize(horizontal: false, vertical: true)
+                    Text(can).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if let now { Text(now).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                trailing
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+    }
+}
+
+extension CallAppRow where Trailing == EmptyView {
+    init(name: String, can: String, now: String?, divider: Bool = true) {
+        self.init(name: name, can: can, now: now, divider: divider, trailing: { EmptyView() })
     }
 }
 
