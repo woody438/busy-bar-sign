@@ -24,7 +24,7 @@ import Foundation
  *
  * `state` is a BarState. `moment` is what the right of the pill is about,
  * in ms since 1970 — counted down to ("countdown"), up from ("countUp",
- * LATE) or just shown ("fixed", FREE TILL) — and absent while the bar
+ * LATE) or just shown ("fixed", a tentative meeting's end) — and absent while the bar
  * shows the clock. `dnd` is whether a Do Not Disturb is running, shown or
  * not: a call outranks it. `muted` appears, true, only while you're muted
  * on a call; `state` stays "call" then, so older plugins read it as before.

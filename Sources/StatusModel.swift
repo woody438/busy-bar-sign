@@ -108,7 +108,7 @@ final class StatusModel: ObservableObject {
     }
 
     /// "It's finished": the event on the sign is over, early. The sign moves on
-    /// to whatever's next — FREE, or FREE TILL if something follows straight after.
+    /// to whatever's next: FREE, till the next one warns.
     func endEvent() {
         guard let event = endableEvent else { return }
         ended.insert(event.id)

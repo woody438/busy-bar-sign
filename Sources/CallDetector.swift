@@ -94,6 +94,13 @@ enum AppPath {
     }
 }
 
+/// A call app you've added under Settings ▸ Call apps: it counts as a call
+/// however Detect is set, and is never ignored.
+struct CallApp: Codable, Hashable, Identifiable {
+    let id: String          // its bundle ID
+    let name: String
+}
+
 /// Something holding the microphone, and whether it counts as a call.
 struct MicHolder: Equatable, Hashable {
     let name: String
@@ -165,6 +172,9 @@ final class CallDetector: ObservableObject {
     @Published private(set) var userIgnored: Set<String> =
         Set(UserDefaults.standard.stringArray(forKey: "ignoredBundleIDs") ?? [])
 
+    /// Call apps the user has added (Settings ▸ Call apps), by name.
+    @Published private(set) var addedCallApps: [CallApp] = CallDetector.savedCallApps()
+
     /// How long a signal must hold before the sign follows it. The long tail on
     /// the way down stops the sign flickering when an app briefly drops the mic.
     private let onDelay:  TimeInterval = 2
@@ -228,6 +238,30 @@ final class CallDetector: ObservableObject {
         if ignored { userIgnored.insert(bundleID) } else { userIgnored.remove(bundleID) }
         UserDefaults.standard.set(Array(userIgnored).sorted(), forKey: "ignoredBundleIDs")
         evaluate()
+    }
+
+    /// An app that's a call: it counts however Detect is set, and an ignore on it goes.
+    func addCallApp(_ app: CallApp) {
+        guard !addedCallApps.contains(where: { $0.id == app.id }) else { return }
+        addedCallApps.append(app)
+        addedCallApps.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        saveCallApps()
+        if userIgnored.contains(app.id) { setIgnored(app.id, false) } else { evaluate() }
+    }
+
+    func removeCallApp(_ id: String) {
+        addedCallApps.removeAll { $0.id == id }
+        saveCallApps()
+        evaluate()
+    }
+
+    private func saveCallApps() {
+        UserDefaults.standard.set(try? JSONEncoder().encode(addedCallApps), forKey: "addedCallApps")
+    }
+
+    private static func savedCallApps() -> [CallApp] {
+        guard let data = UserDefaults.standard.data(forKey: "addedCallApps") else { return [] }
+        return (try? JSONDecoder().decode([CallApp].self, from: data)) ?? []
     }
 
     private func evaluate(force: Bool = false) {
@@ -320,6 +354,8 @@ final class CallDetector: ObservableObject {
 
     private func qualifies(_ user: MicUser) -> Bool {
         let ids = [user.appBundleID, user.rawBundleID].compactMap { $0 }
+        // one you've added is a call, whatever else it looks like
+        if ids.contains(where: { id in addedCallApps.contains { $0.id == id } }) { return true }
         if ids.contains(where: { KnownApps.ignored.contains($0) || userIgnored.contains($0) }) { return false }
         let lowerName = user.name.lowercased()
         if KnownApps.dictationNames.contains(where: { lowerName.contains($0) }) { return false }

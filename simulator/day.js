@@ -89,7 +89,7 @@
     ['14:05', 'late', 'Not joined'],
     ['14:11', 'meeting', 'Never joined after 10 min: in person'],
     ['14:40', 'call', 'On the pricing check'],
-    ['14:47', 'freeTil', 'Left early; the mortgage call is straight after'],
+    ['14:47', 'free', 'Left early: FREE till the mortgage call at 15:00'],
     ['15:10', 'call', '“Call - …” block: phone call'],
     ['15:40', 'onSite', 'At the venue: OUT ON SITE'],
     ['16:10', 'free', 'Cancelled meeting: ignored'],

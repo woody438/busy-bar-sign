@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// An ordinary window with every setting in it, for when the menu-bar icon is
 /// out of sight — hidden on a crowded menu bar, or under the wall display.
@@ -156,7 +157,7 @@ struct ControlsView: View {
                                 .padding(.horizontal, 8).padding(.top, 12).padding(.bottom, 3)
                         }
                         ForEach(Self.groups[g].sections) { s in
-                            SidebarRow(section: s, selected: section == s) { section = s }
+                            SidebarRow(section: s, selected: section == s, updater: status.updater) { section = s }
                         }
                     }
                 }
@@ -181,7 +182,7 @@ struct ControlsView: View {
         case .away: AwayTab(away: status.away, saver: saver)
         case .calendar: CalendarTab(calendar: calendar)
         case .microphone: MicrophoneTab(detector: detector)
-        case .callApps: CallAppsTab(meeting: status.meeting, mute: status.mute)
+        case .callApps: CallAppsTab(detector: detector, meeting: status.meeting, mute: status.mute)
         case .streamDeck: StreamDeckTab(updater: status.updater, meeting: status.meeting, server: server)
         case .updates: UpdatesTab(updater: status.updater)
         }
@@ -192,6 +193,8 @@ struct ControlsView: View {
 private struct SidebarRow: View {
     let section: ControlsView.Section
     let selected: Bool
+    /// For the dot on Updates and Stream Deck while there's something to install.
+    let updater: Updater
     let action: () -> Void
     @State private var hovering = false
 
@@ -205,6 +208,7 @@ private struct SidebarRow: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(section.tint))
                 Text(section.label).lineLimit(1)
                 Spacer(minLength: 0)
+                UpdateDot(section: section, updater: updater)
             }
             .padding(.horizontal, 8).padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -215,6 +219,29 @@ private struct SidebarRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// A red dot on Updates while a new build waits, and on Stream Deck while a
+/// newer plugin does (or the one in Stream Deck needs installing again), as
+/// System Settings marks a section with something to do.
+private struct UpdateDot: View {
+    let section: ControlsView.Section
+    @ObservedObject var updater: Updater
+
+    var body: some View {
+        if waiting {
+            Circle().fill(Color.red).frame(width: 8, height: 8)
+                .accessibilityLabel(section == .updates ? "Update available" : "Plugin update available")
+        }
+    }
+
+    private var waiting: Bool {
+        switch section {
+        case .updates: return updater.available != nil && updater.phase == .available
+        case .streamDeck: return updater.plugin != nil
+        default: return false
+        }
     }
 }
 
@@ -1145,8 +1172,6 @@ private enum Guide {
              more: "Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you're there in person."),
         Line(state: .lateMtg, how: "A meeting in a meeting room has started, and you're still at the Mac.",
              more: "Pulses for up to 10 minutes, or till you leave the Mac, then MEETING."),
-        Line(state: .freeTil, how: "You left a call before its slot ended.",
-             more: "Until the booked end time — the time was set aside."),
         Line(state: .callTbc, how: "Show As: Tentative on a meeting.",
              more: "Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE."),
         Line(state: .dnd, how: "An event titled “No meetings” or “Focus”.",
@@ -1257,10 +1282,12 @@ private struct MicrophoneTab: View {
 /// post-call survey, and what to send if a call app isn't read right. Which
 /// apps light the sign is under Microphone; the Mute and Leave keys, Stream Deck.
 private struct CallAppsTab: View {
+    @ObservedObject var detector: CallDetector
     @ObservedObject var meeting: MeetingKeys
     @ObservedObject var mute: MuteDetector
     @State private var output: String?
     @State private var working = false
+    @State private var notAnApp: String?
 
     var body: some View {
         Group {
@@ -1273,15 +1300,31 @@ private struct CallAppsTab: View {
                         Button("Reset and ask again") { mute.resetTrust() }
                     }
                 }
-                ForEach(MeetingApp.allCases, id: \.self) { app in
-                    Row(label: app == .teams ? "Microsoft Teams" : "Zoom") {
-                        Text(line(app)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                    }
-                }
             }
             if !mute.trusted {
                 Warning(text: "Without Accessibility the sign can't tell you're muted, and the Stream Deck's Mute and Leave keys can't press anything. Switched on already? Then that entry belongs to an older build, signed differently, and switching it off and on doesn't help. Press Reset and ask again, then switch Busy Bar Sign on when System Settings opens.")
             }
+        }
+        Group {
+            Heading("Which apps count, and what the sign can do in them")
+            Card {
+                ForEach(Array(MeetingApp.allCases.enumerated()), id: \.element) { i, app in
+                    CallAppRow(name: app == .teams ? "Microsoft Teams" : "Zoom", can: "On a call · muted · Mute and Leave keys",
+                               now: line(app), divider: i > 0)
+                }
+                CallAppRow(name: "Google Meet, FaceTime, Slack, WhatsApp, Webex, Discord, Skype, Signal, Telegram, RingCentral, GoTo, BlueJeans",
+                           can: "On a call · muted, when it finds the app's mute button · no Mute or Leave keys", now: nil)
+                ForEach(detector.addedCallApps) { app in
+                    CallAppRow(name: app.name, can: "Added by you · on a call · muted, when it finds a mute button", now: nil) {
+                        Button("Remove") { detector.removeCallApp(app.id) }
+                    }
+                }
+                Row(label: "Another call app") {
+                    Button("Add App…") { addApps() }
+                }
+            }
+            if let notAnApp { Warning(text: notAnApp) }
+            Note("Meet counts in Chrome, Edge, Arc, Brave, Firefox and Safari. With Microphone ▸ Detect on Any app except ignored, as it starts, any app using the mic lights the sign, so most apps never need adding. An app added here counts under Known call apps only too, is never ignored, and is searched for a mute button while you're on a call in it. The END on the Leave key works whatever the app: it ends the calendar event, not the call.")
         }
         Group {
             Heading("On the sign")
@@ -1354,6 +1397,29 @@ private struct CallAppsTab: View {
         }
     }
 
+    /// Apps from Applications (or anywhere), counted as calls from now on.
+    private func addApps() {
+        let panel = NSOpenPanel()
+        panel.title = "Add a call app"
+        panel.prompt = "Add"
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK else { return }
+        notAnApp = nil
+        for url in panel.urls {
+            guard let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else {
+                notAnApp = "\(url.deletingPathExtension().lastPathComponent) has no bundle ID, so the sign can't tell it's using the mic."
+                continue
+            }
+            let name = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+                ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+                ?? url.deletingPathExtension().lastPathComponent
+            detector.addCallApp(CallApp(id: id, name: name))
+        }
+    }
+
     /// One line for an app: its meeting, mute button and state.
     private func line(_ app: MeetingApp) -> String {
         guard let s = meeting.snapshot.apps[app], s.running else { return "Not running" }
@@ -1369,6 +1435,37 @@ private struct CallAppsTab: View {
             output = text
             working = false
         }
+    }
+}
+
+/// A call app, or a group of them: what the sign can do there, and what it sees now.
+private struct CallAppRow<Trailing: View>: View {
+    let name: String
+    let can: String
+    let now: String?
+    var divider = true
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if divider { Divider().padding(.leading, 12) }
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).fixedSize(horizontal: false, vertical: true)
+                    Text(can).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if let now { Text(now).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                trailing
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+    }
+}
+
+extension CallAppRow where Trailing == EmptyView {
+    init(name: String, can: String, now: String?, divider: Bool = true) {
+        self.init(name: name, can: can, now: now, divider: divider, trailing: { EmptyView() })
     }
 }
 

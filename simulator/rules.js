@@ -176,18 +176,6 @@
   }
 
   /*
-   * Whether something on the sign follows this event straight after: any
-   * event in the calendar — a call, a meeting, lunch, a block of your own —
-   * starting after now and no more than a few minutes after this one ends,
-   * and still on after it. Leave a call early and the sign says FREE TILL
-   * its end only then; with nothing straight after, you're just free.
-   */
-  function followed(e, evs, now, cfg) {
-    const gap = cfg.chainGapMinutes * MINUTE;
-    return evs.some((x) => x.start > now && x.start <= e.end + gap && x.end > e.end);
-  }
-
-  /*
    * The sign at `now`.
    *   input = { now, override: 'auto' | 'onCall' | 'free', dndUntil (ms or null),
    *             away: 'nearby' | 'lunch' | 'backIn' | null  — the away keys,
@@ -224,7 +212,6 @@
       .sort((a, b) => a.start - b.start || a.end - b.end);
     // an event you've said is over early: gone from the sign, as if it had just ended
     const evs = all.filter((e) => ended.indexOf(e.id) < 0);
-    const over = all.filter((e) => ended.indexOf(e.id) >= 0 && e.start <= now && now < e.end);
     const current = evs.filter((e) => e.start <= now && now < e.end);
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
     const first = (pred) => current.find(pred);
@@ -300,13 +287,10 @@
     // the Mac locked, with nothing above to say where you are: around somewhere
     if (input.locked) return sign('nearby', 'Mac locked');
 
-    // a no-meetings block, then a call you've left early with something straight after it
+    // a no-meetings block
     if ((e = first((x) => x.kind === 'dndBlock'))) return sign('dnd', 'Do Not Disturb block: ' + quote(e), { event: e, at: e.end });
-    if ((e = first((x) => x.kind === 'call' && joined(x, sessions, now, cfg) && followed(x, evs, now, cfg)))) {
-      return sign('freeTil', 'Left ' + quote(e) + ' early', { event: e, at: e.end });
-    }
-    // ...or an event you've ended early, the same way
-    if ((e = over.find((x) => followed(x, evs, now, cfg)))) return sign('freeTil', 'Ended ' + quote(e) + ' early', { event: e, at: e.end });
+
+    // a call you've left early, or an event you've ended early, is just FREE: the next one warns as usual
 
     // 6. nothing on
     return sign('free', 'Free');

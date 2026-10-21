@@ -272,18 +272,6 @@ enum StatusRules {
     }
 
     /*
-     * Whether something on the sign follows this event straight after: any
-     * event in the calendar — a call, a meeting, lunch, a block of your own —
-     * starting after now and no more than a few minutes after this one ends,
-     * and still on after it. Leave a call early and the sign says FREE TILL
-     * its end only then; with nothing straight after, you're just free.
-     */
-    static func followed(_ e: Sorted, _ evs: [Sorted], _ now: Double, _ cfg: StatusConfig) -> Bool {
-        let gap = cfg.chainGapMinutes * minute
-        return evs.contains { $0.start > now && $0.start <= e.end + gap && $0.end > e.end }
-    }
-
-    /*
      * The sign at `input.now`. ON A CALL and MEETING count down to when you're
      * free: the end of the event, carried through back-to-back ones.
      */
@@ -313,7 +301,6 @@ enum StatusRules {
         // an event you've said is over early: gone from the sign, as if it had just ended
         let ended = Set(input.ended)
         let evs = all.filter { !ended.contains($0.ev.id) }
-        let over = all.filter { ended.contains($0.ev.id) && $0.start <= now && now < $0.end }
         let current = evs.filter { $0.start <= now && now < $0.end }
         let lead = cfg.leadMinutes * minute, late = cfg.lateMinutes * minute
         func first(_ pred: (Sorted) -> Bool) -> Sorted? { current.first(where: pred) }
@@ -388,16 +375,10 @@ enum StatusRules {
         // the Mac locked, with nothing above to say where you are: around somewhere
         if input.locked { return sign("nearby", "Mac locked") }
 
-        // a no-meetings block, then a call you've left early with something straight after it
+        // a no-meetings block
         if let e = first({ $0.kind == .dndBlock }) { return sign("dnd", "Do Not Disturb block: " + quote(e), event: e, at: e.end) }
-        if let e = first({ $0.kind == .call && joined($0, sessions, now, cfg) && followed($0, evs, now, cfg) }) {
-            return sign("freeTil", "Left " + quote(e) + " early", event: e, at: e.end)
-        }
-        // ...or an event you've ended early, the same way
-        if let e = over.first(where: { followed($0, evs, now, cfg) }) {
-            return sign("freeTil", "Ended " + quote(e) + " early", event: e, at: e.end)
-        }
 
+        // a call you've left early, or an event you've ended early, is just FREE: the next one warns as usual
         // 6. nothing on
         return sign("free", "Free")
     }
