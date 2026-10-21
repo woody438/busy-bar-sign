@@ -124,7 +124,12 @@ worldPlain.rest = .init(on: true, mins: 60)
 worldPlain.board = .init(on: true, mins: 7, secs: 20)
 worldPlain.ticker = .init(on: true, mins: 21)
 worldPlain.rules = .init(restHolds: false, clash: .skip, tickerForScroll: false)
-let worldPlans = ["all": worldAll, "plain": worldPlain]
+// fewer cities (a clock set to None): the layouts close up around the ones left
+var worldTwo = worldAll
+worldTwo.zones = [worldZones[0], worldZones[3]]
+var worldThree = worldAll
+worldThree.zones = [worldZones[0], worldZones[1], worldZones[3]]
+let worldPlans = ["all": worldAll, "plain": worldPlain, "two": worldTwo, "three": worldThree]
 let worldCases: [(stacked: Bool, String, Double)] = [
     (false, "all", 2.167), (false, "all", 3.867), (false, "all", 9.167), (false, "all", 9.367), (false, "all", 304.417),
     (false, "all", 309.167), (false, "all", 324.917), (false, "all", 904.767), (false, "all", 907.167), (false, "all", 917.167),
@@ -135,7 +140,11 @@ let worldCases: [(stacked: Bool, String, Double)] = [
     (true, "all", 2.167), (true, "all", 3.867), (true, "all", 9.167), (true, "all", 9.367),
     (true, "all", 304.417), (true, "all", 309.167), (true, "all", 904.767), (true, "all", 907.167),
     (true, "all", 1804.567), (true, "all", 1806.167),
-    (true, "plain", 9.167), (true, "plain", 904.767), (true, "plain", 3604.667), (true, "plain", 3784.417)
+    (true, "plain", 9.167), (true, "plain", 904.767), (true, "plain", 3604.667), (true, "plain", 3784.417),
+    (false, "two", 9.367), (false, "two", 309.167), (false, "two", 907.167), (false, "two", 1806.167),
+    (false, "three", 309.167), (false, "three", 1806.167),
+    (true, "two", 9.367), (true, "two", 309.167), (true, "two", 1806.167),
+    (true, "three", 309.167), (true, "three", 1806.167)
 ]
 // ...and as a call starts: how long FREE had been up
 let worldPresses: [(stacked: Bool, String, Double)] = [(false, "all", 9.367), (false, "plain", 9.167), (true, "all", 9.367)]

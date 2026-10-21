@@ -556,19 +556,19 @@ private struct DisplaysTab: View {
     }
 }
 
-/// When the wall goes dark: Settings ▸ Screen care ▸ Out of hours.
+/// When the wall is lit, and dark the rest of the time: Settings ▸ Screen care ▸ Working hours.
 private struct OutOfHours: View {
     @ObservedObject var status: StatusModel
 
     var body: some View {
-        Heading("Out of hours")
+        Heading("Working hours")
         Card {
-            Row(label: "Dark out of hours", divider: false) {
+            Row(label: "Go dark outside working hours", divider: false) {
                 if status.wallDark { Text("Dark now").foregroundStyle(.secondary) }
-                Toggle("Dark out of hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
+                Toggle("Go dark outside working hours", isOn: $status.wallHours.on).labelsHidden().toggleStyle(.switch)
             }
             if status.wallHours.on {
-                Row(label: "Hours") {
+                Row(label: "Lit during") {
                     DatePicker("From", selection: time(\.from), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
                     Text("to")
                     DatePicker("To", selection: time(\.to), displayedComponents: .hourAndMinute).labelsHidden().fixedSize()
@@ -583,12 +583,22 @@ private struct OutOfHours: View {
                         }
                     }
                 }
-                Row(label: "Let the displays sleep then") {
-                    Toggle("Let the displays sleep then", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
+                InfoRow(title: "So", detail: summary)
+                Row(label: "Let the displays sleep while it's dark") {
+                    Toggle("Let the displays sleep while it's dark", isOn: $status.wallHours.sleeps).labelsHidden().toggleStyle(.switch)
                 }
             }
         }
-        Note("Outside these hours, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning lights it as usual. Left to sleep, the displays go off by Lock Screen ▸ “Turn display off when inactive”, and come back on when the hours begin, unless the Mac's locked. Turn that off if the wall's TV doesn't come back on by itself. In hours the wall's LEDs move a pixel at a time, and ease down after half an hour with nothing going on.")
+        Note("The times are when the wall is lit: your working hours. The rest of the time, while the sign would say FREE or that you're not here, the wall goes black — an OLED's pixels off — and so does the screen saver; a call, a meeting or a warning still lights it. Left to sleep, the displays go off by Lock Screen ▸ “Turn display off when inactive”, and come back on when working hours begin, unless the Mac's locked. Turn that off if the wall's TV doesn't come back on by itself. While it's lit, the wall's LEDs move a pixel at a time, and ease down after half an hour with nothing going on.")
+    }
+
+    /// The hours in a sentence: "Lit 07:30–19:00, Mon Tue Wed Thu Fri. Dark the rest of the time, unless something's on."
+    private var summary: String {
+        let h = status.wallHours
+        let t = { (m: Int) in String(format: "%02d:%02d", m / 60, m % 60) }
+        let days = Self.weekdays.filter { h.days.contains($0) }.map { Calendar.current.shortWeekdaySymbols[$0 - 1] }
+        guard !days.isEmpty else { return "No day ticked: dark all week, unless something's on." }
+        return "Lit \(t(h.from))–\(t(h.to)), \(days.joined(separator: " ")). Dark the rest of the time, unless something's on."
     }
 
     /// The days of the week, as this Mac starts them: Monday first in the UK.
@@ -711,6 +721,9 @@ private struct WorldClocksTab: View {
     @AppStorage(WorldClocks.Key.clash) private var clash = WorldClocks.Settings.defaults.clash
     @AppStorage(WorldClocks.Key.tickerForScroll) private var tickerForScroll = WorldClocks.Settings.defaults.tickerForScroll
     @AppStorage(WorldClocks.Key.localCode) private var localCode = WorldClocks.Settings.defaults.localCode
+    @AppStorage(WorldClocks.Key.city(1)) private var city1 = WorldClocks.Settings.defaults.cities[0]
+    @AppStorage(WorldClocks.Key.city(2)) private var city2 = WorldClocks.Settings.defaults.cities[1]
+    @AppStorage(WorldClocks.Key.city(3)) private var city3 = WorldClocks.Settings.defaults.cities[2]
     @AppStorage("worldWatch") private var watch: WorldClocks.Watch = .asSet
     @State private var replays = 0
 
@@ -763,7 +776,9 @@ private struct WorldClocksTab: View {
                     ForEach(WorldClocks.Watch.allCases) { w in Text(w.label).tag(w) }
                 }
                 .labelsHidden().pickerStyle(.segmented)
-                Button("Again") { replays += 1 }
+                Button { replays += 1 } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
+                    .fixedSize()
+                    .help("Play the preview again, from a call ending")
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
         }
@@ -805,7 +820,10 @@ private struct WorldClocksTab: View {
             CityRow(slot: 2)
             CityRow(slot: 3)
         }
-        Note("Each list runs west to east by the city's offset today, from macOS, so it stays right when the clocks change. Local is the Mac's own time zone, from System Settings ▸ General ▸ Date & Time. The sign calls each city by three letters: type your own, or leave it empty for the city's.")
+        if [city1, city2, city3].allSatisfy({ WorldClocks.city(named: $0) == nil }) {
+            Warning(text: "No cities but local: FREE looks as it always has.")
+        }
+        Note("Each list runs west to east by the city's offset today, from macOS, so it stays right when the clocks change. Set a clock to None for fewer: the layouts close up around the ones left. Local is the Mac's own time zone, from System Settings ▸ General ▸ Date & Time, and always shows. The sign calls each city by three letters: type your own, or leave it empty for the city's.")
     }
 }
 
@@ -942,12 +960,15 @@ private struct CityRow: View {
     var body: some View {
         let now = Date()
         let picked = WorldClocks.city(named: city)
-        CityLine(title: "Clock \(slot + 1)", detail: picked.map { WorldClocks.fromLocal($0.timeZone, at: now) } ?? "") {
+        CityLine(title: "Clock \(slot + 1)", detail: picked.map { WorldClocks.fromLocal($0.timeZone, at: now) } ?? "Not shown") {
             Picker("Clock \(slot + 1)", selection: $city) {
+                Text("None").tag("")
+                Divider()
                 ForEach(WorldClocks.listed(at: now)) { c in Text(c.label(at: now)).tag(c.name) }
             }
             .labelsHidden().frame(width: 260)
             CodeField(code: $code, placeholder: picked?.code ?? "")
+                .disabled(picked == nil)
         }
         // a new city goes by its own code
         .onChange(of: city) { _, _ in code = "" }

@@ -121,6 +121,9 @@ const WORLD_PLANS = {
   plain: { zones: WORLD_ZONES, turns: { on: false, secs: 5 }, rest: { on: true, mins: 60 }, board: { on: true, mins: 7, secs: 20 },
     ticker: { on: true, mins: 21 }, rules: { restHolds: false, clash: 'skip', tickerForScroll: false } }
 };
+// fewer cities (a clock set to None): the layouts close up around the ones left
+WORLD_PLANS.two = Object.assign({}, WORLD_PLANS.all, { zones: [WORLD_ZONES[0], WORLD_ZONES[3]] });
+WORLD_PLANS.three = Object.assign({}, WORLD_PLANS.all, { zones: [WORLD_ZONES[0], WORLD_ZONES[1], WORLD_ZONES[3]] });
 const WORLD_CASES = [
   ['wide', 'all', 2.167], ['wide', 'all', 3.867], ['wide', 'all', 9.167], ['wide', 'all', 9.367], ['wide', 'all', 304.417],
   ['wide', 'all', 309.167], ['wide', 'all', 324.917], ['wide', 'all', 904.767], ['wide', 'all', 907.167], ['wide', 'all', 917.167],
@@ -131,7 +134,11 @@ const WORLD_CASES = [
   ['stacked', 'all', 2.167], ['stacked', 'all', 3.867], ['stacked', 'all', 9.167], ['stacked', 'all', 9.367],
   ['stacked', 'all', 304.417], ['stacked', 'all', 309.167], ['stacked', 'all', 904.767], ['stacked', 'all', 907.167],
   ['stacked', 'all', 1804.567], ['stacked', 'all', 1806.167],
-  ['stacked', 'plain', 9.167], ['stacked', 'plain', 904.767], ['stacked', 'plain', 3604.667], ['stacked', 'plain', 3784.417]
+  ['stacked', 'plain', 9.167], ['stacked', 'plain', 904.767], ['stacked', 'plain', 3604.667], ['stacked', 'plain', 3784.417],
+  ['wide', 'two', 9.367], ['wide', 'two', 309.167], ['wide', 'two', 907.167], ['wide', 'two', 1806.167],
+  ['wide', 'three', 309.167], ['wide', 'three', 1806.167],
+  ['stacked', 'two', 9.367], ['stacked', 'two', 309.167], ['stacked', 'two', 1806.167],
+  ['stacked', 'three', 309.167], ['stacked', 'three', 1806.167]
 ];
 // ...and as a call starts: [layout, plan, how long FREE had been up]
 const WORLD_PRESSES = [['wide', 'all', 9.367], ['wide', 'plain', 9.167], ['stacked', 'all', 9.367]];

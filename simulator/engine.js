@@ -1193,9 +1193,10 @@
   /* The board: four columns, each city above its time, local in FREE's green. */
   function drawWorldBoard(f, clock, world) {
     f.px.fill(0);
-    const cell = WORLD.boardCell;
-    for (let i = 0; i < world.zones.length && i < 4; i++) {
-      const z = world.zones[i], cx = 1 + i * cell, label = cityLine(z);
+    const cell = WORLD.boardCell, n = Math.min(world.zones.length, 4);
+    const x0 = 1 + Math.round((4 - n) * cell / 2);      // fewer cities: the columns centred
+    for (let i = 0; i < n; i++) {
+      const z = world.zones[i], cx = x0 + i * cell, label = cityLine(z);
       const lw = textWidth('busy_regular_5', label);
       drawText(f, 'busy_regular_5', label, cx + Math.round((cell - lw) / 2), 5, i === 0 ? PALETTE.free.top : PALETTE.white,
         { alpha: i === 0 ? 1 : 0.55 });
@@ -1231,7 +1232,8 @@
 
   /* Resting's grid: two lines of two, each city then its time; nothing left of minX. */
   function drawWorldGrid(f, clock, world, x0, alpha, minX) {
-    const bases = [6, 15], clip = [minX, COLS];
+    // two cities or fewer: one line, across the middle
+    const bases = world.zones.length > 2 ? [6, 15] : [11], clip = [minX, COLS];
     for (let i = 0; i < world.zones.length && i < 4; i++) {
       const z = world.zones[i], cx = x0 + (i % 2) * WORLD.gridCell, base = bases[Math.floor(i / 2)];
       drawText(f, 'busy_regular_5', z.code, cx, base, i === 0 ? PALETTE.free.top : PALETTE.white,
@@ -1416,9 +1418,10 @@
   /* The board, stacked: four rows, a departures board. */
   function drawStackedWorldBoard(f, clock, world) {
     f.px.fill(0);
-    const font = 'busy_bold_7', bases = [9, 20, 31, 42];
-    for (let i = 0; i < world.zones.length && i < 4; i++) {
-      const z = world.zones[i], base = bases[i], mark = dayMark(z);
+    const font = 'busy_bold_7', bases = [9, 20, 31, 42], n = Math.min(world.zones.length, 4);
+    const dy = Math.round((4 - n) * 11 / 2);           // fewer cities: the rows centred
+    for (let i = 0; i < n; i++) {
+      const z = world.zones[i], base = bases[i] + dy, mark = dayMark(z);
       drawText(f, font, z.code, 8, base, i === 0 ? PALETTE.free.top : PALETTE.white, { alpha: i === 0 ? 1 : 0.55 });
       if (mark) drawText(f, 'busy_regular_5', mark, 33, base, PALETTE.white, { alpha: 0.5 });
       const tw = clockTextWidth(font, hhmm(z));
@@ -1440,8 +1443,9 @@
     }
     const inA = smooth(0.35, 1, k), dy = Math.round(18 * (1 - easeOut(k))), clipY = [18, S.rows];
     if (inA > 0) {
+      const off = (4 - Math.min(world.zones.length, 4)) * 14;   // fewer cities: the columns centred
       for (let j = 1; j < world.zones.length && j < 4; j++) {
-        const zz = world.zones[j], cx = (j - 1) * 28, cell = 28;
+        const zz = world.zones[j], cx = off + (j - 1) * 28, cell = 28;
         const lw = textWidth('busy_regular_5', zz.code);
         drawText(f, 'busy_regular_5', zz.code, cx + Math.round((cell - lw) / 2), 26 + dy, PALETTE.white, { alpha: 0.55 * inA, clipY: clipY });
         const tw = clockTextWidth('busy_regular_7', hhmm(zz));

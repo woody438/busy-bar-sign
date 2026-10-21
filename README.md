@@ -159,8 +159,9 @@ The simulator shows all four: **Quiet hour** plays the orbit, resting and
 the scroll sped up, and **Out of hours** the dark (as does **Calendar
 day**, from 06:45 to 07:30).
 
-**Settings ▸ Screen care ▸ Out of hours** sets the hours and the days, or turns
-it off. **Let the displays sleep then** (on by default) stops the app keeping
+**Settings ▸ Screen care ▸ Working hours** sets when the wall is lit — the
+hours and the days — and it's dark the rest of the time; or turn **Go dark
+outside working hours** off. **Let the displays sleep while it's dark** (on by default) stops the app keeping
 the displays awake out of hours, so macOS switches them off by Lock Screen ▸
 "Turn display off when inactive" once the Mac's idle — and a TV can go to
 standby, which is when many OLED TVs run their own short pixel-refresh cycle. The
@@ -172,7 +173,7 @@ Worth knowing:
 
 - **A TV may not come back by itself.** A monitor wakes when the Mac sends it
   a picture; many TVs, once in standby, wait for their remote. If the wall
-  stays off in the morning, turn **Let the displays sleep then** off: the
+  stays off in the morning, turn **Let the displays sleep while it's dark** off: the
   wall still goes black out of hours (pixels off), the TV just stays on.
 - The TV's own care still helps: leave its pixel shift and logo dimming on,
   and let it run its pixel refresher when it asks.
@@ -241,7 +242,8 @@ wave hits it, as any state's is.
 **Cities** lists about fifty major cities west to east, each with its zone
 and offset as they are today — "Chicago — CDT, GMT−5" — from macOS, so they
 stay right when the clocks change; beside each, how far it is from you.
-Local is the Mac's own time zone. The sign calls each city by three letters
+Local is the Mac's own time zone and always shows; set any of the other three
+to **None** for fewer, and the layouts close up around the ones left. The sign calls each city by three letters
 (NYC, LON, TYO; +1 or −1 when it's tomorrow or yesterday there): type your
 own, or leave it empty for the city's. **Preview** plays each layout a few
 seconds after a call ends, or all of them with your timings.
@@ -803,7 +805,7 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 186 moments —
+- **The Swift engine matches the simulator LED for LED** across 197 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
@@ -812,7 +814,8 @@ errors or warnings in its code.
   out and back in, and the world clocks through each layout, wide and
   stacked — settling into the split, a city rolling in, the board rolling
   up, held and away, the ticker, resting, a skipped clash, the board over
-  the rest, and FREE pressed down as a call starts — to within float rounding. Both
+  the rest, FREE pressed down as a call starts, and with one or two
+  cities fewer — to within float rounding. Both
   take and turn away the same words for Nearby, and rest the LEDs at the
   same brightness at the same moments. What you see in the
   simulator is what the app draws.

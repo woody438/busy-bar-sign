@@ -36,7 +36,7 @@ import Foundation
  * is up: {"display":3,"layout":"wide"}, its monitor's display number and its
  * layout, for the screen saver to draw the wall as the wall is drawn.
  * `dark` appears, true, only while the wall's dark out of hours (nothing
- * going on, outside Settings ▸ Screen care ▸ Out of hours): the screen saver
+ * going on, outside Settings ▸ Screen care ▸ Working hours): the screen saver
  * goes black too. `state` is still what the sign would say.
  *
  * The screen saver adds a header to its GET /status saying where it is:

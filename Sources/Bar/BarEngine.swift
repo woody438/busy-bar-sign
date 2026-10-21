@@ -1406,9 +1406,10 @@ enum BarEngine {
     /// The board: four columns, each city above its time, local in FREE's green.
     private static func drawWorldBoard(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan) {
         f.clear()
-        let cell = World.boardCell
+        let cell = World.boardCell, n = min(world.zones.count, 4)
+        let x0 = 1 + jsRound(Double((4 - n) * cell) / 2)      // fewer cities: the columns centred
         for (i, z) in world.zones.prefix(4).enumerated() {
-            let cx = 1 + i * cell, label = cityLine(z)
+            let cx = x0 + i * cell, label = cityLine(z)
             let lw = textWidth("busy_regular_5", label)
             drawText(&f, font: "busy_regular_5", label, x: Double(cx + jsRound(Double(cell - lw) / 2)), baseY: 5,
                      colour: i == 0 ? BarPalette.free.top : white, style: TextStyle(alpha: i == 0 ? 1 : 0.55))
@@ -1447,7 +1448,8 @@ enum BarEngine {
     /// Resting's grid: two lines of two, each city then its time; nothing left of minX.
     private static func drawWorldGrid(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan, x0: Int, alpha: Double,
                                       minX: Int) {
-        let bases = [6, 15], clip = (lo: minX, hi: cols)
+        // two cities or fewer: one line, across the middle
+        let bases = world.zones.count > 2 ? [6, 15] : [11], clip = (lo: minX, hi: cols)
         for (i, z) in world.zones.prefix(4).enumerated() {
             let cx = x0 + (i % 2) * World.gridCell, base = bases[i / 2]
             drawText(&f, font: "busy_regular_5", z.code, x: Double(cx), baseY: base, colour: i == 0 ? BarPalette.free.top : white,
@@ -1699,9 +1701,10 @@ enum BarEngine {
     /// The board, stacked: four rows, a departures board.
     private static func drawStackedWorldBoard(_ f: inout LEDFrame, clock: ClockReading, world: WorldPlan) {
         f.clear()
-        let font = "busy_bold_7", bases = [9, 20, 31, 42]
+        let font = "busy_bold_7", bases = [9, 20, 31, 42], n = min(world.zones.count, 4)
+        let dy = jsRound(Double((4 - n) * 11) / 2)           // fewer cities: the rows centred
         for (i, z) in world.zones.prefix(4).enumerated() {
-            let base = bases[i], mark = dayMark(z)
+            let base = bases[i] + dy, mark = dayMark(z)
             drawText(&f, font: font, z.code, x: 8, baseY: base, colour: i == 0 ? BarPalette.free.top : white,
                      style: TextStyle(alpha: i == 0 ? 1 : 0.55))
             if !mark.isEmpty {
@@ -1730,8 +1733,9 @@ enum BarEngine {
         }
         let inA = smooth(0.35, 1, k), dy = jsRound(18 * (1 - easeOut(k))), clipY = (lo: 18, hi: Stacked.rows)
         if inA > 0 {
+            let off = (4 - min(world.zones.count, 4)) * 14     // fewer cities: the columns centred
             for (j, zz) in world.zones.prefix(4).enumerated() where j > 0 {
-                let cx = (j - 1) * 28, cell = 28
+                let cx = off + (j - 1) * 28, cell = 28
                 let lw = textWidth("busy_regular_5", zz.code)
                 drawText(&f, font: "busy_regular_5", zz.code, x: Double(cx + jsRound(Double(cell - lw) / 2)), baseY: 26 + dy,
                          colour: white, style: TextStyle(alpha: 0.55 * inA, clipY: clipY))
