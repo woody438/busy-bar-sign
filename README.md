@@ -31,7 +31,7 @@ itself** when you're off calls ([below](#updates)).
 `simulator/index.html` in a browser. It runs the same drawing engine and
 the same calendar rules as the app, on your real clock. Its buttons show the
 floating window and the stacked layout, **Calendar day** plays a working day
-through the rules, and the redesigned settings window is beneath; double-click
+through the rules, and the settings window is beneath; double-click
 the bar for Do Not Disturb.
 
 The first version — a broadcast studio clock beside an on-air-style sign,
@@ -56,8 +56,7 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 **[Download the latest build](https://github.com/woody438/busy-bar-sign/releases/latest)**
 (`BusyBarSign.zip`).
 
-1. Unzip it and drag **Busy Bar Sign** into Applications. (If you have the
-   older **StudioCallSign** there, delete it: that was this app's old name.)
+1. Unzip it and drag **Busy Bar Sign** into Applications.
 2. Open it. The first time, macOS says it can't check the app for malicious
    software, because it isn't notarised by Apple. Click **Done**, then go to
    System Settings ▸ Privacy & Security, scroll down, and click **Open Anyway**.
@@ -73,7 +72,7 @@ simulator's **Stacked layout** button shows this — [more below](#small-screens
 5. For a Stream Deck, also download `BusyBarSign.streamDeckPlugin` from the
    same release ([more below](#stream-deck)).
 
-That's the only time you install it by hand: from 2.1 on it **updates
+That's the only time you install it by hand: it **updates
 itself** from the latest release, keeping its permissions, with no Open
 Anyway ([Updates](#updates)).
 
@@ -150,7 +149,7 @@ your desk screen among everything else, doesn't.
 | | What it does | Why |
 |---|---|---|
 | **Out of hours** | Outside 07:30–19:00, Monday to Friday, while the sign would say FREE or that you're not here, the wall goes black — and the screen saver with it — and the app lets the displays sleep. A call, a meeting or a warning lights it as usual. | The big one: about two thirds of the week, with nobody there to read it. Black on an OLED is its pixels off. |
-| **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. It replaces 2.4's jump of up to 3 pixels every 3 minutes, which was smaller than an LED. |
+| **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. |
 | **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light. Any change brings them straight back, with its announcement. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
 | **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds — or, with the world clocks' ticker set to run in its place, the ticker does. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
 
@@ -216,6 +215,8 @@ million pixels, and during the second or so of a change's shockwave a slower
 Mac may drop below 60 frames a second (never below 30).
 
 ## World clocks
+
+*Thanks to Adam for the idea.*
 
 While the sign says FREE it can show local time and three more cities.
 **Settings ▸ World clocks**: turn on **Show world clocks**, choose where
@@ -287,7 +288,7 @@ Bar Sign carries one, and three **away keys** say where you've gone:
 | The bar | What puts it there |
 |---|---|
 | **NEARBY** — or your own word | The **Nearby** key: in the building, not at your desk. Or the Mac locked with nothing in the calendar to say where you are. Give it a word of your own ([below](#your-own-word-for-nearby)) and the sign says that instead. |
-| **LUNCH** | The **Lunch** key — or lunch in your calendar, as before. |
+| **LUNCH** | The **Lunch** key — or lunch in your calendar. |
 | **BACK IN** · *29:41 AT 14:30* | The **Back In** key: ten minutes a press, so three presses for a half-hour meeting down the corridor. When the time's up, the sign moves on to what's next — NEARBY, if the Mac's still locked. |
 
 The keys are on the Stream Deck ([below](#stream-deck)), in the menu-bar
@@ -454,7 +455,7 @@ node and Pillow).
 
 - The words are the bar's, cut to fit a key: ON A / CALL, IN A / MTG for a
   meeting, CALL / IN 09:41, LATE +01:20 for a call and LATE / MTG for a
-  meeting, FREE / TILL 15:00, TBC / TILL once a tentative meeting is on, OOO,
+  meeting, TBC / TILL once a tentative meeting is on, OOO,
   ON / SITE, NEAR- / BY, BACK / IN 29:41.
 - It asks the app once a second, on the second, so its countdown turns with
   the bar's. While the app isn't running the key says **APP OFF**, and a
@@ -468,9 +469,9 @@ node and Pillow).
 
 ![Mute and Leave keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting](docs/stream-deck-meeting-keys.png)
 
-Two more keys in the same plugin, for the Teams or Zoom meeting you're in —
-what the separate Teams Meeting Keys plugin did, now done by the app, so
-the keys, the sign and the settings always agree:
+Two more keys in the same plugin, for the Teams or Zoom meeting you're in.
+The app does the pressing, so the keys, the sign and the settings always
+agree:
 
 - **Mute** shows green **LIVE** or red **MUTED**, read from the meeting's
   own mute control; **MIC ?** if the meeting's there but its mute can't be
@@ -486,7 +487,7 @@ the keys, the sign and the settings always agree:
 - **Outside a Teams or Zoom meeting**, while the sign shows a meeting or
   call from your calendar — MEETING after a call you took on your phone,
   LATE FOR, OUT ON SITE, an event of your own — **Leave** says **END** in
-  red. Press it (or hold it, if it's set to hold) when it finished early: the
+  red (plugin 1.6 or later). Press it (or hold it, if it's set to hold) when it finished early: the
   sign moves straight on to **FREE**, and the next call or meeting warns ten
   minutes before, as usual. **End Now** in either menu and **Finished early?**
   under Settings ▸ Status do the same. Not while the mic's in use: the sign's
@@ -501,9 +502,7 @@ the keys, the sign and the settings always agree:
   that ignores its own button twice gets the shortcut from then on.
 - With Teams and Zoom both in meetings, the keys act on the one joined last.
 - Teams can redraw its Leave button during a call; the app finds the new
-  one within a few seconds. (Before 2.2.1 it lost it for the rest of the
-  call, and the Leave key went grey, though a press still left through the
-  shortcut.)
+  one within a few seconds.
 - After a call, Teams' "rate your call" survey (and Zoom's "How was the
   audio and video?") is closed — only ever with a Dismiss, Close, Skip or
   Cancel-type button, then the dialog's own cancel, its window's close button
@@ -514,9 +513,7 @@ the keys, the sign and the settings always agree:
   would both press, and both close the survey.
 - Settings ▸ Call apps shows what the keys see — each app's meeting window and
   mute button — and lists every button it can find (**Inspect meeting
-  controls**) if Teams or Zoom ever changes them:
-
-![Settings, before 2.6, Meetings: Accessibility allowed; Teams in “Weekly review” with “Unmute mic”, muted, the keys acting there; Zoom not in a meeting; the sign's mute switch; the survey switch, the last key press and popup; Inspect, Capture, Edit patterns and Reload](docs/settings-meetings.png)
+  controls**) if Teams or Zoom ever changes them.
 
 ## Your calendar
 
@@ -612,8 +609,8 @@ The same controls are in three places:
     updates are working.
   - *The sign:* **Displays** (the full-screen display and the floating
     window side by side), **World clocks** (local time and three cities
-    while FREE: the layouts, their timings, how they meet, a preview, the
-    cities), **Screen care** (the wall's hours, and what it does in them)
+    while FREE: the layouts, their timings, a preview, and which cities
+    show), **Screen care** (the wall's hours, and what it does in them)
     and **Away & screen saver** (the Nearby key's word, and the screen
     saver).
   - *What it follows:* **Calendar** (which calendar and the warning and
@@ -840,7 +837,7 @@ errors or warnings in its code.
   take and turn away the same words for Nearby, and rest the LEDs at the
   same brightness at the same moments. What you see in the
   simulator is what the app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 3,168
+- **The Swift status rules decide exactly what the simulator's do** in 3,189
   cases: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
   after, one never joined, an in-person meeting, a tentative one, lunch
@@ -850,8 +847,8 @@ errors or warnings in its code.
   rooms, cancelled titles, Show As, and where it is: a booked room, a room
   code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
   in person, a meeting in a room started with you at the Mac, and the away
-  keys and a locked Mac across the day. The rules themselves have 229
-  hand-checked cases (`simulator/tools/rules-check.js`).
+  keys and a locked Mac across the day, your own appointments elsewhere, and
+  events ended early. The rules themselves have 254 hand-checked cases (`simulator/tools/rules-check.js`).
 - **The wall's hours** (`Checks/hours`): in hours from 07:30 to just before
   19:00 on weekdays, out all weekend, the same either side of the clocks
   going back; dark only out of hours and only with nothing going on; a span
@@ -889,17 +886,18 @@ errors or warnings in its code.
   shows a tick on a call, turns the Mute key from LIVE to MUTED on a press,
   warns when a press didn't take, leaves only when a held Leave key is held,
   and with the Leave key left on a press, leaves on release and ends the
-  meeting for everyone when held a second, lights Back In with ten minutes
+  meeting for everyone when held a second, says END outside a meeting
+  while the sign shows a calendar event and ends it on a press, lights Back In with ten minutes
   a press and ends it on a hold, turns Lunch and Nearby on and off one at
   a time, has Nearby say the word the app gives it,
   says APP OFF and warns on a press while the app is away, recovers when
-  it's back, and stops asking when no key shows it. Its key drawing has 181
+  it's back, and stops asking when no key shows it. Its key drawing has 187
   checks of its own: every state the engine has, every word and countdown
   inside the key, the countdown text against the bar's, every face of
   the Mute, Leave and away keys, and the widest words of your own the sign
   takes for Nearby, on the Nearby and Status keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
-  Meeting Keys' helper tests carried across, and more: 112 checks) against a scripted
+  Meeting Keys' helper tests carried across, and more: 116 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
   flyout covering the toolbar keeps the last reading for 20 s, a closed
   window or "Rejoin" ends the meeting at once; a press of the meeting's own
@@ -921,15 +919,14 @@ errors or warnings in its code.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
-  the plugin and the screen saver read, `dark` out of hours included.
+  the plugin and the screen saver read, `dark` out of hours and `canEnd`
+  included, and the END route.
 - The pixel fonts decode correctly, and every source file parses.
 
 **Run on a real Mac** — its author's, with an Outlook calendar through
 Calendar.app and an Elgato Stream Deck:
 
-- The app follows the microphone and the calendar through real calls. That
-  is how it was found that leaving a call early showed FREE TILL even with
-  nothing after it; it now shows FREE (see [Your calendar](#your-calendar)).
+- The app follows the microphone and the calendar through real calls.
 - The Stream Deck plugin, installed from its release file, shows the sign
   live on a key through the app's web server.
 - On real Teams and Zoom meetings: the mute state read on the sign and the
@@ -941,30 +938,30 @@ Calendar.app and an Elgato Stream Deck:
 - An update installing itself — build 35 to build 36 — with no Open Anyway
   and Accessibility still allowed, both builds signed with the project's
   certificate.
-- Where a meeting is (2.4), on the author's own Outlook calendar through the
+- Where a meeting is, on the author's own Outlook calendar through the
   preview builds. That is how it was found that a typed location naming
   one of the company's sites, with no room booked, read as OUT ON SITE (it
   now reads as a company site: MEETING), and that a Lunch block shown as Out of Office
   said OUT OF OFFICE (your own lunch is now LUNCH, counting down to when
   you're back).
+- The settings window's sidebar and its sections, World clocks with its
+  preview, and the Call apps page, through the preview builds.
 
-**Not yet run on a real Mac:** 2.5's care of the screen in the app itself —
+**Not yet checked on a real Mac:** the care of the screen in the app itself —
 the orbit, resting and dark wall drawn by `BarDisplayView` and the screen
-saver, the Out of hours card, and above all `DisplayWindow` letting the
+saver, the Working hours card, and above all `DisplayWindow` letting the
 displays sleep out of hours and waking them when the hours begin
 (`IOPMAssertionDeclareUserActivity`), on whatever the wall is. The engine,
 the orbit and the hours beneath them are checked, and the simulator shows
-the look. And the rest of 2.4's places and in person —
-whether EventKit marks a room booked on an Outlook invite as a room (if
+the look. The world clocks on the wall itself, through a day of FREE —
+the board, resting and the ticker at their real times — and the Leave key's
+END on a real Stream Deck. For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
-LATE. And
-the away keys and the screen saver, new in
-2.2 — whether `Away.swift` sees the Mac lock and unlock and starts the screen
+LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen
 saver (`ScreenSaverEngine`), whether `SaverInstaller.swift` puts it in place,
 and above all whether macOS 27's screen saver host shows it on every
-monitor, lets it reach the app, and stops it when you're back. The first
-build on the author's Mac is the test.
+monitor, lets it reach the app, and stops it when you're back.
 
 **Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
@@ -1014,14 +1011,14 @@ checks or installs on demand, and can switch the automatic install off; the
 menu-bar menu has **Check for Updates** too.
 
 - Every copy follows main's **latest** release. Switch on **Get preview
-  builds** (from 2.4.2) and it follows the **preview** release too: a pull
+  builds** and it follows the **preview** release too: a pull
   request's build, before it's merged, installed as main's are. There's one
   preview at a time, whichever pull request was pushed last. Each build is
   numbered by its CI run, and only a higher number is an update
   (`Sources/UpdateCheck.swift`, checked by `Checks/update`), so a preview
   gives way to main's build once its pull request is merged.
 - A preview build says so in Settings ▸ Updates: an orange
-  **PREVIEW** tag and the pull request it was built from (from 2.4.1). It
+  **PREVIEW** tag and the pull request it was built from. It
   starts with Get preview builds on. Switch it off and it waits for main's
   next build — or **Back to Main Release** installs main's current one now,
   though its number is lower.
@@ -1043,7 +1040,7 @@ menu-bar menu has **Check for Updates** too.
 - An install can stop part way, leaving the new version's number over the
   old plugin's code: the keys then do what the old one did, though the
   version looks right. The plugin's code says its own version on its first
-  line (from 1.4.1), and the app checks the two agree: if they don't,
+  line, and the app checks the two agree: if they don't,
   Settings says **not fully installed** with a **Reinstall…** button, and
   the menu offers **Reinstall the Stream Deck Plugin…**.
 
@@ -1060,7 +1057,7 @@ The certificate is self-signed — made once with
 repository's Actions secrets `SIGNING_CERT_P12` and `SIGNING_CERT_PASSWORD`.
 It changes nothing about installing: Apple doesn't vouch for it, so the first
 open still needs **Open Anyway**. Without the secrets, builds are signed ad
-hoc as before, and the build checks the signing steps with a throwaway
+hoc, and the build checks the signing steps with a throwaway
 certificate instead. Whoever has the secrets could sign an app macOS would
 take for Busy Bar Sign, so they stay secret.
 
