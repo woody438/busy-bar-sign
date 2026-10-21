@@ -157,7 +157,7 @@ struct ControlsView: View {
                                 .padding(.horizontal, 8).padding(.top, 12).padding(.bottom, 3)
                         }
                         ForEach(Self.groups[g].sections) { s in
-                            SidebarRow(section: s, selected: section == s) { section = s }
+                            SidebarRow(section: s, selected: section == s, updater: status.updater) { section = s }
                         }
                     }
                 }
@@ -193,6 +193,8 @@ struct ControlsView: View {
 private struct SidebarRow: View {
     let section: ControlsView.Section
     let selected: Bool
+    /// For the dot on Updates and Stream Deck while there's something to install.
+    let updater: Updater
     let action: () -> Void
     @State private var hovering = false
 
@@ -206,6 +208,7 @@ private struct SidebarRow: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(section.tint))
                 Text(section.label).lineLimit(1)
                 Spacer(minLength: 0)
+                UpdateDot(section: section, updater: updater)
             }
             .padding(.horizontal, 8).padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -216,6 +219,29 @@ private struct SidebarRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// A red dot on Updates while a new build waits, and on Stream Deck while a
+/// newer plugin does (or the one in Stream Deck needs installing again), as
+/// System Settings marks a section with something to do.
+private struct UpdateDot: View {
+    let section: ControlsView.Section
+    @ObservedObject var updater: Updater
+
+    var body: some View {
+        if waiting {
+            Circle().fill(Color.red).frame(width: 8, height: 8)
+                .accessibilityLabel(section == .updates ? "Update available" : "Plugin update available")
+        }
+    }
+
+    private var waiting: Bool {
+        switch section {
+        case .updates: return updater.available != nil && updater.phase == .available
+        case .streamDeck: return updater.plugin != nil
+        default: return false
+        }
     }
 }
 

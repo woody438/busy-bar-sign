@@ -627,7 +627,9 @@ The same controls are in three places:
     showing you're muted, the post-call survey, and what to send if Teams or
     Zoom isn't read right).
   - *Devices and the app:* **Stream Deck** (the plugin, whether its keys
-    reach the app, what each key does) and **Updates**.
+    reach the app, what each key does) and **Updates** — each with a red
+    dot in the list while there's something to install: a newer plugin, or
+    a new build.
 - **The Dock icon's right-click menu** — full-screen on/off, which monitor,
   floating on/off.
 - **The menu-bar icon** — the state's own mark: a tick when free, a
