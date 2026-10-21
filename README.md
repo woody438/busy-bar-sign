@@ -557,7 +557,7 @@ The same controls are in three places:
   **Status** (the bar live, why it says what it says, Sign, Do Not
   Disturb, the away keys and the Nearby key's word, and Updates), **Displays** (the full-screen
   display and the floating window side by side, the wall's hours, and the screen saver), **Calendar** (which calendar, the warning
-  and late times, a guide to what to put in Outlook, and the title words),
+  and late times, a guide to what to put in your calendar, and the title words),
   **Microphone** (what counts as a call, and what's using the mic now, to
   ignore) and **Meetings** (Accessibility, showing you're muted, the Stream
   Deck's Mute and Leave keys, the post-call survey, and what to send if Teams

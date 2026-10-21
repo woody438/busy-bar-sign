@@ -631,7 +631,7 @@ private struct CalendarTab: View {
         }
         if calendar.enabled, let problem = calendar.problem { Warning(text: problem) }
 
-        Heading("What to put in Outlook")
+        Heading("What to put in your calendar")
         Card {
             ForEach(Array(Guide.rows.enumerated()), id: \.offset) { i, row in
                 VStack(spacing: 0) {
