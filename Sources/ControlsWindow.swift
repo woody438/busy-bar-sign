@@ -142,6 +142,8 @@ struct ControlsView: View {
             .id(section)            // each section opens at its top
         }
         .frame(width: 840, height: 660)
+        // switches and checkboxes green when on, as the sign's FREE; off stays grey
+        .tint(.green)
     }
 
     private var sidebar: some View {
@@ -343,6 +345,13 @@ private struct StatusTab: View {
                 Row(label: "In person") {
                     Text(event.title).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     Button("I'm Here") { status.markInPerson() }
+                }
+            }
+            // finished early: the sign moves on to what's next
+            if let event = status.endableEvent {
+                Row(label: "Finished early?") {
+                    Text(event.title).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Button("End Now") { status.endEvent() }
                 }
             }
             Row(label: "Away") {

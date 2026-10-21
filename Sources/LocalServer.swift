@@ -110,6 +110,14 @@ final class LocalServer: ObservableObject {
             return press(.leave, on: connection)
         case .meetingEnd:
             return press(.end, on: connection)
+        case .eventEnd:
+            // the Leave key outside a Teams or Zoom meeting: the event on the sign is over
+            let event = status.endableEvent
+            status.endEvent()
+            var answer = current
+            answer.pressed = LocalAPI.Status.Pressed(ok: event != nil,
+                                                     message: event.map { "Ended “\($0.title)” early." } ?? "Nothing on the sign to end.")
+            return send(LocalAPI.response(200, body: LocalAPI.encode(answer)), on: connection)
         case .away(let key):
             if let key = AwayState.Kind(rawValue: key) { status.away.press(key) }
             status.evaluate()
@@ -153,7 +161,8 @@ final class LocalServer: ObservableObject {
         let nearby = BarEngine.nearbyWord == BarEngine.nearbyDefault ? nil : BarEngine.nearbyWord
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
                                dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall,
-                               nearbyWord: nearby, dark: status.wallDark ? true : nil)
+                               nearbyWord: nearby, dark: status.wallDark ? true : nil,
+                               canEnd: meeting == nil && status.endableEvent != nil ? true : nil)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {

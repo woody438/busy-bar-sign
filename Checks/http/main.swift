@@ -47,6 +47,8 @@ expect(route("POST", "/meeting/mute", here) == .meetingMute, "POST /meeting/mute
 expect(route("POST", "/meeting/leave", here) == .meetingLeave, "POST /meeting/leave")
 expect(route("GET", "/meeting/leave", here) == .reject(405), "GET can't leave")
 expect(route("POST", "/meeting/end", here) == .meetingEnd, "POST /meeting/end")
+expect(route("POST", "/event/end", here) == .eventEnd, "POST /event/end")
+expect(route("GET", "/event/end", here) == .reject(405), "GET can't end an event")
 expect(route("GET", "/meeting/end", here) == .reject(405), "GET can't end a meeting")
 expect(route("POST", "/meeting/leave", ["host": "127.0.0.1:47811", "origin": "https://evil.example"]) == .reject(403),
        "a web page can't make you leave a meeting")
@@ -111,6 +113,8 @@ expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "nearby", moment:
        == #"{"dnd":false,"nearbyWord":"W HOUSE","state":"nearby"}"#, "the Nearby key with a word of its own")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "nearby", moment: nil, dnd: false, dark: true)), as: UTF8.self)
        == #"{"dark":true,"dnd":false,"state":"nearby"}"#, "the wall dark out of hours")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "meeting", moment: nil, dnd: false, canEnd: true)), as: UTF8.self)
+       == #"{"canEnd":true,"dnd":false,"state":"meeting"}"#, "a calendar event that can be ended early")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")
