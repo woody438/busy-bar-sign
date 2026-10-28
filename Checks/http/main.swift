@@ -85,6 +85,11 @@ expect(LocalAPI.saverHeaderValue(LocalAPI.SaverReport(display: 3, drawing: false
 let call = LocalAPI.Status(state: "call", moment: LocalAPI.Status.Moment(at: 1_760_000_000_000, kind: "countdown"), dnd: false)
 expect(String(decoding: LocalAPI.encode(call), as: UTF8.self)
        == #"{"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}"#, "status JSON with a moment")
+let railed = LocalAPI.Status(state: "call", moment: LocalAPI.Status.Moment(at: 1_760_000_000_000, kind: "countdown",
+                             slot: .init(start: 1_759_996_400_000, end: 1_760_000_000_000)), dnd: false)
+expect(String(decoding: LocalAPI.encode(railed), as: UTF8.self)
+       == #"{"dnd":false,"moment":{"at":1760000000000,"kind":"countdown","slot":{"end":1760000000000,"start":1759996400000}},"state":"call"}"#,
+       "status JSON with the meeting for the time-left rail")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "dnd", moment: nil, dnd: true)), as: UTF8.self)
        == #"{"dnd":true,"state":"dnd"}"#, "status JSON without one")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)), as: UTF8.self)

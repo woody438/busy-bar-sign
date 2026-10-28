@@ -87,6 +87,11 @@ struct StatusDecision: Equatable {
     var at: Double? = nil               // the moment the state is about, ms
     var eventID: String? = nil
     var eventTitle: String? = nil
+    var slot: Slot? = nil               // on a call or in a meeting: the meeting the time-left rail is about
+
+    struct Slot: Equatable {
+        var start: Double, end: Double  // ms
+    }
 }
 
 enum StatusRules {
@@ -253,27 +258,54 @@ enum StatusRules {
     }
 
     /*
-     * When you're next free: the end of the call or meeting you're in, carried
-     * on through any that follow back to back. Calls, meetings and calendar
-     * phone calls count, tentative ones too; lunch and your own blocks don't.
+     * The call or meeting you're in and any that follow it back to back, each
+     * one carrying on past the last: the run you're busy for. Calls, meetings
+     * and calendar phone calls count, tentative ones too; lunch and your own
+     * blocks don't.
      */
-    static func busyUntil(_ anchor: Sorted, _ evs: [Sorted], _ cfg: StatusConfig) -> Double {
+    static func runOf(_ anchor: Sorted, _ evs: [Sorted], _ cfg: StatusConfig) -> [Sorted] {
         let work = evs.filter { $0.kind == .call || $0.kind == .inPerson || $0.kind == .phone }
         let gap = cfg.chainGapMinutes * minute
+        var run = [anchor]
         var end = anchor.end, grew = true
         while grew {
             grew = false
             for x in work where x.start > anchor.start && x.start <= end + gap && x.end > end {
                 end = x.end
+                run.append(x)
                 grew = true
             }
         }
-        return end
+        return run
+    }
+
+    /// When you're next free: the end of that run (each one in it ends later than the one before).
+    static func busyUntil(_ anchor: Sorted, _ evs: [Sorted], _ cfg: StatusConfig) -> Double {
+        runOf(anchor, evs, cfg).last!.end
+    }
+
+    /*
+     * The meeting the time-left rail is about, refilled for each one in the
+     * run: the one on now that ends first; between two, or before the first
+     * (joined early), the next to start.
+     */
+    static func slotOf(_ anchor: Sorted, _ evs: [Sorted], _ cfg: StatusConfig, _ now: Double) -> StatusDecision.Slot {
+        var on: Sorted?, next: Sorted?
+        for x in runOf(anchor, evs, cfg) {
+            if x.start <= now && now < x.end {
+                if on == nil || x.end < on!.end { on = x }
+            } else if x.start > now && (next == nil || x.start < next!.start) {
+                next = x
+            }
+        }
+        let e = on ?? next ?? anchor
+        return StatusDecision.Slot(start: e.start, end: e.end)
     }
 
     /*
      * The sign at `input.now`. ON A CALL and MEETING count down to when you're
-     * free: the end of the event, carried through back-to-back ones.
+     * free: the end of the event, carried through back-to-back ones. Their
+     * time-left rail follows the meeting you're in, refilling for each.
      */
     static func decide(_ input: StatusInput) -> StatusDecision {
         let cfg = input.config
@@ -305,10 +337,13 @@ enum StatusRules {
         let lead = cfg.leadMinutes * minute, late = cfg.lateMinutes * minute
         func first(_ pred: (Sorted) -> Bool) -> Sorted? { current.first(where: pred) }
         func quote(_ e: Sorted) -> String { "“" + (e.ev.title.isEmpty ? "Untitled" : e.ev.title) + "”" }
-        // busy until the end of this event and any back to back after it: a countdown to free
+        // busy until the end of this event and any back to back after it: a countdown to free,
+        // and the meeting you're in for the time-left rail
         func until(_ state: String, _ why: String, _ x: Sorted) -> StatusDecision {
             let end = busyUntil(x, evs, cfg)
-            return sign(state, why, event: x, left: (end - now) / 1000, at: end)
+            var d = sign(state, why, event: x, left: (end - now) / 1000, at: end)
+            d.slot = slotOf(x, evs, cfg, now)
+            return d
         }
 
         // 1. you said so

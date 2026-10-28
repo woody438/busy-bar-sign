@@ -198,6 +198,19 @@ expect('meeting chains too', decide(700, chain).at, 720 * M);
 expect('mic with nothing in the calendar: no countdown', decide(630, [], [[600, null]]).left, undefined);
 expect('mic after the call overran: no countdown', decide(665, [call('a', 600, 660)], [[600, null]]).left, undefined);
 expect('lunch does not chain', decide(630, [call('a', 600, 660), ev({ title: 'Lunch', start: 660 * M, end: 720 * M })], [[600, null]]).at, 660 * M);
+// the time-left rail: the meeting you're in, refilled for each one back to back
+const slotOf = (s) => (s.slot ? s.slot.start / M + '-' + s.slot.end / M : 'none');
+expect('rail: the call you\'re on', slotOf(decide(630, chain, [[600, null]])), '600-660');
+expect('…refilled for the next', slotOf(decide(662, chain, [[600, null]])), '660-690');
+expect('…while the countdown runs to the end of the run', decide(662, chain, [[600, null]]).at, 720 * M);
+expect('…in the gap, the next to start', slotOf(decide(692, chain, [[600, null]])), '695-720');
+expect('…a meeting too', slotOf(decide(700, chain)), '695-720');
+expect('…joined early: the call about to start', slotOf(decide(597, [call('a', 600, 660)], [[596, null]])), '600-660');
+expect('…overlapping: the one that ends first', slotOf(decide(657, [call('a', 600, 660), call('b', 650, 700)], [[600, null]])), '600-660');
+expect('…a calendar phone call', slotOf(sAt('15:10')), slotOf({ slot: { start: D.at(base, '15:00'), end: D.at(base, '15:30') } }));
+expect('…not for lunch', slotOf(sAt('12:40')), 'none');
+expect('…not for a warning', slotOf(sAt('09:40')), 'none');
+expect('…not with nothing in the calendar', slotOf(decide(630, [], [[600, null]])), 'none');
 // --- the away keys, and the Mac locked ---------------------------------------
 const decideWith = (now, events, mic, extra) => R.decide(Object.assign({ now: now * M, override: 'auto', dndUntil: null, events: events,
   micSessions: (mic || []).map(([s, e]) => ({ start: s * M, end: e == null ? null : e * M })) }, extra || {}));

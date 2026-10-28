@@ -157,7 +157,11 @@ final class BusyBarSignSaverView: ScreenSaverView {
             }
             bar.moment = status.moment.map { m in
                 BarMoment(at: Date(timeIntervalSince1970: m.at / 1000),
-                          kind: m.kind == "countUp" ? .countUp : m.kind == "fixed" ? .fixed : .countdown)
+                          kind: m.kind == "countUp" ? .countUp : m.kind == "fixed" ? .fixed : .countdown,
+                          slot: m.slot.flatMap { s in
+                              s.end > s.start ? DateInterval(start: Date(timeIntervalSince1970: s.start / 1000),
+                                                             end: Date(timeIntervalSince1970: s.end / 1000)) : nil
+                          })
             }
             show(state, dark: status.dark)
         } else if now.timeIntervalSince(heardAt ?? startedAt) > (heardAt == nil ? 2 : 30) {
