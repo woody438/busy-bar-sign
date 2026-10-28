@@ -2,7 +2,7 @@ import Foundation
 
 // Runs Sources/StatusRules.swift on every case simulator/tools/rules-cases.js
 // wrote, and checks it decides what rules.js decided: the same state, the
-// same countdown and the same moment.
+// same countdown, the same moment and the same meeting for the time-left rail.
 let data = try! Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
 let root = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
 let cases = root["cases"] as! [[String: Any]]
@@ -59,6 +59,12 @@ for (n, c) in cases.enumerated() {
     let i = input(c["input"] as! [String: Any])
     let want = c["expect"] as! [String: Any]
     let got = StatusRules.decide(i)
+    // the time-left rail's meeting: [start, end] in ms, or null
+    let slot = (want["slot"] as? [NSNumber]).map { StatusDecision.Slot(start: $0[0].doubleValue, end: $0[1].doubleValue) }
+    if got.slot != slot {
+        failures.append("case \(n) at \(i.now / 60000) min: rail \(got.slot.map { "\($0.start)-\($0.end)" } ?? "-")"
+                        + "; want \(slot.map { "\($0.start)-\($0.end)" } ?? "-")")
+    }
     if got.state != str(want["state"]) || !same(got.left, num(want["left"])) || !same(got.at, num(want["at"])) {
         failures.append("case \(n) at \(i.now / 60000) min: got \(got.state) left \(got.left.map { "\($0)" } ?? "-") at \(got.at.map { "\($0)" } ?? "-")"
                         + "; want \(str(want["state"])) left \(num(want["left"]).map { "\($0)" } ?? "-") at \(num(want["at"]).map { "\($0)" } ?? "-")")

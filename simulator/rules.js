@@ -160,19 +160,43 @@
   }
 
   /*
-   * When you're next free: the end of the call or meeting you're in, carried
-   * on through any that follow back to back. Calls, meetings and calendar
-   * phone calls count, tentative ones too; lunch and your own blocks don't.
+   * The call or meeting you're in and any that follow it back to back, each
+   * one carrying on past the last: the run you're busy for. Calls, meetings
+   * and calendar phone calls count, tentative ones too; lunch and your own
+   * blocks don't.
    */
-  function busyUntil(anchor, evs, cfg) {
+  function runOf(anchor, evs, cfg) {
     const work = evs.filter((x) => x.kind === 'call' || x.kind === 'inPerson' || x.kind === 'phone');
     const gap = cfg.chainGapMinutes * MINUTE;
+    const run = [anchor];
     let end = anchor.end, grew = true;
     while (grew) {
       grew = false;
-      for (const x of work) if (x.start > anchor.start && x.start <= end + gap && x.end > end) { end = x.end; grew = true; }
+      for (const x of work) if (x.start > anchor.start && x.start <= end + gap && x.end > end) { end = x.end; run.push(x); grew = true; }
     }
-    return end;
+    return run;
+  }
+
+  /* When you're next free: the end of that run (each one in it ends later than the one before). */
+  function busyUntil(anchor, evs, cfg) {
+    const run = runOf(anchor, evs, cfg);
+    return run[run.length - 1].end;
+  }
+
+  /*
+   * The meeting the time-left rail is about, refilled for each one in the
+   * run: the one on now that ends first; between two, or before the first
+   * (joined early), the next to start.
+   */
+  function slotOf(anchor, evs, cfg, now) {
+    const run = runOf(anchor, evs, cfg);
+    let on = null, next = null;
+    for (const x of run) {
+      if (x.start <= now && now < x.end) { if (!on || x.end < on.end) on = x; }
+      else if (x.start > now && (!next || x.start < next.start)) next = x;
+    }
+    const e = on || next || anchor;
+    return { start: e.start, end: e.end };
   }
 
   /*
@@ -185,11 +209,13 @@
    *             inPerson: [event ids]  — calls you said you're at in person,
    *             micSessions: [{ start, end }]  — debounced, end null while on,
    *             events: [...], config }
-   * Returns { state, left, at, event, why }:
+   * Returns { state, left, at, event, why, slot }:
    *   state — an engine state; left — seconds to go (or since, for LATE);
-   *   at — the moment the state is about (ms); event — the event behind it.
+   *   at — the moment the state is about (ms); event — the event behind it;
+   *   slot — { start, end } (ms), the meeting the time-left rail is about.
    * ON A CALL and MEETING count down to when you're free: the end of the
-   * event, carried through back-to-back ones (busyUntil).
+   * event, carried through back-to-back ones (busyUntil). Their rail
+   * follows the meeting you're in, refilling for each (slotOf).
    */
   function decide(input) {
     const cfg = Object.assign({}, DEFAULTS, input.config || {});
@@ -216,8 +242,12 @@
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
     const first = (pred) => current.find(pred);
     const quote = (e) => '“' + (e.title || 'Untitled') + '”';
-    // busy until the end of this event and any back to back after it: a countdown to free
-    const until = (x) => { const end = busyUntil(x, evs, cfg); return { event: x, left: (end - now) / 1000, at: end }; };
+    // busy until the end of this event and any back to back after it: a countdown to free,
+    // and the meeting you're in for the time-left rail
+    const until = (x) => {
+      const end = busyUntil(x, evs, cfg);
+      return { event: x, left: (end - now) / 1000, at: end, slot: slotOf(x, evs, cfg, now) };
+    };
     let e;
 
     // 1. you said so

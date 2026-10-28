@@ -1138,11 +1138,11 @@ private enum Guide {
     struct Line { let state: BarState?; let how: String; let more: String }
     static let rows: [Line] = [
         Line(state: .call, how: "Automatic when an app uses your microphone.",
-             more: "Counts down to when you're free, through back-to-back meetings. Or an event of your own with “call” in the title, e.g. “Call - Linda”, for calls on your phone."),
+             more: "Counts down to when you're free, through back-to-back meetings; the line beneath shows what's left of the meeting you're in, amber for its last five minutes. Or an event of your own with “call” in the title, e.g. “Call - Linda”, for calls on your phone."),
         Line(state: .meeting, how: "A meeting in your office, a meeting room or one of your company's sites, or with invitees and no Teams, Zoom or Meet link.",
              more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up."),
         Line(state: .callIn, how: "10 minutes before a call or a meeting.",
-             more: "BUSY IN for a meeting in person. A countdown, then the start time."),
+             more: "BUSY IN for a meeting in person. A countdown, then the start time. In the last two minutes, CALL IN 01:42 across the bar every few seconds."),
         Line(state: .late, how: "A call has started and your microphone hasn't.",
              more: "Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you're there in person."),
         Line(state: .lateMtg, how: "A meeting in a meeting room has started, and you're still at the Mac.",
@@ -1171,7 +1171,8 @@ private enum Guide {
         let raster = LEDRaster(pitch: 3)
         var frame = LEDFrame()
         let timers: [BarState: BarTimer] = [
-            .call: BarTimer(left: 2832, h: 11, m: 30), .meeting: BarTimer(left: 1080, h: 11, m: 30),
+            .call: BarTimer(left: 2832, h: 11, m: 30, slot: BarSlot(left: 2832, total: 3600)),
+            .meeting: BarTimer(left: 1080, h: 11, m: 30, slot: BarSlot(left: 1080, total: 1800)),
             .callIn: BarTimer(left: 461, h: 11, m: 0), .late: BarTimer(left: 80, h: 9, m: 45), .lateMtg: BarTimer(left: 80, h: 10, m: 30),
             .lunch: BarTimer(left: 1980, h: 13, m: 25),
             .freeTil: BarTimer(left: 0, h: 11, m: 0), .callTbc: BarTimer(left: 461, h: 12, m: 0)

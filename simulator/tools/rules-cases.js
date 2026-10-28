@@ -14,7 +14,7 @@ const cases = [];
 function add(input) {
   const out = R.decide(input);
   cases.push({ input: input, expect: { state: out.state, left: out.left === undefined ? null : out.left,
-    at: out.at === undefined ? null : out.at } });
+    at: out.at === undefined ? null : out.at, slot: out.slot ? [out.slot.start, out.slot.end] : null } });
 }
 
 // the sample day
@@ -53,6 +53,10 @@ scenario([ev({ title: 'NO MEETINGS', start: 540 * M, end: 720 * M }), call('c', 
 const chain = [call('a', 600, 660), call('b', 660, 690), ev({ title: 'm', start: 695 * M, end: 720 * M, attendees: 2 }), call('d', 730, 760)];
 scenario(chain, [[600, null]], [600, 630, 662, 700, 735]);
 scenario(chain, [], [630, 700, 725]);
+// the time-left rail: in a gap in the run, joined early, two overlapping
+scenario(chain, [[600, null]], [692]);
+scenario([call('a', 600, 660)], [[596, null]], [597]);
+scenario([call('a', 600, 660), call('b', 650, 700)], [[600, null]], [657, 662]);
 scenario([], [[600, null]], [630]);
 scenario([call('a', 600, 660), ev({ title: 'Lunch', start: 660 * M, end: 720 * M })], [[600, null]], [630, 665]);
 scenario([ev({ title: 'Déjeuner', start: 590 * M, end: 650 * M })], [], [600], { config: { keywords: { lunch: ['déjeuner'] } } });

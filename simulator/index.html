@@ -730,7 +730,11 @@
     switch (st) {
       case 'backIn': { const left = Math.max(0, 29 * 60 + 52 - e); return Object.assign({ left: left }, later(left)); }
       case 'callIn': case 'busyIn': case 'callTbc': { const left = Math.max(0, 9 * 60 + 41 - e); return Object.assign({ left: left }, later(left)); }
-      case 'call': case 'callMuted': case 'meeting': { const left = Math.max(0, 47 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
+      case 'call': case 'callMuted': case 'meeting': {
+        // an hour's meeting, with the time-left rail beneath
+        const left = Math.max(0, 47 * 60 + 12 - e);
+        return Object.assign({ left: left, slot: { left: left, total: 3600 } }, later(left));
+      }
       case 'lunch': { const left = Math.max(0, 38 * 60 + 12 - e); return Object.assign({ left: left }, later(left)); }
       case 'late': case 'lateMtg': { const t = new Date(d.getTime() - (80 + e) * 1000); return { left: 80 + e, h: t.getHours(), m: t.getMinutes() }; }
       case 'freeTil': return Object.assign({ left: 0 }, later(18 * 60));
@@ -849,9 +853,9 @@
   addEventListener('resize', sizePreview);
   // the guide: each state as the bar draws it, and what puts it there
   const GUIDE = [
-    ['call', 'Automatic when an app uses your microphone.', 'Counts down to when you’re free, through back-to-back meetings. Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
+    ['call', 'Automatic when an app uses your microphone.', 'Counts down to when you’re free, through back-to-back meetings; the line beneath shows what’s left of the meeting you’re in, amber for its last five minutes. Or an event of your own with <span class="m-tok">call</span> in the title, e.g. “Call - Linda”, for calls on your phone.'],
     ['meeting', 'A meeting in your office, a meeting room or one of your company’s sites, or with invitees and no Teams, Zoom or Meet link.', 'A link doesn’t matter with the room or your office as the location. Or a call never joined, once LATE gives up.'],
-    ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time.'],
+    ['callIn', '10 minutes before a call or a meeting.', 'BUSY IN for a meeting in person. A countdown, then the start time. In the last two minutes, CALL IN 01:42 across the bar every few seconds.'],
     ['late', 'A call has started and your microphone hasn’t.', 'Pulses for up to 10 minutes, then MEETING. Joining turns it red; the Status key or a double-click says you’re there in person.'],
     ['lateMtg', 'A meeting in a meeting room has started, and you’re still at the Mac.', 'Pulses for up to 10 minutes, or till you leave the Mac, then MEETING.'],
     ['callTbc', 'Show As: <span class="m-tok">Tentative</span> on a meeting.', 'Counts down to the start, then shows the end. BUSY TBC in person. Never shows LATE — you may not be going.'],
@@ -867,7 +871,8 @@
     painter.resize(472, 64);
     const clock = { h: 10, m: 52, s: 0, ms: 0, dow: 5, date: 2 };
     const TIMERS = { callIn: { left: 461, h: 11, m: 0 }, late: { left: 80, h: 9, m: 45 }, lateMtg: { left: 80, h: 10, m: 30 }, lunch: { left: 1980, h: 13, m: 25 }, freeTil: { left: 0, h: 11, m: 0 },
-      callTbc: { left: 461, h: 12, m: 0 }, call: { left: 2832, h: 11, m: 30 }, meeting: { left: 1080, h: 11, m: 30 }, dnd: undefined };
+      callTbc: { left: 461, h: 12, m: 0 }, call: { left: 2832, h: 11, m: 30, slot: { left: 2832, total: 3600 } },
+      meeting: { left: 1080, h: 11, m: 30, slot: { left: 1080, total: 1800 } }, dnd: undefined };
     const table = document.getElementById('m-guide');
     for (const [st, how, more] of GUIDE) {
       const tr = document.createElement('tr');
@@ -897,6 +902,8 @@
       if (r.left !== undefined) {
         const at = new Date(midnight.getTime() + r.at);
         timer = { left: r.left, h: at.getHours(), m: at.getMinutes() };
+        // on a call or in a meeting: the meeting you're in, for the time-left rail
+        if (r.slot) timer.slot = { left: (r.slot.end - simMs) / 1000, total: (r.slot.end - r.slot.start) / 1000 };
       } else if (r.at !== undefined && (r.state === 'freeTil' || r.state === 'callTbc' || r.state === 'busyTbc')) {
         const at = new Date(midnight.getTime() + r.at);
         timer = { left: 0, h: at.getHours(), m: at.getMinutes() };
