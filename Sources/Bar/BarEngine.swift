@@ -212,6 +212,14 @@ struct ClockReading {
 struct BarTimer {
     let left: Double
     let h: Int, m: Int
+    /// On a call or in a meeting: the meeting you're in, for the time-left rail.
+    var slot: BarSlot? = nil
+}
+
+/// The meeting you're in: seconds left of it, and its length.
+struct BarSlot {
+    let left: Double
+    let total: Double
 }
 
 /// What goes right of the pill: a top line in the clock's face and a bottom
@@ -583,7 +591,8 @@ enum BarEngine {
      *   since — `now` at which `state` began
      *   clock — the wall-clock time to show
      *   timer — Do Not Disturb's countdown, shown in place of the clock
-     *           while the state is .dnd
+     *           while the state is .dnd; on a call or in a meeting, its
+     *           `slot` for the time-left rail
      */
     static func render(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
                        since: Double, clock: ClockReading, timer: BarTimer? = nil) {
@@ -608,7 +617,10 @@ enum BarEngine {
             let k = easeInOut((e - collapseStart) / Timing.collapse)
             let w = lerp(Layout.heroW, Layout.statusW, k)
             let edge = Layout.heroX + w
-            drawPill(&f, x0: Layout.heroX, w: w, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
+            // with a time-left rail, the pill draws up off the bottom two rows as it shrinks
+            let slot = slotOf(state, timer), lift = slot == nil ? 0 : 1
+            drawPill(&f, x0: Layout.heroX, w: w, pal: pal, sheen: sheenAt(now),
+                     h: jsRound(lerp(Double(rows), Double(rows - 2 * lift), k)), dim: pulseAt(now, state))
             // the announcement face gives way to icon + status face as the pill shrinks:
             // out before the big word can outgrow the pill, in once there's room
             let fadeOut = 1 - smooth(0.08, 0.34, k)
@@ -624,18 +636,91 @@ enum BarEngine {
                          baseY: h.base, colour: white, style: style)
             }
             if fadeIn > 0 {
-                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip)
+                drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.heroX, w: w, alpha: fadeIn, clip: clip,
+                                  lift: jsRound(Double(lift) * k))
             }
             // the time slides in from the right as the pill makes room, as the
             // firmware's timer label does
-            let slide = jsRound(Layout.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
+            let p = easeOut((e - collapseStart) / Timing.collapse)
+            let slide = jsRound(Layout.slideIn * (1 - p))
             drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: Int(edge.rounded(.up)) + 2)
+            // ...and the rail fills in beneath
+            if let slot { drawSlot(&f, slot, x0: 1, n: cols - 2, rows: [rows - 1], grow: p) }
         } else {
-            drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
-                       scroll: scrollAt(now, state, since: since, pillW: Layout.statusW))
+            let big = bigAt(now, state, timer)
+            if let timer, big >= 0 {
+                drawBig(&f, now: now, state: state, pal: pal, clock: clock, timer: timer, p: big)
+            } else {
+                drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
+                           scroll: scrollAt(now, state, since: since, pillW: Layout.statusW))
+            }
+            if let slot = slotOf(state, timer) { drawSweep(&f, sweepAt(now, slot.left)) }
         }
 
         if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
+    }
+
+    /*
+     * Time left. On a call or in a meeting with a calendar slot (timer.slot —
+     * the meeting you're in, refilled for each one back to back) a rail along
+     * the bottom row shows how much of it is left: white on a faint track,
+     * amber for the last five minutes. The pill and the clock move up a row
+     * to make room. In the last two minutes a band of light sweeps across the
+     * bar every 3 s. Before a call (CALL SOON, BUSY SOON) the last two minutes
+     * widen the pill to CALL IN 01:42 for 3 s in every 9; stacked, where the
+     * countdown's already large, they sweep. Both keep time by `now`, as the
+     * sheen does, so they keep their pace whatever the countdown's doing.
+     */
+    enum Slot {
+        static let amber = 5 * 60.0, alert = 2 * 60.0
+        static let track = 0.1, lit = 0.92                    // the track's light and the rail's
+        static let sweepEvery = 3.0, sweepFor = 1.2, sweepWidth = 3.2, sweepStrength = 0.75
+        static let bigEvery = 9.0, bigFor = 3.3, bigIn = 0.35  // the big countdown: how often, how long, widening and narrowing
+    }
+    static let slotStates: Set<BarState> = [.call, .callMuted, .meeting]
+
+    /// The slot the rail shows, or nil: only on a call or in a meeting that has one.
+    static func slotOf(_ state: BarState, _ timer: BarTimer?) -> BarSlot? {
+        guard let slot = timer?.slot, slot.total > 0, slotStates.contains(state) else { return nil }
+        return slot
+    }
+
+    /// The rail: cells x0..<x0+n on each of `rows`, lit for the time left; `grow` (0...1) as it fills in.
+    static func drawSlot(_ f: inout LEDFrame, _ slot: BarSlot, x0: Int, n: Int, rows slotRows: [Int], grow: Double) {
+        let c = slot.left <= Slot.amber ? BarPalette.amber.top : white
+        let lit = clamp(slot.left / slot.total, 0, 1) * Double(n) * grow
+        let track = RGB(Slot.track, Slot.track, Slot.track), on = c * Slot.lit
+        for y in slotRows {
+            for i in 0..<n { f.set(x0 + i, y, mix(track, on, clamp(lit - Double(i), 0, 1))) }
+        }
+    }
+
+    /// The last two minutes of `left`: how far through its crossing the sweep is (0...1), or -1 between them.
+    static func sweepAt(_ now: Double, _ left: Double?) -> Double {
+        guard let left, left > 0, left <= Slot.alert else { return -1 }
+        let p = now.truncatingRemainder(dividingBy: Slot.sweepEvery)
+        return p < Slot.sweepFor ? p / Slot.sweepFor : -1
+    }
+
+    /// A band of light across everything lit, the darkest LEDs least.
+    static func drawSweep(_ f: inout LEDFrame, _ p: Double) {
+        guard p >= 0 else { return }
+        let pos = p * Double(f.w + 40) - 20, k = 2 * Slot.sweepWidth * Slot.sweepWidth
+        for y in 0..<f.h {
+            for x in 0..<f.w {
+                let c = f.get(x, y), lum = max(c.x, c.y, c.z)
+                if lum <= 0.02 { continue }
+                let u = (Double(x) + 0.5 - pos) + (Double(y) - Double(f.h) / 2) * 0.55
+                f.blend(x, y, white, exp(-(u * u) / k) * Slot.sweepStrength * min(1, lum * 2.2))
+            }
+        }
+    }
+
+    /// CALL SOON's last two minutes: seconds into a big countdown, or -1 between them.
+    static func bigAt(_ now: Double, _ state: BarState, _ timer: BarTimer?) -> Double {
+        guard state == .callIn || state == .busyIn, let timer, timer.left > 0, timer.left <= Slot.alert else { return -1 }
+        let p = now.truncatingRemainder(dividingBy: Slot.bigEvery)
+        return p < Slot.bigFor ? p : -1
     }
 
     /// Move everything down by `dy` rows (the firmware's press effect).
@@ -700,12 +785,36 @@ enum BarEngine {
     static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
                            timer: BarTimer?, slide: Int, scroll: Int = 0) {
         let pal = BarPalette.of(state)
-        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
+        let slot = slotOf(state, timer), lift = slot == nil ? 0 : 1
+        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), h: rows - 2 * lift,
+                 dim: pulseAt(now, state))
         let clip: (lo: Int, hi: Int)? = scroll == 0 ? nil
             : (lo: Int(Layout.statusX) + 1, hi: Int(Layout.statusX + Layout.statusW) - 1)
         drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX + Double(scroll), w: Layout.statusW,
-                          alpha: 1, clip: clip)
+                          alpha: 1, clip: clip, lift: lift)
         drawRight(&f, state: state, clock: clock, timer: timer, slide: slide, minX: 0)
+        if let slot { drawSlot(&f, slot, x0: 1, n: cols - 2, rows: [rows - 1], grow: 1) }
+    }
+
+    /// CALL SOON's big countdown, `p` seconds in: the pill widens across the bar with
+    /// CALL IN 01:42 in it, holds, and draws back, as the announcement does.
+    static func drawBig(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, clock: ClockReading,
+                        timer: BarTimer, p: Double) {
+        let hold = Slot.bigFor - Slot.bigIn
+        let g = p < Slot.bigIn ? easeOut(p / Slot.bigIn) : p > hold ? 1 - easeIn((p - hold) / Slot.bigIn) : 1
+        let w = lerp(Layout.statusW, Layout.heroW, g), edge = Layout.statusX + w
+        let clip = (lo: Int(Layout.statusX) + 1, hi: Int(edge.rounded(.down)) - 1)
+        drawPill(&f, x0: Layout.statusX, w: w, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
+        if g < 0.5 {
+            drawStatusContent(&f, now: now, state: state, pal: pal, x0: Layout.statusX, w: w, alpha: 1 - g * 2, clip: clip)
+        } else {
+            let word = state.word + " " + countdownText(timer).mmss, a = (g - 0.5) * 2
+            let tw = textWidth(Layout.statusFont, word)
+            drawText(&f, font: Layout.statusFont, word, x: Double(jsRound(Layout.heroX + (Layout.heroW - Double(tw)) / 2)),
+                     baseY: Layout.statusBase, colour: white,
+                     style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * a, alpha: a, clip: clip))
+        }
+        drawRight(&f, state: state, clock: clock, timer: timer, slide: 0, minX: Int(edge.rounded(.up)) + 2)
     }
 
     /*
@@ -752,6 +861,7 @@ enum BarEngine {
     }
 
     /// Right of the pill. `slide` pushes it right (entrance); nothing is drawn left of `minX`.
+    /// Up a row over a time-left rail.
     static func drawRight(_ f: inout LEDFrame, state: BarState, clock: ClockReading, timer: BarTimer?,
                           slide: Int, minX: Int) {
         let text = rightText(state, clock: clock, timer: timer)
@@ -760,10 +870,11 @@ enum BarEngine {
         let x0 = Layout.clockX + slide
         let clip = (lo: max(minX, Layout.clockX - 3), hi: cols)
         let colon = text.blink && clock.s % 2 == 1 ? 0.4 : 1.0
+        let lift = slotOf(state, timer) == nil ? 0 : 1
         drawClockText(&f, font: Layout.timeFont, text.top, x: x0 + jsRound(Double(Layout.clockW - tw) / 2),
-                      baseY: Layout.timeBase, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
+                      baseY: Layout.timeBase - lift, colour: white, style: TextStyle(clip: clip), colonAlpha: colon)
         drawText(&f, font: Layout.dateFont, text.bottom, x: Double(x0 + jsRound(Double(Layout.clockW - bw) / 2)),
-                 baseY: Layout.dateBase, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
+                 baseY: Layout.dateBase - lift, colour: white, style: TextStyle(alpha: 0.5, clip: clip))
     }
 
     // MARK: Status
@@ -793,15 +904,17 @@ enum BarEngine {
         iconWidth(state) + textWidth(Layout.statusFont, state.word)
     }
 
+    /// `lift`: rows up, to sit in a pill shortened for the time-left rail.
     static func drawStatusContent(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, x0: Double, w: Double,
-                                  alpha: Double, clip: (lo: Int, hi: Int)?) {
+                                  alpha: Double, clip: (lo: Int, hi: Int)?, lift: Int = 0) {
         let x = jsRound(x0 + (w - Double(statusContentWidth(state))) / 2)
+        let base = Layout.statusBase - lift
         if let icon = icons[state] {
-            drawIcon(&f, rows: icon, x: x, bottomY: Layout.statusBase - (iconLift[state] ?? 0),
+            drawIcon(&f, rows: icon, x: x, bottomY: base - (iconLift[state] ?? 0),
                      colour: white, shadow: pal.shadow, alpha: alpha * iconAlphaAt(now, state), clip: clip)
         }
         drawText(&f, font: Layout.statusFont, state.word, x: Double(x + iconWidth(state)),
-                 baseY: Layout.statusBase, colour: white,
+                 baseY: base, colour: white,
                  style: TextStyle(shadow: pal.shadow, shadowAlpha: 0.9 * alpha, alpha: alpha, clip: clip))
     }
 
@@ -1017,6 +1130,7 @@ enum BarEngine {
         static let bigBase = 33, smallBase = 42
         static let slideIn = 24.0      // the clock rises from 24 rows down
         static let heroGap = 4         // rows between the announcement's lines
+        static let slotRows = [17, 18] // the time-left rail, between the pill and the clock
 
         /// A line of the announcement: the 14-row face, or the 10-row one
         /// where a line won't fit the 82-LED pill in it.
@@ -1163,12 +1277,20 @@ enum BarEngine {
             if fadeIn > 0 {
                 drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
             }
-            // ...and the clock rises into the space it leaves
-            let slide = jsRound(Stacked.slideIn * (1 - easeOut((e - collapseStart) / Timing.collapse)))
+            // ...and the clock rises into the space it leaves, the time-left rail filling in above it
+            let p = easeOut((e - collapseStart) / Timing.collapse)
+            let slide = jsRound(Stacked.slideIn * (1 - p))
             drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: h + 2)
+            if let slot = slotOf(state, timer) {
+                drawSlot(&f, slot, x0: Int(Stacked.pillX), n: Int(Stacked.pillW), rows: Stacked.slotRows.filter { $0 > h }, grow: p)
+            }
         } else {
             drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
                               scroll: scrollAt(now, state, since: since, pillW: Stacked.pillW))
+            // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
+            let slot = slotOf(state, timer)
+            let soon = state == .callIn || state == .busyIn ? timer?.left : nil
+            drawSweep(&f, sweepAt(now, slot?.left ?? soon))
         }
 
         if e < Timing.wave { drawShockwave(&f, progress: e / Timing.wave, pal: pal) }
@@ -1184,6 +1306,9 @@ enum BarEngine {
         drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX + Double(scroll), w: Stacked.pillW,
                           alpha: 1, clip: clip)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
+        if let slot = slotOf(state, timer) {
+            drawSlot(&f, slot, x0: Int(Stacked.pillX), n: Int(Stacked.pillW), rows: Stacked.slotRows, grow: 1)
+        }
     }
 
     static func drawStackedHero(_ f: inout LEDFrame, state: BarState, pal: BarPalette, alpha: Double,

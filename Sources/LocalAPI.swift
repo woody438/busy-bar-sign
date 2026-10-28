@@ -7,6 +7,9 @@ import Foundation
  * Checks/http can test it anywhere Swift runs.
  *
  *   GET  /status          {"dnd":false,"moment":{"at":1760000000000,"kind":"countdown"},"state":"call"}
+ *                         (on a call or in a meeting, the moment has a "slot" too:
+ *                         {"end":1760000000000,"start":1759996400000}, the meeting
+ *                         you're in, for the time-left rail)
  *   POST /dnd/toggle      as a double-click on the bar: Do Not Disturb on or off, or
  *                         during LATE FOR CALL or MTG, there in person (MEETING);
  *                         answers with the new status
@@ -156,6 +159,11 @@ enum LocalAPI {
         struct Moment: Encodable, Equatable {
             var at: Int64                       // ms since 1970
             var kind: String                    // countdown, countUp, fixed
+            var slot: Slot? = nil               // on a call or in a meeting: the meeting you're in
+
+            struct Slot: Encodable, Equatable {
+                var start: Int64, end: Int64    // ms since 1970
+            }
         }
         /// The Teams or Zoom meeting you're in.
         struct Meeting: Encodable, Equatable {

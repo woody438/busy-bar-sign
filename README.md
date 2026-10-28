@@ -13,8 +13,9 @@ state is detected automatically from which app has your microphone — Zoom,
 Teams, Google Meet, FaceTime, or anything else — and from **your calendar**:
 it warns people ten minutes before a call (**CALL IN 09:41**), says when
 you're **LATE FOR** one, shows **MEETING**, **LUNCH**, **AWAY**, **OUT ON
-SITE** and **OUT OF OFFICE**, and on a call counts down to when you're free.
-[More below](#your-calendar). When you're **muted** on a call, the mic on the
+SITE** and **OUT OF OFFICE**, and on a call counts down to when you're free,
+with a line along the bottom for what's left of the meeting
+([Time left](#time-left)). [More below](#your-calendar). When you're **muted** on a call, the mic on the
 sign gets a slash and flashes, so the room knows it can talk
 ([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
 sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
@@ -527,9 +528,9 @@ account's own "Calendar" by itself.
 
 | The bar | What puts it there |
 |---|---|
-| **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
+| **ON A CALL** · *47:12 TILL 11:30* | An app has your microphone. On a call in your calendar it counts down to when you're free, carried through back-to-back meetings (5 minutes apart or less); an hour or more reads *1H05*. A line along the bottom shows what's left of the meeting you're in ([Time left](#time-left)). Or an event of your own with **call** in the title (e.g. "Call - Linda"), for calls on your phone. |
 | **MEETING** · *countdown* | A meeting in your office, a meeting room or one of your company's sites — Teams link or not — or one with invitees, no link and no location. Also a call you never joined, once LATE has had its ten minutes, and one you've said you're at in person. |
-| **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
+| **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. In the last two minutes, **CALL IN 01:42** across the bar ([Time left](#time-left)). |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
 | **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. |
@@ -598,6 +599,38 @@ Worth knowing:
 - When the Mac is locked, the lock screen covers every display, the wall
   included; no app can draw over it. The sign's own screen saver can
   ([While you're away](#while-youre-away)).
+
+## Time left
+
+![ON A CALL with a line along the bottom two-thirds full; MEETING with two minutes left, the line amber and light sweeping across; BUSY IN 01:00 across the whole bar](docs/busy-bar-time-left.png)
+
+On a call or in a meeting from your calendar, a **line along the bottom** of
+the sign shows how much of the meeting is left: white on a faint track, so
+you can see its full length, draining to the left. The pill and the clock
+move up a row to make room, and as a call starts the line fills in beneath
+them.
+
+- **The meeting you're in.** The countdown on the right runs to when you're
+  free, through back-to-back meetings; the line is for the meeting you're
+  in, and **fills again** when the next one starts. Between two of them, or
+  joined a few minutes early, it waits full for the next.
+- **Amber** for the last five minutes.
+- **The last two minutes**: a band of light **sweeps** across the sign every
+  3 seconds. No flashing: the muted mic and LATE FOR already blink, and a
+  wall you see all day shouldn't.
+- **Before a call**: in the last two minutes of CALL SOON or BUSY SOON, the
+  pill widens across the bar for 3 seconds in every 9 to say **CALL IN
+  01:42**, as the announcement does, then draws back. In the stacked layout,
+  where the countdown is already large, it sweeps instead; the line sits in
+  the spare rows between the pill and the clock.
+- Only for a call or meeting with a slot in your calendar: on the mic with
+  nothing in the calendar there's no end time, so no countdown and no line.
+  Not for lunch, Do Not Disturb or Back In.
+- The wall, the floating window and the screen saver show it. The Stream
+  Deck's Status key keeps its countdown, without the line.
+
+In the simulator, **Calendar day** has moments for each: 08:56 (amber),
+10:59 (BUSY IN across the bar) and 11:28 (the sweep).
 
 ## The controls
 
@@ -825,9 +858,11 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 197 moments —
+- **The Swift engine matches the simulator LED for LED** across 218 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
+  the time-left line filling in, white, amber and swept, and CALL SOON's
+  last two minutes widening across the bar, held and drawing back,
   NEARBY and BACK IN counting down, each with the countdown the app gives
   it, LUNCH counting down to when you're back, words of your own for
   Nearby through every way of fitting one, the quarter-hourly scroll
@@ -839,8 +874,8 @@ errors or warnings in its code.
   take and turn away the same words for Nearby, and rest the LEDs at the
   same brightness at the same moments. What you see in the
   simulator is what the app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 3,189
-  cases: a scripted working day every 15 seconds — a call joined late and
+- **The Swift status rules decide exactly what the simulator's do** in 3,193
+  cases, down to the meeting each call's time-left line is for: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
   after, one never joined, an in-person meeting, a tentative one, lunch
   with a call inside it, a no-meetings block, phone calls, a venue, a
@@ -850,7 +885,7 @@ errors or warnings in its code.
   code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
   in person, a meeting in a room started with you at the Mac, and the away
   keys and a locked Mac across the day, your own appointments elsewhere, and
-  events ended early. The rules themselves have 254 hand-checked cases (`simulator/tools/rules-check.js`).
+  events ended early. The rules themselves have 268 hand-checked cases (`simulator/tools/rules-check.js`).
 - **The wall's hours** (`Checks/hours`): in hours from 07:30 to just before
   19:00 on weekdays, out all weekend, the same either side of the clocks
   going back; dark only out of hours and only with nothing going on; a span
@@ -922,8 +957,8 @@ errors or warnings in its code.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
-  the plugin and the screen saver read, `dark` out of hours and `canEnd`
-  included, and the END route.
+  the plugin and the screen saver read, `dark` out of hours, `canEnd` and
+  the time-left line's meeting included, and the END route.
 - The pixel fonts decode correctly, and every source file parses.
 
 **Run on a real Mac** — its author's, with an Outlook calendar through
@@ -965,7 +1000,10 @@ idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen
 saver (`ScreenSaverEngine`), whether `SaverInstaller.swift` puts it in place,
 and above all whether macOS 27's screen saver host shows it on every
-monitor, lets it reach the app, and stops it when you're back.
+monitor, lets it reach the app, and stops it when you're back. The
+time-left line (2.9) on the wall through real meetings: the line refilling
+at the change from one back-to-back meeting to the next, and the screen
+saver drawing it from the app's answer.
 
 **Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,

@@ -584,15 +584,17 @@
   function statusContentWidth(state) {
     return iconWidth(state) + textWidth(LAYOUT.statusFont, WORDS[state]);
   }
-  function drawStatusContent(f, now, state, pal, x0, w, alpha, clip) {
+  /* lift: rows up, to sit in a pill shortened for the time-left rail. */
+  function drawStatusContent(f, now, state, pal, x0, w, alpha, clip, lift) {
     const cw = statusContentWidth(state);
     const x = Math.round(x0 + (w - cw) / 2);
+    const base = LAYOUT.statusBase - (lift || 0);
     if (ICONS[state]) {
-      drawIcon(f, ICONS[state], x, LAYOUT.statusBase - ICON_LIFT[state], PALETTE.white, pal.shadow,
+      drawIcon(f, ICONS[state], x, base - ICON_LIFT[state], PALETTE.white, pal.shadow,
         alpha * iconAlphaAt(now, state), clip);
     }
     drawText(f, LAYOUT.statusFont, WORDS[state], x + iconWidth(state),
-      LAYOUT.statusBase, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
+      base, PALETTE.white, { shadow: pal.shadow, alpha: alpha, shadowAlpha: 0.9 * alpha, clip: clip });
   }
 
   /* ------------------------------------------------------------------ *
@@ -642,6 +644,60 @@
     return p < half ? -Math.round(away * easeIn(p / half)) : Math.round(away * (1 - easeOut((p - half) / half)));
   }
 
+  /*
+   * Time left. On a call or in a meeting with a calendar slot (timer.slot:
+   * { left, total }, seconds — the meeting you're in, refilled for each one
+   * back to back) a rail along the bottom row shows how much of it is left:
+   * white on a faint track, amber for the last five minutes. The pill and
+   * the clock move up a row to make room. In the last two minutes a band of
+   * light sweeps across the bar every 3 s. Before a call (CALL SOON, BUSY
+   * SOON) the last two minutes widen the pill to CALL IN 01:42 for 3 s in
+   * every 9; stacked, where the countdown's already large, they sweep. Both
+   * keep time by `now`, as the sheen does, so they keep their pace whatever
+   * the countdown's doing (the simulator's day player runs at 60x).
+   */
+  const SLOT = {
+    amber: 5 * 60, alert: 2 * 60,
+    track: 0.1, lit: 0.92,                             // the track's light and the rail's
+    sweepEvery: 3, sweepFor: 1.2, sweepWidth: 3.2, sweepStrength: 0.75,
+    bigEvery: 9, bigFor: 3.3, bigIn: 0.35              // the big countdown: how often, how long, widening and narrowing
+  };
+  const SLOT_STATES = { call: true, callMuted: true, meeting: true };
+  /* The slot the rail shows, or null: only on a call or in a meeting that has one. */
+  function slotOf(state, timer) {
+    return timer && timer.slot && timer.slot.total > 0 && SLOT_STATES[state] === true ? timer.slot : null;
+  }
+  /* The rail: cells x0..x0+n-1 on each of `rows`, lit for the time left; `grow` (0..1) as it fills in. */
+  function drawSlot(f, slot, x0, n, rows, grow) {
+    const c = slot.left <= SLOT.amber ? PALETTE.amber.top : PALETTE.white;
+    const lit = clamp(slot.left / slot.total, 0, 1) * n * grow;
+    const track = [SLOT.track, SLOT.track, SLOT.track], on = [c[0] * SLOT.lit, c[1] * SLOT.lit, c[2] * SLOT.lit];
+    for (const y of rows) for (let i = 0; i < n; i++) f.set(x0 + i, y, mix(track, on, clamp(lit - i, 0, 1)));
+  }
+  /* The last two minutes of `left`: how far through its crossing the sweep is (0..1), or -1 between them. */
+  function sweepAt(now, left) {
+    if (!(left > 0 && left <= SLOT.alert)) return -1;
+    const p = now % SLOT.sweepEvery;
+    return p < SLOT.sweepFor ? p / SLOT.sweepFor : -1;
+  }
+  /* A band of light across everything lit, the darkest LEDs least. */
+  function drawSweep(f, p) {
+    if (p < 0) return;
+    const pos = p * (f.w + 40) - 20, k = 2 * SLOT.sweepWidth * SLOT.sweepWidth;
+    for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
+      const c = f.get(x, y), lum = Math.max(c[0], c[1], c[2]);
+      if (lum <= 0.02) continue;
+      const u = (x + 0.5 - pos) + (y - f.h / 2) * 0.55;
+      f.blend(x, y, PALETTE.white, Math.exp(-(u * u) / k) * SLOT.sweepStrength * Math.min(1, lum * 2.2));
+    }
+  }
+  /* CALL SOON's last two minutes: seconds into a big countdown, or -1 between them. */
+  function bigAt(now, state, timer) {
+    if ((state !== 'callIn' && state !== 'busyIn') || !timer || !(timer.left > 0 && timer.left <= SLOT.alert)) return -1;
+    const p = now % SLOT.bigEvery;
+    return p < SLOT.bigFor ? p : -1;
+  }
+
   /* Move everything down by dy rows (the firmware's press effect). */
   function shiftDown(f, dy) {
     if (dy <= 0) return;
@@ -657,7 +713,8 @@
    *   since — `now` at which `state` began
    *   clock — { h, m, s, ms, dow, date } wall-clock time to show
    *   timer — Do Not Disturb's countdown, { left: seconds, h, m } (the end
-   *           time), shown in place of the clock while the state is 'dnd'
+   *           time), shown in place of the clock while the state is 'dnd';
+   *           on a call or in a meeting, `slot: { left, total }` for the rail
    */
   function render(f, now, state, prev, since, clock, timer) {
     f.px.fill(0);
@@ -681,7 +738,9 @@
       const k = easeInOut((e - collapseStart) / T.collapse);
       const w = lerp(LAYOUT.heroW, LAYOUT.statusW, k);
       const edge = LAYOUT.heroX + w;
-      drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
+      // with a time-left rail, the pill draws up off the bottom two rows as it shrinks
+      const slot = slotOf(state, timer), lift = slot ? 1 : 0;
+      drawPill(f, LAYOUT.heroX, w, pal, { sheen: sheenAt(now), dim: pulseAt(now, state), h: Math.round(lerp(ROWS, ROWS - 2 * lift, k)) });
       // the announcement face gives way to icon + status face as the pill shrinks:
       // out before the big word can outgrow the pill, in once there's room
       const out = 1 - smooth(0.08, 0.34, k);
@@ -692,13 +751,20 @@
         drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
           HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
       }
-      if (inn > 0) drawStatusContent(f, now, state, pal, LAYOUT.heroX, w, inn, clip);
+      if (inn > 0) drawStatusContent(f, now, state, pal, LAYOUT.heroX, w, inn, clip, Math.round(lift * k));
       // the time slides in from the right as the pill makes room, as the
       // firmware's timer label does
-      const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
+      const p = easeOut((e - collapseStart) / T.collapse);
+      const slide = Math.round(LAYOUT.slideIn * (1 - p));
       drawRight(f, state, clock, timer, slide, Math.ceil(edge) + 2);
+      // ...and the rail fills in beneath
+      if (slot) drawSlot(f, slot, 1, COLS - 2, [ROWS - 1], p);
     } else {
-      drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW));
+      const big = bigAt(now, state, timer);
+      if (big >= 0) drawBig(f, now, state, pal, clock, timer, big);
+      else drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW));
+      const slot = slotOf(state, timer);
+      if (slot) drawSweep(f, sweepAt(now, slot.left));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
@@ -743,10 +809,30 @@
   /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill. */
   function drawSteady(f, now, state, clock, timer, slide, scroll) {
     const pal = palOf(state);
-    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
+    const slot = slotOf(state, timer), lift = slot ? 1 : 0;
+    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state), h: ROWS - 2 * lift });
     const clip = scroll ? [LAYOUT.statusX + 1, LAYOUT.statusX + LAYOUT.statusW - 1] : undefined;
-    drawStatusContent(f, now, state, pal, LAYOUT.statusX + (scroll || 0), LAYOUT.statusW, 1, clip);
+    drawStatusContent(f, now, state, pal, LAYOUT.statusX + (scroll || 0), LAYOUT.statusW, 1, clip, lift);
     drawRight(f, state, clock, timer, slide, 0);
+    if (slot) drawSlot(f, slot, 1, COLS - 2, [ROWS - 1], 1);
+  }
+
+  /* CALL SOON's big countdown, `p` seconds in: the pill widens across the bar with
+     CALL IN 01:42 in it, holds, and draws back, as the announcement does. */
+  function drawBig(f, now, state, pal, clock, timer, p) {
+    const hold = SLOT.bigFor - SLOT.bigIn;
+    const g = p < SLOT.bigIn ? easeOut(p / SLOT.bigIn) : p > hold ? 1 - easeIn((p - hold) / SLOT.bigIn) : 1;
+    const w = lerp(LAYOUT.statusW, LAYOUT.heroW, g), edge = LAYOUT.statusX + w;
+    const clip = [LAYOUT.statusX + 1, Math.floor(edge) - 1];
+    drawPill(f, LAYOUT.statusX, w, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
+    if (g < 0.5) drawStatusContent(f, now, state, pal, LAYOUT.statusX, w, 1 - g * 2, clip);
+    else {
+      const word = WORDS[state] + ' ' + countdownText(timer).mmss, a = (g - 0.5) * 2;
+      const tw = textWidth(LAYOUT.statusFont, word);
+      drawText(f, LAYOUT.statusFont, word, Math.round(LAYOUT.heroX + (LAYOUT.heroW - tw) / 2), LAYOUT.statusBase, PALETTE.white,
+        { shadow: pal.shadow, alpha: a, shadowAlpha: 0.9 * a, clip: clip });
+    }
+    drawRight(f, state, clock, timer, 0, Math.ceil(edge) + 2);
   }
 
   /*
@@ -789,7 +875,8 @@
     return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60);
   }
 
-  /* Right of the pill. `slide` pushes it right (entrance); nothing is drawn left of `minX`. */
+  /* Right of the pill. `slide` pushes it right (entrance); nothing is drawn left of `minX`.
+     Up a row over a time-left rail. */
   function drawRight(f, state, clock, timer, slide, minX) {
     const text = rightText(state, clock, timer);
     const tw = clockTextWidth(LAYOUT.timeFont, text.top);
@@ -797,9 +884,10 @@
     const x0 = LAYOUT.clockX + slide;
     const clip = [Math.max(minX || 0, LAYOUT.clockX - 3), COLS];
     const colon = text.blink && clock.s % 2 === 1 ? 0.4 : 1;
-    drawClockText(f, LAYOUT.timeFont, text.top, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase,
+    const lift = slotOf(state, timer) ? 1 : 0;
+    drawClockText(f, LAYOUT.timeFont, text.top, x0 + Math.round((LAYOUT.clockW - tw) / 2), LAYOUT.timeBase - lift,
       PALETTE.white, { clip: clip }, colon);
-    drawText(f, LAYOUT.dateFont, text.bottom, x0 + Math.round((LAYOUT.clockW - bw) / 2), LAYOUT.dateBase,
+    drawText(f, LAYOUT.dateFont, text.bottom, x0 + Math.round((LAYOUT.clockW - bw) / 2), LAYOUT.dateBase - lift,
       PALETTE.white, { alpha: 0.5, clip: clip });
   }
 
@@ -866,7 +954,8 @@
     bigFont: 'busy_regular_14', smallFont: 'busy_bold_7',
     bigBase: 33, smallBase: 42,
     slideIn: 24,                   // the clock rises from 24 rows down
-    heroGap: 4                     // rows between the announcement's lines
+    heroGap: 4,                    // rows between the announcement's lines
+    slotRows: [17, 18]             // the time-left rail, between the pill and the clock
   };
   /* The announcement fills the panel, a word or two per line. */
   /* A line is a string in the 14-row face, or { t, font, tracking } where
@@ -988,11 +1077,18 @@
       const inn = smooth(0.14, 0.4, k);
       if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer);
       if (inn > 0) drawStatusContent(f, now, state, pal, S.pillX, S.pillW, inn);
-      // ...and the clock rises into the space it leaves
-      const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
+      // ...and the clock rises into the space it leaves, the time-left rail filling in above it
+      const p = easeOut((e - collapseStart) / T.collapse);
+      const slide = Math.round(S.slideIn * (1 - p));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
+      const slot = slotOf(state, timer);
+      if (slot) drawSlot(f, slot, S.pillX, S.pillW, S.slotRows.filter((y) => y > h), p);
     } else {
       drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW));
+      // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
+      const slot = slotOf(state, timer);
+      const soon = (state === 'callIn' || state === 'busyIn') && timer ? timer.left : null;
+      drawSweep(f, sweepAt(now, slot ? slot.left : soon));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
@@ -1004,6 +1100,8 @@
     const clip = scroll ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined;
     drawStatusContent(f, now, state, pal, S.pillX + (scroll || 0), S.pillW, 1, clip);
     drawStackedClock(f, state, clock, timer, slide, 0);
+    const slot = slotOf(state, timer);
+    if (slot) drawSlot(f, slot, S.pillX, S.pillW, S.slotRows, 1);
   }
 
   function drawStackedHero(f, state, pal, alpha, clipY, timer) {
@@ -1504,6 +1602,7 @@
     STACKED: STACKED, renderStacked: renderStacked,
     clockTextWidth: clockTextWidth, drawClockText: drawClockText, ICONS: ICONS, statusContentWidth: statusContentWidth,
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
+    SLOT: SLOT, slotOf: slotOf, sweepAt: sweepAt, bigAt: bigAt,
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
     drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,

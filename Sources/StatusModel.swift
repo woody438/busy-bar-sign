@@ -153,10 +153,15 @@ final class StatusModel: ObservableObject {
         // muted, by the call app's own button: the same ON A CALL, quieter
         if next == .call && mute.muted { next = .callMuted }
 
-        // what the right of the pill counts to, or from
+        // what the right of the pill counts to, or from; on a call or in a meeting, the
+        // meeting you're in, for the time-left rail
         var m: BarMoment?
         if let at = d.at.map({ Date(timeIntervalSince1970: $0 / 1000) }) {
-            if d.left != nil { m = BarMoment(at: at, kind: next == .late || next == .lateMtg ? .countUp : .countdown) }
+            let slot = d.slot.flatMap { s in
+                s.end > s.start ? DateInterval(start: Date(timeIntervalSince1970: s.start / 1000),
+                                               end: Date(timeIntervalSince1970: s.end / 1000)) : nil
+            }
+            if d.left != nil { m = BarMoment(at: at, kind: next == .late || next == .lateMtg ? .countUp : .countdown, slot: slot) }
             else if [.freeTil, .callTbc, .busyTbc].contains(next) { m = BarMoment(at: at, kind: .fixed) }
         }
 

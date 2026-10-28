@@ -4,11 +4,13 @@ import SwiftUI
 
 /// The moment the right of the pill is about: a countdown to it (Do Not
 /// Disturb, a call's end, CALL IN), a count up from it (LATE), or just its
-/// time (FREE TILL, CALL TBC once it's on).
+/// time (FREE TILL, CALL TBC once it's on). On a call or in a meeting, `slot`
+/// is the meeting you're in, for the time-left rail.
 struct BarMoment: Equatable {
     enum Kind { case countdown, countUp, fixed }
     let at: Date
     let kind: Kind
+    var slot: DateInterval? = nil
 
     /// The engine's timer, at `date`.
     func timer(at date: Date) -> BarTimer {
@@ -19,7 +21,8 @@ struct BarMoment: Equatable {
         case .countUp: left = date.timeIntervalSince(at)
         case .fixed: left = 0
         }
-        return BarTimer(left: left, h: c.hour ?? 0, m: c.minute ?? 0)
+        return BarTimer(left: left, h: c.hour ?? 0, m: c.minute ?? 0,
+                        slot: slot.map { BarSlot(left: $0.end.timeIntervalSince(date), total: $0.duration) })
     }
 }
 

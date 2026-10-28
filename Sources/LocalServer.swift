@@ -142,8 +142,10 @@ final class LocalServer: ObservableObject {
     }
 
     private var current: LocalAPI.Status {
+        let ms = { (date: Date) in Int64((date.timeIntervalSince1970 * 1000).rounded()) }
         let moment = status.moment.map { m in
-            LocalAPI.Status.Moment(at: Int64((m.at.timeIntervalSince1970 * 1000).rounded()), kind: m.kind.apiName)
+            LocalAPI.Status.Moment(at: ms(m.at), kind: m.kind.apiName,
+                                   slot: m.slot.map { LocalAPI.Status.Moment.Slot(start: ms($0.start), end: ms($0.end)) })
         }
         // a muted call is still "call" to the Stream Deck, with muted alongside
         let muted = status.state == .callMuted
