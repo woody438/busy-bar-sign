@@ -192,9 +192,7 @@
    * event, carried through back-to-back ones (busyUntil).
    */
   function decide(input) {
-    const cfg = Object.assign({}, DEFAULTS, input.config || {});
-    cfg.keywords = Object.assign({}, DEFAULTS.keywords, (input.config || {}).keywords || {});
-    cfg.places = Object.assign({}, DEFAULTS.places, (input.config || {}).places || {});
+    const cfg = settings(input);
     const now = input.now;
     const sessions = input.micSessions || [];
     const marked = input.inPerson || [];
@@ -296,5 +294,33 @@
     return sign('free', 'Free');
   }
 
-  root.BusyRules = { DEFAULTS: DEFAULTS, classify: classify, decide: decide, hasJoinLink: hasJoinLink, matches: matches, placeOf: placeOf };
+  /*
+   * The calendar events a call you've just left was for (the Leave key): the
+   * calls, meetings and phone-call blocks on now — or starting within
+   * joinEarlyMinutes — that you joined on the mic, tentative ones too. Ended
+   * (input.ended), they're off the sign, which moves straight on: FREE, or
+   * what's next. One you've overrun into isn't among them — you never joined
+   * it — so it still says LATE; nor is anything else on the calendar (out of
+   * office, lunch, a no-meetings block), which shows again as usual.
+   */
+  function leftEvents(input) {
+    const cfg = settings(input), now = input.now;
+    const sessions = input.micSessions || [], ended = input.ended || [];
+    return (input.events || []).filter((e) => {
+      const kind = classify(e, cfg).kind;     // in person or not: a call's either way
+      return (kind === 'call' || kind === 'inPerson' || kind === 'phone') && ended.indexOf(e.id) < 0 &&
+        now < e.end && joined(e, sessions, now, cfg);
+    }).map((e) => e.id);
+  }
+
+  /* The rules' settings: the defaults, with input.config over them. */
+  function settings(input) {
+    const cfg = Object.assign({}, DEFAULTS, input.config || {});
+    cfg.keywords = Object.assign({}, DEFAULTS.keywords, (input.config || {}).keywords || {});
+    cfg.places = Object.assign({}, DEFAULTS.places, (input.config || {}).places || {});
+    return cfg;
+  }
+
+  root.BusyRules = { DEFAULTS: DEFAULTS, classify: classify, decide: decide, leftEvents: leftEvents, hasJoinLink: hasJoinLink,
+    matches: matches, placeOf: placeOf };
 })(typeof window !== 'undefined' ? window : globalThis);

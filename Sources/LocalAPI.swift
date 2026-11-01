@@ -14,7 +14,9 @@ import Foundation
  *   POST /meeting/leave   leaves it;
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
  *                         (else leaves); each answers with the status and how
- *                         the press went: "pressed":{"ok":true,"message":"…"}
+ *                         the press went: "pressed":{"ok":true,"message":"…"}.
+ *                         Left, the status has already moved on: FREE, or
+ *                         what's next (StatusModel.leftCall)
  *   POST /event/end       the calendar event on the sign is over early (End
  *                         Now): answers as the meeting keys do
  *   POST /away/nearby  the away keys: Nearby or Lunch on, or off if on;

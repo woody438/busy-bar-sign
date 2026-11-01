@@ -48,6 +48,8 @@ final class StatusModel: ObservableObject {
     let away = Away()
     private var timer: Timer?
     private var watching = Set<AnyCancellable>()
+    /// Whether a Teams or Zoom meeting was on at the last evaluation.
+    private var wasInMeeting = false
 
     init(detector: CallDetector, calendar: CalendarSource) {
         self.detector = detector
@@ -115,6 +117,24 @@ final class StatusModel: ObservableObject {
         evaluate()
     }
 
+    /// The Leave key left the Teams or Zoom meeting (or ended it for everyone):
+    /// the sign moves straight on, as if the call had ended there and then —
+    /// FREE, or what's next: CALL IN for one soon, LATE FOR one you've overrun
+    /// into. The calendar events the call was for are over (a meeting in a room
+    /// with a Teams link would otherwise say MEETING till its slot ended, and a
+    /// phone-call block ON A CALL); the mic's done with now, not ten seconds
+    /// on; Do Not Disturb ends, and Force ON A CALL goes back to Automatic.
+    func leftCall() {
+        var input = StatusInput(now: Date().timeIntervalSince1970 * 1000)
+        input.micSessions = detector.micSessions
+        input.events = calendar.isActive ? calendar.events : []
+        input.config = calendar.config
+        input.ended = Array(ended)
+        ended.formUnion(StatusRules.leftEvents(input))
+        detector.callLeft()
+        evaluate()
+    }
+
     /// The Stream Deck's Status key, or a double-click on the bar: during LATE
     /// FOR CALL or MTG you're there in person; otherwise Do Not Disturb on or off.
     func pressStatus() {
@@ -122,6 +142,11 @@ final class StatusModel: ObservableObject {
     }
 
     func evaluate() {
+        // a meeting started since the Leave key: the mic's that call's, at once
+        let inMeeting = meeting.snapshot.active != nil
+        if inMeeting && !wasInMeeting { detector.endLeaveGrace() }
+        wasInMeeting = inMeeting
+
         let now = Date()
         var input = StatusInput(now: now.timeIntervalSince1970 * 1000)
         input.override = detector.override.rawValue

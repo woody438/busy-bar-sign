@@ -14,7 +14,7 @@ const cases = [];
 function add(input) {
   const out = R.decide(input);
   cases.push({ input: input, expect: { state: out.state, left: out.left === undefined ? null : out.left,
-    at: out.at === undefined ? null : out.at } });
+    at: out.at === undefined ? null : out.at, leftEvents: R.leftEvents(input) } });
 }
 
 // the sample day
@@ -128,6 +128,33 @@ for (const extra of [{ ended: ['o'] }, { ended: ['o', 'c'] }, { ended: ['x'] }])
 }
 scenario([ev({ id: 's', title: 'Site visit', start: 600 * M, end: 720 * M, location: 'O2 Arena' }), call('c', 720, 750)], [], [620, 715],
   { ended: ['s'] });
+// left with the Leave key: the events the call was for (expect.leftEvents), and the sign once they're
+// ended and the mic session's closed, as the app does it
+const leave = (events, sessions, times) => {
+  for (const t of times) {
+    const input = { now: t * M, override: 'auto', dndUntil: null, events: events, micSessions: mic(sessions) };
+    add(input);
+    add(Object.assign({}, input, { ended: R.leftEvents(input), micSessions: mic(sessions.map(([s, e]) => [s, e == null ? t : e])) }));
+  }
+};
+const hybridCall = call('h', 600, 660, { location: 'Microsoft Teams Meeting; LP Huddle' });
+leave([hybridCall], [[602, null]], [603, 620, 659.9]);
+leave([hybridCall, call('n', 650, 680)], [[602, null]], [620, 645]);
+leave([ev({ id: 'p', title: 'Call - Linda', start: 600 * M, end: 630 * M })], [[602, null]], [610]);
+leave([call('a', 600, 660), call('b', 660, 690)], [[600, null]], [640, 659, 665]);
+leave([call('c', 600, 630)], [[597, null]], [598, 605]);
+leave([call('t', 600, 630, { availability: 'tentative' })], [[601, null]], [610]);
+leave([ev({ id: 'l', title: 'Lunch', start: 590 * M, end: 650 * M }), call('c', 600, 630)], [[601, null]], [610]);
+leave([call('a', 600, 660), call('b', 600, 630)], [[601, null]], [615]);
+leave([call('a', 600, 660)], [[540, null]], [610]);
+leave([venue], [[601, null]], [615]);
+leave([], [[601, null]], [610]);
+for (const t of ['08:40', '09:50', '11:20', '14:20', '16:10']) {
+  const at = D.at(0, t);
+  const input = { now: at, override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions };
+  add(Object.assign({}, input, { ended: R.leftEvents(input),
+    micSessions: day.micSessions.map((s) => ({ start: s.start, end: s.end == null || s.end > at ? at : s.end })) }));
+}
 for (const t of ['09:46', '11:10', '14:05', '14:11', '15:40']) {
   for (const extra of [{ active: true }, { inPerson: ['oneone', 'network'] }]) {
     add(Object.assign({ now: D.at(0, t), override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions }, extra));
