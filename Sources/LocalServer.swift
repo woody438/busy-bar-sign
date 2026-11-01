@@ -131,9 +131,11 @@ final class LocalServer: ObservableObject {
     }
 
     /// A Mute or Leave key (held: end): answers once the meeting app has been pressed, with how it went.
+    /// Left, the sign moves straight on (StatusModel.leftCall), so the answer has FREE or what's next.
     private func press(_ what: MeetingControl, on connection: NWConnection) {
         status.meeting.press(what) { [weak self] report in
             guard let self else { return connection.cancel() }
+            if report.ok && what != .mute { self.status.leftCall() }
             self.status.evaluate()
             var answer = self.current
             answer.pressed = LocalAPI.Status.Pressed(ok: report.ok, message: report.message)

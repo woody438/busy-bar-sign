@@ -2,7 +2,8 @@ import Foundation
 
 // Runs Sources/StatusRules.swift on every case simulator/tools/rules-cases.js
 // wrote, and checks it decides what rules.js decided: the same state, the
-// same countdown and the same moment.
+// same countdown and the same moment — and, for the Leave key, the same
+// events left.
 let data = try! Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
 let root = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
 let cases = root["cases"] as! [[String: Any]]
@@ -62,6 +63,10 @@ for (n, c) in cases.enumerated() {
     if got.state != str(want["state"]) || !same(got.left, num(want["left"])) || !same(got.at, num(want["at"])) {
         failures.append("case \(n) at \(i.now / 60000) min: got \(got.state) left \(got.left.map { "\($0)" } ?? "-") at \(got.at.map { "\($0)" } ?? "-")"
                         + "; want \(str(want["state"])) left \(num(want["left"]).map { "\($0)" } ?? "-") at \(num(want["at"]).map { "\($0)" } ?? "-")")
+    }
+    let left = StatusRules.leftEvents(i), wantLeft = want["leftEvents"] as? [String] ?? []
+    if left != wantLeft {
+        failures.append("case \(n) at \(i.now / 60000) min: left \(left); want \(wantLeft)")
     }
 }
 for f in failures.prefix(20) { print("FAIL", f) }

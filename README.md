@@ -484,6 +484,16 @@ agree:
   just leaves — ending a Teams meeting for everyone isn't done yet. In its
   settings it can be set to leave only when **held** half a second, so a
   stray tap just says HOLD; it then ends for everyone at 1.6 seconds.
+- **Leaving puts the sign straight back** to **FREE** — or what's next: **CALL
+  IN** for a call or meeting in the next ten minutes, **LATE FOR** one you'd
+  overrun into — at once, not ten seconds later when the mic's let go. The
+  calendar event the call was for is over, so a meeting in a room with a
+  Teams link doesn't go on saying MEETING, nor a "Call – …" block ON A CALL;
+  the rest of your calendar (lunch, out of office, a no-meetings block)
+  shows as usual. A Do Not Disturb ends too, and **Sign ▸ Force ON A CALL**
+  goes back to Automatic. If the meeting's still on after all — the mic
+  still held 20 seconds on, or Teams or Zoom showing a meeting again — the
+  sign says ON A CALL again (from 2.8.6).
 - **Outside a Teams or Zoom meeting**, while the sign shows a meeting or
   call from your calendar — MEETING after a call you took on your phone,
   LATE FOR, OUT ON SITE, an event of your own — **Leave** says **END** in
@@ -532,7 +542,7 @@ account's own "Calendar" by itself.
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
-| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. |
+| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. Left with the Stream Deck's **Leave** key, at once — a meeting in a room with a link included ([above](#mute-and-leave-keys-for-teams-and-zoom)). |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
@@ -686,7 +696,8 @@ running (`kAudioProcessPropertyIsRunningInput`, macOS 14.2+). For each one:
    mute button while you're on a call in it.
 
 The sign follows only once a change has held: **2 seconds** before it lights,
-**10 seconds** before it goes dark, so a moment's silence never flickers it.
+**10 seconds** before it goes dark, so a moment's silence never flickers it —
+or at once, when you leave with the Stream Deck's Leave key.
 Zoom, Teams and Meet keep the mic open while you're muted, so the sign stays
 lit through mute — and shows that you're muted, if it can
 ([below](#muted-on-a-call)).
@@ -839,8 +850,8 @@ errors or warnings in its code.
   take and turn away the same words for Nearby, and rest the LEDs at the
   same brightness at the same moments. What you see in the
   simulator is what the app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 3,189
-  cases: a scripted working day every 15 seconds — a call joined late and
+- **The Swift status rules decide exactly what the simulator's do** in 3,228
+  cases, and pick the same events for the Leave key to end: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
   after, one never joined, an in-person meeting, a tentative one, lunch
   with a call inside it, a no-meetings block, phone calls, a venue, a
@@ -849,8 +860,10 @@ errors or warnings in its code.
   rooms, cancelled titles, Show As, and where it is: a booked room, a room
   code, your office, a venue, a restaurant, a dial-in, "TBC"), calls marked
   in person, a meeting in a room started with you at the Mac, and the away
-  keys and a locked Mac across the day, your own appointments elsewhere, and
-  events ended early. The rules themselves have 254 hand-checked cases (`simulator/tools/rules-check.js`).
+  keys and a locked Mac across the day, your own appointments elsewhere,
+  events ended early, and calls left with the Leave key (a meeting in a room
+  with a link, a phone-call block, one joined early, an overrun into the next,
+  a call inside lunch). The rules themselves have 277 hand-checked cases (`simulator/tools/rules-check.js`).
 - **The wall's hours** (`Checks/hours`): in hours from 07:30 to just before
   19:00 on weekdays, out all weekend, the same either side of the clocks
   going back; dark only out of hours and only with nothing going on; a span
@@ -875,12 +888,16 @@ errors or warnings in its code.
 - **A frame takes under 3 ms** for the wide bar at 4K in the worst case, and
   under 1 ms for the stacked layout at 960 × 540, on four slow virtual
   cores — the display allows 16.7 ms.
-- **The call detector makes the right decisions** on a scripted 40 seconds:
+- **The call detector makes the right decisions** on a scripted 52 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a
   one-second blip don't light it; both overrides are instant; Meet in a
-  Chrome helper does light it; and the microphone's own sessions, which the
-  calendar rules use, come out as Zoom 1–7 s and Meet from 31 s.
+  Chrome helper does light it; the Leave key goes back to FREE at once, not
+  Do Not Disturb, and stays FREE while the app lets go of the mic, and with
+  Force ON A CALL on puts it back to Automatic — but a mic still held once
+  the grace is up lights the sign again; and the microphone's own sessions,
+  which the calendar rules use, come out as Zoom 1–7 s, Meet 31 s to the
+  Leave key, Zoom 41 s to the Leave key, and Zoom again from 48 s.
 - **The Stream Deck plugin works end to end** against a stand-in Stream
   Deck and a stand-in app (`streamdeck/test/e2e.js`): it registers, draws
   the key in the sign's colour, redraws a countdown once a second within
@@ -959,7 +976,8 @@ displays sleep out of hours and waking them when the hours begin
 the orbit and the hours beneath them are checked, and the simulator shows
 the look. The world clocks on the wall itself, through a day of FREE —
 the board, resting and the ticker at their real times — and the Leave key's
-END on a real Stream Deck. For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
+END on a real Stream Deck, and its putting the sign straight back to FREE or
+what's next through real Teams and Zoom meetings (from 2.8.6). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen

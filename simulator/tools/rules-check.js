@@ -310,5 +310,38 @@ expect('the mic still says on a call', endedAt(620, [call('c', 600, 660)], [[605
 expect('an id not in the calendar changes nothing', endedAt(620, [inOffice('m', 600, 660)], [], ['x']).state, 'meeting');
 expect('ended, then over: free as ever', endedAt(665, [inOffice('m', 600, 660)], [], ['m']).state, 'free');
 
+// --- left with the Leave key: the events the call was for, ended ---------------
+// as the app does it: those events ended, and the mic session closed there and then
+const mics = (mic) => (mic || []).map(([s, e]) => ({ start: s * M, end: e == null ? null : e * M }));
+const leftOf = (now, events, mic, extra) => R.leftEvents(Object.assign({ now: now * M, events: events, micSessions: mics(mic) }, extra || {})).join();
+const afterLeave = (now, events, mic) => decideWith(now, events, mic.map(([s, e]) => [s, e == null ? now : e]),
+  { ended: R.leftEvents({ now: now * M, events: events, micSessions: mics(mic) }) });
+const linda = own('Call - Linda', 600, 630, { id: 'p' });
+const lunchBlock = own('Lunch', 590, 650, { id: 'l' });
+expect('left a call: that call', leftOf(620, [call('c', 600, 660)], [[602, null]]), 'c');
+expect('…free', afterLeave(620, [call('c', 600, 660)], [[602, null]]).state, 'free');
+expect('left a meeting in a room, with a link: that meeting', leftOf(620, [hybrid], [[602, null]]), 'h');
+expect('…free', afterLeave(620, [hybrid], [[602, null]]).state, 'free');
+expect('…not MEETING, as when the mic just stops', decideWith(620, [hybrid], [[602, 620]]).state, 'meeting');
+expect('left a phone-call block: free', afterLeave(615, [linda], [[602, null]]).state, 'free');
+expect('…not ON A CALL, as when the mic just stops', decideWith(615, [linda], [[602, 615]]).state, 'call');
+expect('a call in five minutes: CALL IN', afterLeave(645, [hybrid, call('n', 650, 680)], [[602, null]]).state, 'callIn');
+expect('…not that one', leftOf(645, [hybrid, call('n', 650, 680)], [[602, null]]), 'h');
+expect('overrun into the next: not that one', leftOf(665, [call('a', 600, 660), call('b', 660, 690)], [[600, null]]), '');
+expect('…LATE for it', afterLeave(665, [call('a', 600, 660), call('b', 660, 690)], [[600, null]]).state, 'late');
+expect('joined early: that call', leftOf(598, [call('c', 600, 630)], [[597, null]]), 'c');
+expect('…free, not CALL IN', afterLeave(598, [call('c', 600, 630)], [[597, null]]).state, 'free');
+expect('a tentative call: free, not CALL TBC', afterLeave(610, [call('t', 600, 630, { availability: 'tentative' })], [[601, null]]).state, 'free');
+expect('a call inside lunch: only the call', leftOf(610, [lunchBlock, call('c', 600, 630)], [[601, null]]), 'c');
+expect('…LUNCH again', afterLeave(610, [lunchBlock, call('c', 600, 630)], [[601, null]]).state, 'lunch');
+expect('a call not in the calendar: nothing to end', leftOf(610, [], [[601, null]]), '');
+expect('…free', afterLeave(610, [], [[601, null]]).state, 'free');
+expect('a call the mic never joined: not it', leftOf(610, [call('a', 600, 660)], [[540, null]]), '');
+expect('two at once, both joined: both', leftOf(615, [call('a', 600, 660), call('b', 600, 630)], [[601, null]]), 'a,b');
+expect('already ended: not again', leftOf(615, [call('a', 600, 660)], [[601, null]], { ended: ['a'] }), '');
+expect('said to be in person: still the call', leftOf(615, [call('a', 600, 660)], [[601, null]], { inPerson: ['a'] }), 'a');
+expect('a meeting somewhere else: not a call', leftOf(615, [ev({ id: 'v', start: 600 * M, end: 660 * M, attendees: 3, location: 'The Ivy' })],
+  [[601, null]]), '');
+
 console.log(failed ? `rules: ${failed} failed, ${passed} passed` : `rules: all ${passed} cases pass`);
 process.exit(failed ? 1 : 0);

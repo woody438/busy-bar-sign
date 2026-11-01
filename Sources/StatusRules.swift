@@ -382,4 +382,22 @@ enum StatusRules {
         // 6. nothing on
         return sign("free", "Free")
     }
+
+    /*
+     * The calendar events a call you've just left was for (the Leave key): the
+     * calls, meetings and phone-call blocks on now — or starting within
+     * joinEarlyMinutes — that you joined on the mic, tentative ones too. Ended
+     * (input.ended), they're off the sign, which moves straight on: FREE, or
+     * what's next. One you've overrun into isn't among them — you never joined
+     * it — so it still says LATE; nor is anything else on the calendar (out of
+     * office, lunch, a no-meetings block), which shows again as usual.
+     */
+    static func leftEvents(_ input: StatusInput) -> [String] {
+        let cfg = input.config, now = input.now
+        return input.events.filter { e in
+            let c = classify(e, cfg)            // in person or not: a call's either way
+            guard [.call, .inPerson, .phone].contains(c.kind), !input.ended.contains(e.id), now < e.end else { return false }
+            return joined(Sorted(ev: e, kind: c.kind, tentative: c.tentative, room: c.room, here: false), input.micSessions, now, cfg)
+        }.map(\.id)
+    }
 }
