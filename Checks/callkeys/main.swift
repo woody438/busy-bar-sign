@@ -19,7 +19,8 @@ import Foundation
 final class El {
     var attrs: MeetingAttrs
     var children: [El] = []
-    var gone = false
+    var gone = false            // destroyed: reading it fails
+    var hidden = false          // left out of its parent's children, still readable (auto-hidden controls)
     var onPress: (() -> Void)?
     weak var parent: El?
 
@@ -68,7 +69,7 @@ final class Fake: MeetingBackend {
     }
     func node(_ e: AnyObject) throws -> (MeetingAttrs, [AnyObject]) {
         let x = try el(e)
-        return (x.attrs, x.children.filter { !$0.gone })
+        return (x.attrs, x.children.filter { !$0.gone && !$0.hidden })
     }
     func read(_ e: AnyObject) throws -> MeetingAttrs { try el(e).attrs }
     func actions(_ e: AnyObject) -> [String] { ["AXPress"] }
@@ -197,7 +198,7 @@ do { // a Group FaceTime's "Leave Call", and a bare "Leave"
 do { // the controls hidden: mute through the Video menu's ticked "Mute"; leave has nothing to press
     let h = Harness()
     let call = h.faceTimeCall()
-    call.controls.gone = true
+    call.controls.hidden = true
     call.menuMute.onPress = { call.menuMute.attrs.mark = call.menuMute.attrs.mark.isEmpty ? "✓" : "" }
     let r = h.keys.press(.mute, in: .facetime, pid: facetime)
     expect(r.ok && r.muted == true && h.f.pressed == ["Mute"] && !call.menuMute.attrs.mark.isEmpty, "menu mute: \(r)")
@@ -210,7 +211,7 @@ do { // the controls hidden: mute through the Video menu's ticked "Mute"; leave 
 do { // the menu's "End Call", when the window's controls are hidden
     let h = Harness()
     let call = h.faceTimeCall()
-    call.controls.gone = true
+    call.controls.hidden = true
     let endItem = menuItem("End Call")
     endItem.onPress = { endItem.gone = true }
     h.f.menus[facetime] = menuBar(("Video", [menuItem("Mute"), endItem]))
@@ -228,13 +229,32 @@ do { // a "Mute" that never shows a change: pressed, but not claimed
     expect(h.f.pressed == ["Mute"], "pressed once, not again: \(h.f.pressed)")
 }
 
-do { // an End that doesn't end it: not claimed
+do { // an End that doesn't end it: not claimed — nor when the controls just hide themselves meanwhile
+    for hides in [false, true] {
+        let h = Harness()
+        let call = h.faceTimeCall()
+        call.end.onPress = { if hides { call.controls.hidden = true } }
+        let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+        expect(!r.ok && r.delivered && r.message.contains("still shows"), "call still there (controls hide: \(hides)): \(r)")
+        expect(h.f.pressed == ["End"], "pressed once: \(h.f.pressed)")
+    }
+}
+
+do { // an End that greys out as the call ends counts as left
     let h = Harness()
     let call = h.faceTimeCall()
-    call.end.onPress = {}
+    call.end.onPress = { call.end.attrs.enabled = false }
     let r = h.keys.press(.leave, in: .facetime, pid: facetime)
-    expect(!r.ok && r.delivered && r.message.contains("still shows"), "call still there: \(r)")
-    expect(h.f.pressed == ["End"], "pressed once: \(h.f.pressed)")
+    expect(r.ok, "End greyed out: \(r)")
+}
+
+do { // the window's "Mute" never shows its state but the menu's ticks: done, but the key says what the sign reads
+    let h = Harness()
+    let call = h.faceTimeCall(mute: "AXButton")
+    call.mic.attrs.number = nil
+    call.mic.onPress = { call.menuMute.attrs.mark = call.menuMute.attrs.mark.isEmpty ? "✓" : "" }
+    let r = h.keys.press(.mute, in: .facetime, pid: facetime)
+    expect(r.ok && r.muted == false && r.message.contains("elsewhere"), "menu changed, button didn't: \(r)")
 }
 
 do { // the app slow to answer the press: it may still land, and is checked
@@ -337,6 +357,9 @@ do { // a "Mute" that keeps its name reads by its state
     expect(b.muteReading?.muted == true, "a selected button is muted")
     let c = MeetingAttrs(role: "AXMenuItem", title: "Mute", mark: "✓")
     expect(c.muteReading?.muted == true, "a ticked menu item is muted")
+    var d = MeetingAttrs(role: "AXMenuItem", title: "Mute")
+    d.selected = true
+    expect(d.muteReading?.muted == false, "a menu item under the pointer (selected, unticked) is live")
     expect(MeetingAttrs(role: "AXButton", desc: "Unmute").muteReading?.muted == true, "Unmute: muted")
 }
 

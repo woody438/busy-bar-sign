@@ -184,7 +184,9 @@ final class MuteProbe {
             let app = ax.application(target.pid)
             let found: (element: AnyObject, muted: Bool, label: String)?
             if let call = LabelledCallApp(bundleID: target.bundleID) {
-                // FaceTime, WhatsApp: the control their Mute key presses
+                // FaceTime, WhatsApp: the control their Mute key presses (asked quietly for a
+                // Chromium or Electron build's tree; never as VoiceOver asks)
+                ax.enable(app, full: false)
                 found = callKeys.find(app, call).mute.first.map { (element: $0.element, muted: $0.muted, label: $0.label) }
             } else {
                 // Chromium and Electron apps (a browser for Meet, Slack) build their tree only when asked:

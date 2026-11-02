@@ -7,10 +7,11 @@ import Foundation
  * pressed through Accessibility, as MeetingEngine presses Teams' buttons:
  *
  *   Mute   the mic control in the call's window, else FaceTime's menu-bar
- *          "Mute"; done once its reading flips
+ *          "Mute"; done once a mute control's reading flips
  *   Leave  a control named for the call ("End call", "Leave Call", "Hang
  *          up") in any of the app's windows or its menu bar, or in FaceTime a
- *          lone "End" or "Leave" beside that mic control; done once it's gone
+ *          lone "End" or "Leave" beside that mic control; done once that
+ *          button has gone (or greyed out), not merely hidden
  *
  * What it never presses: a lone "End" or "Leave" away from a mic control, or
  * in WhatsApp at all (a group's "Leave"), and in WhatsApp any "Mute" outside
@@ -59,8 +60,16 @@ enum LabelledCallApp: String, CaseIterable, Equatable {
 }
 
 extension MeetingAttrs {
-    /// Whether the control shows it's on: a menu item's tick, a toggle's value, a selected button.
-    var isOn: Bool { !mark.isEmpty || number == 1 || selected == true }
+    /// Whether the control shows it's on: a menu item's tick (never its
+    /// highlight — AXSelected is just the pointer over it), a toggle's value,
+    /// a selected button.
+    var isOn: Bool {
+        switch role {
+        case "AXMenuItem": return !mark.isEmpty
+        case "AXCheckBox", "AXToggle", "AXRadioButton": return number == 1
+        default: return number == 1 || selected == true
+        }
+    }
 
     /// What the control says about the mic, by its name: the description
     /// (aria-label in web content), the title (native apps), then the tooltip.
@@ -203,6 +212,7 @@ final class CallAppKeys {
     /// hands focus back to the app you were in, and checks it took.
     func press(_ what: MeetingControl, in app: LabelledCallApp, pid: Int32) -> CallKeyResult {
         let appElement = backend.application(pid)
+        backend.enable(appElement, full: false)  // a Chromium or Electron build shows its tree only when asked
         let before = find(appElement, app)
         var r = CallKeyResult()
 
@@ -239,20 +249,27 @@ final class CallAppKeys {
 
         if what == .mute {
             let was = before.mute.map(\.muted)
-            if let muted = seen(within: Self.muteVerify, { self.flipped(was, self.find(appElement, app).mute.map(\.muted)) }) {
+            let after = seen(within: Self.muteVerify) { () -> [Bool]? in
+                let readings = self.find(appElement, app).mute.map(\.muted)
+                return self.changed(was, readings) ? readings : nil
+            }
+            if let after {
                 r.ok = true
-                r.muted = muted
-                r.message = "Pressed \(name): \(muted ? "muted" : "mic live")."
+                // what the sign reads: the first control, as MuteDetector reads it
+                r.muted = after.first
+                if let shown = after.first, shown != was.first {
+                    r.message = "Pressed \(name): \(shown ? "muted" : "mic live")."
+                } else {
+                    r.message = "Pressed \(name); \(app.label) shows it changed elsewhere (its menu), not on that button, so the sign can't."
+                }
             } else {
                 r.message = "Pressed \(name), but its mute didn't change."
             }
         } else {
-            let ended = seen(within: Self.leaveVerify) { () -> Bool? in
-                if self.gone(target.element) { return true }
-                let after = self.find(appElement, app)
-                return after.complete && after.leave == nil ? true : nil
-            }
-            if ended != nil {
+            // only the button itself going (or greying out) counts: controls that hide
+            // themselves when the pointer leaves the window would look like a call that ended
+            let left = seen(within: Self.leaveVerify) { () -> Bool? in self.ended(target.element) ? true : nil }
+            if left != nil {
                 r.ok = true
                 r.message = "Pressed \(name): left the call."
             } else {
@@ -272,20 +289,22 @@ final class CallAppKeys {
         }
     }
 
-    /// The new mute reading if one of the controls changed, matched by place;
-    /// a rebuilt set of controls by its first.
-    private func flipped(_ before: [Bool], _ after: [Bool]) -> Bool? {
-        if before.count == after.count {
-            for (b, a) in zip(before, after) where b != a { return a }
-            return nil
-        }
-        guard let a = after.first, a != before.first else { return nil }
-        return a
+    /// Whether a mute control's reading changed, matched by place; a rebuilt
+    /// set of controls by its first.
+    private func changed(_ before: [Bool], _ after: [Bool]) -> Bool {
+        if before.count == after.count { return before != after }
+        guard let a = after.first else { return false }
+        return a != before.first
     }
 
-    /// Whether an element has gone from the app.
-    private func gone(_ e: AnyObject) -> Bool {
-        do { return try backend.read(e).role.isEmpty } catch { return error as? MeetingAXError == .invalid }
+    /// Whether a pressed end button has gone from the app, or greyed out.
+    private func ended(_ e: AnyObject) -> Bool {
+        do {
+            let a = try backend.read(e)
+            return a.role.isEmpty || !a.isEnabled
+        } catch {
+            return error as? MeetingAXError == .invalid
+        }
     }
 
     // MARK: - Diagnostics
@@ -296,6 +315,7 @@ final class CallAppKeys {
     func report(_ app: LabelledCallApp, pid: Int32) -> String {
         guard pid != 0 else { return "### \(app.label): not running\n\n" }
         let appElement = backend.application(pid)
+        backend.enable(appElement, full: false)
         let windows = (try? backend.windows(appElement)) ?? []
         var out = "### \(app.label): pid \(pid), \(windows.count) window(s)\n"
         let controls: Set<String> = ["AXButton", "AXCheckBox", "AXMenuButton", "AXRadioButton", "AXPopUpButton", "AXToggle"]

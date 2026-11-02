@@ -33,9 +33,9 @@ final class StatusModel: ObservableObject {
     /// The calendar events you've said are over early (End Now, or the Leave
     /// key outside a Teams or Zoom meeting): off the sign as if they'd ended.
     @Published private(set) var ended: Set<String> = []
-    /// The apps on the mic that count as your call, by bundle ID — FaceTime for
-    /// its audio daemon — for their mute buttons and the Mute and Leave keys.
-    private(set) var callAppIDs: [String] = []
+    /// FaceTime or WhatsApp on the mic, surely — by bundle ID, or FaceTime's
+    /// audio daemon by name — for the Mute and Leave keys.
+    private(set) var keyCallApps: [LabelledCallApp] = []
     /// What the sign says, in words, for the menus and the controls: the
     /// Nearby key's own word for .nearby.
     var stateName: String { state == .nearby ? away.nearbyName : state.name }
@@ -105,7 +105,7 @@ final class StatusModel: ObservableObject {
     /// them on the mic, with no Teams or Zoom meeting found.
     var labelledCall: LabelledCallApp? {
         guard meeting.snapshot.active == nil else { return nil }
-        return callAppIDs.lazy.compactMap(LabelledCallApp.init(bundleID:)).first
+        return keyCallApps.first
     }
 
     /// The calendar event End Now would end: the one the sign is showing, while
@@ -157,12 +157,17 @@ final class StatusModel: ObservableObject {
         // the apps that count as your call, for their mute buttons: FaceTime's audio runs in
         // avconferenced, which has no windows of its own, so FaceTime is read for it
         var callApps: [String] = []
+        var keyApps: [LabelledCallApp] = []
         for holder in detector.detection.holders where holder.counts {
             var id = holder.bundleID ?? "com.apple.FaceTime"
             if id == "com.apple.avconferenced" { id = "com.apple.FaceTime" }
             if !callApps.contains(id) { callApps.append(id) }
+            // the keys: not just any tool with no bundle ID — only what's surely FaceTime or WhatsApp
+            let byName: LabelledCallApp? = holder.name.lowercased().contains("avconferenced") ? LabelledCallApp.facetime : nil
+            let sure: LabelledCallApp? = holder.bundleID.flatMap(LabelledCallApp.init(bundleID:)) ?? byName
+            if let sure, !keyApps.contains(sure) { keyApps.append(sure) }
         }
-        callAppIDs = callApps
+        if keyCallApps != keyApps { keyCallApps = keyApps }
         mute.update(onCall: detector.micOn, apps: callApps)
         // muted, by the call app's own button: the same ON A CALL, quieter
         if next == .call && mute.muted { next = .callMuted }
