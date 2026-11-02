@@ -1,7 +1,8 @@
 import Foundation
 
 // Reads the mute controls of the call apps the way MuteDetector will, from
-// their labels: true muted, false live, nil not a mic mute control.
+// their labels: true muted, false live, nil not a mic mute control. Then the
+// controls that hang up, as the Leave key finds them in FaceTime and WhatsApp.
 let cases: [(String, String, Bool, Bool?)] = [
     // Teams (new Teams' meeting toolbar)
     ("Mute mic (⌘+Shift+M)", "AXButton", false, false), ("Unmute mic (⌘+Shift+M)", "AXButton", false, true),
@@ -19,6 +20,9 @@ let cases: [(String, String, Bool, Bool?)] = [
     ("Mute…", "AXButton", false, false),
     // FaceTime: a "Mute" menu item, ticked while muted
     ("Mute", "AXMenuItem", true, true), ("Mute", "AXMenuItem", false, false),
+    // a "Mute" that keeps its name and shows it's on: a toggle switched on, a selected button
+    ("Mute", "AXCheckBox", true, true), ("Mute", "AXCheckBox", false, false),
+    ("Mute", "AXButton", true, true), ("Mute mic", "AXButton", true, true), ("Unmute", "AXButton", true, true),
     // not about your mic
     ("Mute all", "AXButton", false, nil), ("Unmute all", "AXButton", false, nil), ("Mute All Participants", "AXMenuItem", false, nil),
     ("Mute notifications", "AXMenuItem", false, nil), ("Mute this conversation", "AXMenuItem", false, nil),
@@ -36,6 +40,31 @@ for (label, role, checked, want) in cases {
         failures.append("“\(label)” (\(role)\(checked ? ", ticked" : "")): got \(got.map { "\($0)" } ?? "nil"), want \(want.map { "\($0)" } ?? "nil")")
     }
 }
+
+// Which controls hang up: .call wherever they are, .bare only beside a mic control, nil never.
+let leaves: [(String, String, LeaveLabels.Kind?)] = [
+    // FaceTime: its call window's button, and Apple's guide's "Leave Call"
+    ("End", "AXButton", .bare), ("Leave", "AXButton", .bare), ("Leave Call", "AXButton", .call),
+    ("End Call", "AXMenuItem", .call), ("End FaceTime call", "AXButton", .call),
+    // WhatsApp
+    ("End call", "AXButton", .call), ("End Call (⌘⇧E)", "AXButton", .call), ("Hang up", "AXButton", .call),
+    ("Leave call", "AXButton", .call), ("Raccrocher", "AXButton", .call), ("Terminer l’appel", "AXButton", .call),
+    // never: other things named end or leave, things that start a call, the wrong kind of element
+    ("Leave group", "AXButton", nil), ("Exit group", "AXButton", nil), ("End-to-end encrypted", "AXStaticText", nil),
+    ("End-to-end encrypted", "AXButton", nil), ("End chat", "AXButton", nil), ("Leave community", "AXButton", nil),
+    ("Voice call", "AXButton", nil), ("Video call", "AXButton", nil), ("Call", "AXButton", nil), ("Decline", "AXButton", nil),
+    ("End", "AXStaticText", nil), ("End", "AXCheckBox", nil), ("Call ended", "AXStaticText", nil), ("Call ended", "AXButton", nil),
+    ("Weekend", "AXButton", nil), ("Calendar", "AXButton", nil), ("", "AXButton", nil),
+    ("Leave FaceTime call and end it for everyone in this very long label", "AXButton", nil)
+]
+for (label, role, want) in leaves {
+    let got = LeaveLabels.reading(label: label, role: role)
+    if got != want {
+        failures.append("leave “\(label)” (\(role)): got \(got.map { "\($0)" } ?? "nil"), want \(want.map { "\($0)" } ?? "nil")")
+    }
+}
+
+let total = cases.count + leaves.count
 for f in failures { print("FAIL", f) }
-print(failures.isEmpty ? "mute labels read right in all \(cases.count) cases" : "\(failures.count) of \(cases.count) mute labels misread")
+print(failures.isEmpty ? "mute and leave labels read right in all \(total) cases" : "\(failures.count) of \(total) mute and leave labels misread")
 exit(failures.isEmpty ? 0 : 1)

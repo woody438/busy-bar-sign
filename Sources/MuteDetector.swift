@@ -8,12 +8,14 @@ import ApplicationServices
  * while you're muted, so Core Audio can't tell; their mute button can.
  *
  * Teams and Zoom are read by MeetingKeys, which finds Teams' mic button by
- * its id and reads Zoom's Meeting menu. Any other app CallDetector counts as
- * your call (Meet in a browser, Slack, Webex, FaceTime) is searched for a
- * control whose name reads as a mic mute (MuteLabels): its windows, then its
- * menu bar, off the main thread, within a budget, the control found then
- * re-read each second. Dictation tools are never read: CallDetector doesn't
- * count them.
+ * its id and reads Zoom's Meeting menu. FaceTime and WhatsApp are read from
+ * the control the Stream Deck's Mute key presses (CallAppKeys): the mic
+ * control in the call's own window, or FaceTime's menu-bar "Mute". Any other
+ * app CallDetector counts as your call (Meet in a browser, Slack, Webex) is
+ * searched for a control whose name reads as a mic mute (MuteLabels): its
+ * windows, then its menu bar. All off the main thread, within a budget, the
+ * control found then re-read each second. Dictation tools are never read:
+ * CallDetector doesn't count them.
  *
  * Nothing found, no permission, or anything unrecognised reads as a live
  * mic: the bar never tells the room it can talk unless the app says so.
@@ -67,7 +69,7 @@ final class MuteDetector: ObservableObject {
         guard !busy else { return }
         let targets = others.compactMap { id -> MuteProbe.Target? in
             guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first else { return nil }
-            return MuteProbe.Target(pid: app.processIdentifier, name: app.localizedName ?? id)
+            return MuteProbe.Target(pid: app.processIdentifier, name: app.localizedName ?? id, bundleID: id)
         }
         guard !targets.isEmpty else { reset(); return }
         busy = true
@@ -147,13 +149,16 @@ struct MuteReading: Equatable {
     var muted: Bool
     var app: String
     var label: String
+    /// The app read, when it isn't Teams or Zoom.
+    var bundleID = ""
 }
 
 /// The search of apps other than Teams and Zoom, on MuteDetector's queue only.
 final class MuteProbe {
-    struct Target { let pid: pid_t; let name: String }
+    struct Target { let pid: pid_t; let name: String; let bundleID: String }
 
     private let ax = AXMeetingBackend()
+    private lazy var callKeys = CallAppKeys(backend: ax)
     private var cached: (pid: pid_t, element: AnyObject)?
     private var searched: [pid_t: Date] = [:]
     private var asked = Set<pid_t>()
@@ -167,7 +172,9 @@ final class MuteProbe {
     func read(_ targets: [Target]) -> MuteReading? {
         for target in targets {
             if let c = cached, c.pid == target.pid {
-                if let a = try? ax.read(c.element), let r = reading(a) { return MuteReading(muted: r.muted, app: target.name, label: r.label) }
+                if let a = try? ax.read(c.element), let r = a.muteReading {
+                    return MuteReading(muted: r.muted, app: target.name, label: r.label, bundleID: target.bundleID)
+                }
                 cached = nil                         // gone or relabelled: look again now
                 searched[target.pid] = nil
             }
@@ -175,13 +182,20 @@ final class MuteProbe {
             if let last = searched[target.pid], Date().timeIntervalSince(last) < 3 { continue }
             searched[target.pid] = Date()
             let app = ax.application(target.pid)
-            // Chromium and Electron apps (a browser for Meet, Slack) build their tree only when asked:
-            // quietly first, then as a screen reader would
-            ax.enable(app, full: asked.contains(target.pid))
-            asked.insert(target.pid)
-            if let found = search(app) {
+            let found: (element: AnyObject, muted: Bool, label: String)?
+            if let call = LabelledCallApp(bundleID: target.bundleID) {
+                // FaceTime, WhatsApp: the control their Mute key presses
+                found = callKeys.find(app, call).mute.first.map { (element: $0.element, muted: $0.muted, label: $0.label) }
+            } else {
+                // Chromium and Electron apps (a browser for Meet, Slack) build their tree only when asked:
+                // quietly first, then as a screen reader would
+                ax.enable(app, full: asked.contains(target.pid))
+                asked.insert(target.pid)
+                found = search(app)
+            }
+            if let found {
                 cached = (target.pid, found.element)
-                return MuteReading(muted: found.muted, app: target.name, label: found.label)
+                return MuteReading(muted: found.muted, app: target.name, label: found.label, bundleID: target.bundleID)
             }
         }
         return nil
@@ -197,7 +211,7 @@ final class MuteProbe {
         for root in roots {
             var found: (element: AnyObject, muted: Bool, label: String)?
             let read = MeetingNode.walk(ax, root, maxNodes: budget) { n in
-                if self.roles.contains(n.attrs.role), let r = self.reading(n.attrs) {
+                if self.roles.contains(n.attrs.role), let r = n.attrs.muteReading {
                     found = (n.element, r.muted, r.label)
                     return true
                 }
@@ -210,11 +224,4 @@ final class MuteProbe {
         return nil
     }
 
-    /// What one control says, by its name (aria-label in web content, title in native apps, then tooltip).
-    private func reading(_ a: MeetingAttrs) -> (muted: Bool, label: String)? {
-        for label in [a.desc, a.title, a.help] where !label.isEmpty {
-            if let muted = MuteLabels.reading(label: label, role: a.role, checked: !a.mark.isEmpty) { return (muted, label) }
-        }
-        return nil
-    }
 }

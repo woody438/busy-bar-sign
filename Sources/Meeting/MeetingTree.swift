@@ -19,6 +19,7 @@ struct MeetingAttrs: Equatable {
     var number: Double?     // AXValue, when it's a number or a switch
     var enabled: Bool?      // AXEnabled; nil when not reported
     var mark = ""           // AXMenuItemMarkChar: a menu item's tick
+    var selected: Bool?     // AXSelected: a button showing it's on (FaceTime, WhatsApp)
 
     /// The name a screen reader would read.
     var label: String { !desc.isEmpty ? desc : !title.isEmpty ? title : help }
@@ -185,7 +186,7 @@ final class MeetingNode {
 }
 
 extension MeetingAttrs {
-    /// One line: role/subrole #id "name" =value [disabled].
+    /// One line: role/subrole #id "name" =value [ticked] [selected] [disabled].
     var line: String {
         var s = role.hasPrefix("AX") ? String(role.dropFirst(2)) : role
         if !subrole.isEmpty { s += "/" + (subrole.hasPrefix("AX") ? String(subrole.dropFirst(2)) : subrole) }
@@ -193,6 +194,8 @@ extension MeetingAttrs {
         if !label.isEmpty { s += " “\(label.clipped(to: 90))”" }
         if !value.isEmpty, value != label { s += " =“\(value.clipped(to: 90))”" }
         if let number { s += " =\(number == number.rounded() ? String(Int(number)) : String(number))" }
+        if !mark.isEmpty { s += " [ticked]" }
+        if selected == true { s += " [selected]" }
         if enabled == false { s += " [disabled]" }
         return s
     }

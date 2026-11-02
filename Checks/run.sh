@@ -2,9 +2,10 @@
 # Builds the platform-independent parts of the app and checks them:
 # LED-for-LED parity with the simulator, pixel alignment on common displays,
 # frame time, the LEDs' orbit, the call detector's decisions on a scripted
-# afternoon, the status rules, the wall's hours, the away keys, the local web
-# server's request handling, the screen saver's reading of it, and the Stream
-# Deck plugin end to end.
+# afternoon, the status rules, the mute and leave controls the keys read and
+# press (Teams, Zoom, FaceTime, WhatsApp), the wall's hours, the away keys,
+# the local web server's request handling, the screen saver's reading of it,
+# and the Stream Deck plugin end to end.
 #
 #   Checks/run.sh                 # uses swiftc, node and npm from PATH
 #   SWIFTC=/path/to/swiftc Checks/run.sh
@@ -47,7 +48,7 @@ node simulator/tools/rules-cases.js "$OUT/rules.json" >/dev/null
 "$SWIFTC" -O Sources/StatusRules.swift Checks/rules/main.swift -o "$OUT/rules"
 "$OUT/rules" "$OUT/rules.json"
 
-echo; echo "== mute controls (what MuteDetector reads in the call apps)"
+echo; echo "== mute and leave controls (what MuteDetector reads in the call apps, and what ends a call)"
 "$SWIFTC" Sources/MuteLabels.swift Checks/mute/main.swift -o "$OUT/mute"
 "$OUT/mute" | tail -1
 
@@ -55,6 +56,11 @@ echo; echo "== meeting keys (Teams and Zoom, scripted: their mute and leave cont
 M=Sources/Meeting
 "$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Checks/meeting/main.swift -o "$OUT/meeting"
 "$OUT/meeting" Checks/meeting/teams-ui.json
+
+echo; echo "== call keys (FaceTime and WhatsApp, scripted: the button each key presses, and what it never presses)"
+"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Sources/MuteLabels.swift $M/CallAppKeys.swift \
+  Checks/callkeys/main.swift -o "$OUT/callkeys"
+"$OUT/callkeys"
 
 echo; echo "== updates (which GitHub release is newer)"
 "$SWIFTC" Sources/UpdateCheck.swift Checks/update/main.swift -o "$OUT/update"

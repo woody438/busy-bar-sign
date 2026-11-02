@@ -392,7 +392,8 @@ engine and fonts:
   your office for a Teams meeting, so the sign goes straight to MEETING till
   it ends. (Join on the Mac after all and it says ON A CALL as usual.)
 - **Mute** and **Leave** — for the Teams or Zoom meeting you're in, wherever
-  its window is ([below](#mute-and-leave-keys-for-teams-and-zoom)).
+  its window is, or your FaceTime or WhatsApp call
+  ([below](#mute-and-leave-keys-for-teams-and-zoom)).
 - **Nearby**, **Lunch** and **Back In** — where you've gone when you
   leave your desk, and the Mac locked behind you ([above](#while-youre-away)).
   Nearby and Lunch are pictures with their word beneath, as Mute and Leave
@@ -503,6 +504,21 @@ agree:
   until it's had 2.5 seconds to show, so mute can't toggle twice; an app
   that ignores its own button twice gets the shortcut from then on.
 - With Teams and Zoom both in meetings, the keys act on the one joined last.
+- **FaceTime and WhatsApp** (2.8.7): with no Teams or Zoom meeting, a
+  FaceTime or WhatsApp call on the mic gets the keys — Mute shows LIVE or
+  MUTED and Leave shows LEAVE, as in a meeting. Neither app has a meeting
+  window to find by id or a Meeting menu, so the app finds the call's own
+  buttons by what they say and presses those: **Mute** the mic button in the
+  call's window (in FaceTime, else its menu bar's "Mute"); **Leave** a
+  button named for the call — "End call", "Leave Call", "Hang up" — or, in
+  FaceTime, a lone "End" or "Leave" beside that mic button. Each press is
+  checked: mute must flip, the end button must go. No shortcut is sent and
+  nothing else is pressed — never a lone "End" or "Leave" away from the
+  call's mic button, never WhatsApp's chat "Mute" (notifications) or a
+  group's "Leave" — so Teams no longer comes forward when Leave is pressed
+  on a FaceTime call. A hold just leaves. If a key can't find the button it
+  says so (the warning triangle), and **Inspect meeting controls** lists
+  what FaceTime or WhatsApp shows, and what each key would press.
 - Teams can redraw its Leave button during a call; the app finds the new
   one within a few seconds.
 - After a call, Teams' "rate your call" survey (and Zoom's "How was the
@@ -620,8 +636,9 @@ The same controls are in three places:
     and location words), **Microphone** (what counts as a call, and what's
     using the mic now, to ignore) and **Call apps** (Accessibility; which
     apps count as calls and what the sign can do in each — Teams and Zoom
-    in full, Meet, FaceTime, Slack, WhatsApp and the rest on a call and
-    muted where it finds the button — and **Add App…** for one of your own;
+    in full, FaceTime and WhatsApp with the Mute and Leave keys too, Meet,
+    Slack and the rest on a call and muted where it finds the button — and
+    **Add App…** for one of your own;
     showing you're muted, the post-call survey, and what to send if Teams or
     Zoom isn't read right).
   - *Devices and the app:* **Stream Deck** (the plugin, whether its keys
@@ -725,10 +742,16 @@ never read.
   its name read with the patterns below; Zoom's **Meeting** menu, which says
   "Mute audio" or "Unmute audio" only in a meeting. `Checks/meeting` runs a
   scripted Teams and Zoom through it.
+- **FaceTime and WhatsApp** are read from the button the Stream Deck's Mute
+  key presses (`Sources/Meeting/CallAppKeys.swift`): the mic button in the
+  call's window, or FaceTime's ticked "Mute" menu item. FaceTime's audio runs
+  in `avconferenced`, which has no windows, so FaceTime itself is read for it
+  (before 2.8.7 it wasn't, and FaceTime's mute never showed). A "Mute" that
+  keeps its name while you're muted is read by its state — switched on,
+  ticked or selected.
 - **Anything else** — Meet in Chrome, Edge, Arc or Safari ("Turn off
-  microphone"), Webex, Slack huddles, FaceTime's ticked "Mute" menu item — is
-  searched for a button whose name reads as a mic mute. `Checks/mute` tries
-  each.
+  microphone"), Webex, Slack huddles — is searched for a button whose name
+  reads as a mic mute. `Checks/mute` tries each.
 
 Each control is read in one round trip and the search walks the window in
 order, which is what lets it reach the button in a big Teams window. Teams
@@ -915,10 +938,22 @@ errors or warnings in its code.
   chat window full of text never taken for a survey; Inspect and Capture
   never showing chat; and Teams Meeting Keys' own `teams-ui.json` loading
   as a patterns file.
-- **Mute buttons are read right** (`Checks/mute`): 37 labels from Teams (in
+- **Mute buttons are read right** (`Checks/mute`): 42 labels from Teams (in
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
-  live, and the look-alikes — "Mute all", "Mute notifications", "Mute
-  speaker", "Ask all to unmute" — ignored.
+  live, a "Mute" that keeps its name read by its state, and the look-alikes —
+  "Mute all", "Mute notifications", "Mute speaker", "Ask all to unmute" —
+  ignored. And 29 names for what ends a call: "End", "Leave Call", "End
+  call", "Hang up" and the French, against "Leave group", "End-to-end
+  encrypted", "Voice call", "Decline" and the like.
+- **FaceTime and WhatsApp are pressed right** (`Checks/callkeys`) against a
+  scripted FaceTime and WhatsApp: Mute presses the call window's mic button
+  (or FaceTime's menu-bar "Mute" when the window's controls are hidden) and
+  is only claimed once it flips; Leave presses End, Leave Call, End call or
+  Hang up and is only claimed once it's gone; a hold just leaves; focus is
+  handed back; a press the app was slow to answer is still checked; and
+  nothing is pressed outside a call — not WhatsApp's chat "Mute" or a
+  group's "Leave", not a lone "End" away from a mic button, not FaceTime's
+  recents. Inspect shows what each key would press and leaves chat names out.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
@@ -951,7 +986,13 @@ Calendar.app and an Elgato Stream Deck:
 - The settings window's sidebar and its sections, World clocks with its
   preview, and the Call apps page, through the preview builds.
 
-**Not yet checked on a real Mac:** the care of the screen in the app itself —
+**Not yet checked on a real Mac:** the Mute and Leave keys on a real FaceTime
+and WhatsApp call (2.8.7). The buttons' names are modelled on Apple's
+FaceTime guide (a Mute button and an End or Leave Call button in the call
+window) and on WhatsApp's call window, and checked against scripted windows,
+not yet the apps themselves. If a key shows the warning triangle on a call,
+**Inspect meeting controls** during the call lists what the app shows. Also:
+the care of the screen in the app itself —
 the orbit, resting and dark wall drawn by `BarDisplayView` and the screen
 saver, the Working hours card, and above all `DisplayWindow` letting the
 displays sleep out of hours and waking them when the hours begin
@@ -973,7 +1014,7 @@ Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
 `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer`, `Updater`,
 and the Accessibility side of `MuteDetector` and `Sources/Meeting/`
 (`AXMeetingBackend`, `MeetingKeys`) — has no automated checks of its own;
-the meeting logic beneath it does (`Checks/meeting`). If something
+the meeting logic beneath it does (`Checks/meeting`, `Checks/callkeys`). If something
 misbehaves on another Mac, these are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's

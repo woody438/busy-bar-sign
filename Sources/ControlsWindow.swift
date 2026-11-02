@@ -1287,7 +1287,10 @@ private struct CallAppsTab: View {
                     CallAppRow(name: app == .teams ? "Microsoft Teams" : "Zoom", can: "On a call · muted · Mute and Leave keys",
                                now: line(app), divider: i > 0)
                 }
-                CallAppRow(name: "Google Meet, FaceTime, Slack, WhatsApp, Webex, Discord, Skype, Signal, Telegram, RingCentral, GoTo, BlueJeans",
+                ForEach(LabelledCallApp.allCases, id: \.self) { app in
+                    CallAppRow(name: app.label, can: "On a call · muted · Mute and Leave keys, by its own buttons", now: line(app))
+                }
+                CallAppRow(name: "Google Meet, Slack, Webex, Discord, Skype, Signal, Telegram, RingCentral, GoTo, BlueJeans",
                            can: "On a call · muted, when it finds the app's mute button · no Mute or Leave keys", now: nil)
                 ForEach(detector.addedCallApps) { app in
                     CallAppRow(name: app.name, can: "Added by you · on a call · muted, when it finds a mute button", now: nil) {
@@ -1313,7 +1316,7 @@ private struct CallAppsTab: View {
                     }
                 }
             }
-            Note("While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; Meet, Webex, Slack and FaceTime from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
+            Note("While you're muted the bar still says ON A CALL, with the pill dimmed and a slashed mic that flashes slowly: bright means quiet, dim and flashing means the room can talk. Teams and Zoom are read from their own mute control; FaceTime and WhatsApp from the mute button in the call that the Mute key presses; Meet, Webex and Slack from a button that says mute. Dictation apps are never read. If it can't tell, it shows the mic as live.")
         }
         Group {
             Heading("After a call")
@@ -1368,7 +1371,7 @@ private struct CallAppsTab: View {
                 .frame(width: 620, height: 460)
             }
             ForEach(meeting.problems, id: \.self) { Warning(text: $0) }
-            Note("Inspect lists the buttons Busy Bar Sign can see in a Teams meeting window and Zoom's Meeting menu; Capture lists what's open after a call, touching nothing. Copy either and send it over if the sign or a key gets it wrong. The words it reads are in a patterns file (Edit patterns…), the same format as Teams Meeting Keys' teams-ui.json.")
+            Note("Inspect lists the buttons Busy Bar Sign can see in a Teams meeting window, Zoom's Meeting menu and FaceTime's and WhatsApp's call windows, and what the Mute and Leave keys would press; Capture lists what's open after a call, touching nothing. Copy either and send it over if the sign or a key gets it wrong. The words it reads are in a patterns file (Edit patterns…), the same format as Teams Meeting Keys' teams-ui.json.")
         }
     }
 
@@ -1402,6 +1405,12 @@ private struct CallAppsTab: View {
         let muted = s.muted.map { $0 ? "muted" : "mic live" } ?? "mute unknown"
         let label = s.muteLabel.isEmpty ? "" : " · “\(s.muteLabel)”"
         return "“\(s.window)”\(label) · \(muted)\(meeting.snapshot.active == app ? " · the keys act here" : "")"
+    }
+
+    /// FaceTime or WhatsApp: its mute button and state, while you're on a call in it.
+    private func line(_ app: LabelledCallApp) -> String? {
+        guard let r = mute.reading, LabelledCallApp(bundleID: r.bundleID) == app else { return nil }
+        return "“\(r.label)” · \(r.muted ? "muted" : "mic live")"
     }
 
     private func run(_ work: (@escaping (String) -> Void) -> Void) {
@@ -1488,10 +1497,10 @@ private struct StreamDeckTab: View {
         Heading("Keys")
         Card {
             InfoRow(title: "Status", detail: "Shows the sign. Press for Do Not Disturb, or while it says LATE FOR, to say you're there in person.", divider: false)
-            InfoRow(title: "Mute", detail: "LIVE or MUTED in your Teams or Zoom meeting. Press to switch.")
-            InfoRow(title: "Leave", detail: "Leaves the meeting. Hold it a second to end a Zoom meeting you're hosting for everyone.")
+            InfoRow(title: "Mute", detail: "LIVE or MUTED in your Teams or Zoom meeting, or FaceTime or WhatsApp call. Press to switch.")
+            InfoRow(title: "Leave", detail: "Leaves the meeting or call. Hold it a second to end a Zoom meeting you're hosting for everyone.")
             InfoRow(title: "Nearby, Lunch, Back In", detail: "The away keys: the Mac locks, with the sign on every screen (Away & screen saver).")
         }
-        Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. With both apps in meetings they act on the one joined last. Each key's own options, such as Leave only when held, are in Stream Deck. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
+        Note("The Mute and Leave keys (Busy Bar Sign ▸ Mute, ▸ Leave in Stream Deck) press the meeting's own button; if that doesn't take, they bring the meeting window forward and send its shortcut — Teams ⌘⇧M and ⌘⇧H, Zoom ⌘⇧A and ⌘W — then hand you back the app you were in. With both apps in meetings they act on the one joined last. With neither, on a FaceTime or WhatsApp call, they press that call's own mute and end buttons, found by what they say; no shortcut is sent there. Each key's own options, such as Leave only when held, are in Stream Deck. Remove the old Teams Meeting Keys plugin: it does the same, and the two would both press.")
     }
 }

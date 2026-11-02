@@ -10,7 +10,8 @@ import Foundation
  *   POST /dnd/toggle      as a double-click on the bar: Do Not Disturb on or off, or
  *                         during LATE FOR CALL or MTG, there in person (MEETING);
  *                         answers with the new status
- *   POST /meeting/mute    mutes or unmutes the Teams or Zoom meeting; answers
+ *   POST /meeting/mute    mutes or unmutes the Teams or Zoom meeting — or,
+ *                         with neither, the FaceTime or WhatsApp call; answers
  *   POST /meeting/leave   leaves it;
  *   POST /meeting/end     ends it for everyone if it's a Zoom meeting you host
  *                         (else leaves); each answers with the status and how
@@ -28,9 +29,11 @@ import Foundation
  * shows the clock. `dnd` is whether a Do Not Disturb is running, shown or
  * not: a call outranks it. `muted` appears, true, only while you're muted
  * on a call; `state` stays "call" then, so older plugins read it as before.
- * `meeting` appears while you're in a Teams or Zoom meeting:
- * {"app":"teams","canLeave":true,"muted":false}, `muted` left out when the
- * meeting's mute can't be read. `away` appears while an away key is on:
+ * `meeting` appears while you're in a Teams or Zoom meeting, or with
+ * neither, on a FaceTime or WhatsApp call:
+ * {"app":"teams","canLeave":true,"muted":false} — app teams, zoom, facetime
+ * or whatsapp — `muted` left out when the meeting's mute can't be read.
+ * `away` appears while an away key is on:
  * {"kind":"backIn","until":1760000000000} — nearby, lunch or backIn,
  * `until` (ms) for backIn only. `nearbyWord` appears once the Nearby key's
  * been given a word of its own in Settings: "W HOUSE", in capitals, what the
@@ -157,9 +160,9 @@ enum LocalAPI {
             var at: Int64                       // ms since 1970
             var kind: String                    // countdown, countUp, fixed
         }
-        /// The Teams or Zoom meeting you're in.
+        /// The Teams or Zoom meeting you're in, or the FaceTime or WhatsApp call.
         struct Meeting: Encodable, Equatable {
-            var app: String                     // teams, zoom
+            var app: String                     // teams, zoom, facetime, whatsapp
             var muted: Bool?                    // left out when it can't be read
             var canLeave: Bool
         }

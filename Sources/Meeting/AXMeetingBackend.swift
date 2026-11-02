@@ -20,7 +20,7 @@ final class AXMeetingBackend: MeetingBackend {
     }
 
     private static let readNames = ["AXRole", "AXSubrole", "AXDOMIdentifier", "AXDescription", "AXTitle", "AXHelp",
-                                    "AXValue", "AXEnabled", "AXMenuItemMarkChar"]
+                                    "AXValue", "AXEnabled", "AXMenuItemMarkChar", "AXSelected"]
     private let readAttributes = readNames as CFArray
     private let nodeAttributes = (readNames + ["AXChildren"]) as CFArray
     private let systemWide = AXUIElementCreateSystemWide()
@@ -120,7 +120,8 @@ final class AXMeetingBackend: MeetingBackend {
         }
         if let v = at(7) as? NSNumber { a.enabled = v.boolValue }
         a.mark = at(8) as? String ?? ""
-        let kids = children ? ((at(9) as? [AXUIElement]) ?? []).map { Ref($0) as AnyObject } : []
+        if let v = at(9) as? NSNumber { a.selected = v.boolValue }
+        let kids = children ? ((at(10) as? [AXUIElement]) ?? []).map { Ref($0) as AnyObject } : []
         return (a, kids)
     }
 

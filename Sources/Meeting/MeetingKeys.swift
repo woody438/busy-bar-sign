@@ -13,6 +13,10 @@ import Combine
  *      so mute can't toggle twice. An app that ignores its own button twice
  *      gets the shortcut for the rest of the session.
  *
+ * With no Teams or Zoom meeting, a FaceTime or WhatsApp call on the mic gets
+ * the press instead (CallAppKeys): its own mute or end button, found by what
+ * it says, and no shortcut — Teams is never brought forward for it.
+ *
  * The patterns it reads Teams' labels and surveys with can be changed in
  * ~/Library/Application Support/Busy Bar Sign/meeting-ui.json (Teams
  * Meeting Keys' teams-ui.json works as it is).
@@ -23,6 +27,9 @@ struct MeetingPressReport: Equatable {
     var ok: Bool
     var message: String
     var at = Date()
+    /// FaceTime or WhatsApp: the mute the call app showed after the press,
+    /// for the answer to the key before the sign's next reading.
+    var muted: Bool?
 }
 
 /// A popup met after a call, and when.
@@ -36,6 +43,7 @@ final class MeetingWorker: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.woodall.BusyBarSign.meeting", qos: .userInitiated)
     private let backend = AXMeetingBackend()
     private let engine: MeetingEngine
+    private let callKeys: CallAppKeys
     private var started = false
     private var misses: [MeetingApp: Int] = [:]
 
@@ -45,6 +53,7 @@ final class MeetingWorker: @unchecked Sendable {
 
     init(patterns: MeetingPatterns, dismissSurveys: Bool) {
         engine = MeetingEngine(backend: backend, patterns: patterns)
+        callKeys = CallAppKeys(backend: backend)
         engine.dismissSurveys = dismissSurveys
         engine.log = { NSLog("Busy Bar Sign meeting keys: %@", $0) }
     }
@@ -71,11 +80,20 @@ final class MeetingWorker: @unchecked Sendable {
         }
     }
 
-    func press(_ what: MeetingControl, then done: @escaping (MeetingPressReport) -> Void) {
-        queue.async { done(self.run(what)) }
+    /// `call`: the FaceTime or WhatsApp call on the mic, pressed when there's no Teams or Zoom meeting.
+    func press(_ what: MeetingControl, call: LabelledCallApp?, then done: @escaping (MeetingPressReport) -> Void) {
+        queue.async { done(self.run(what, call: call)) }
     }
 
-    func inspect(then done: @escaping (String) -> Void) { queue.async { done(self.engine.inspect()) } }
+    func inspect(then done: @escaping (String) -> Void) {
+        queue.async {
+            var text = self.engine.inspect()
+            if self.backend.trusted() {
+                for app in LabelledCallApp.allCases { text += self.callKeys.report(app, pid: Self.pid(of: app)) }
+            }
+            done(text)
+        }
+    }
     func capture(then done: @escaping (String) -> Void) { queue.async { done(self.engine.capture()) } }
 
     private func report(_ ok: Bool, _ message: String) -> MeetingPressReport {
@@ -83,13 +101,23 @@ final class MeetingWorker: @unchecked Sendable {
         return MeetingPressReport(ok: ok, message: message)
     }
 
-    private func run(_ what: MeetingControl) -> MeetingPressReport {
+    private func run(_ what: MeetingControl, call: LabelledCallApp?) -> MeetingPressReport {
         guard backend.trusted() else {
             return report(false, "Busy Bar Sign isn't allowed to use Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility.")
         }
         let snap = engine.snapshot()
         let app = snap.active
         let before = snap.current?.muted
+
+        // FaceTime or WhatsApp on the mic, and no Teams or Zoom meeting: its own buttons, no shortcut
+        if app == nil, let call {
+            let pid = Self.pid(of: call)
+            guard pid != 0 else { return report(false, "\(call.label) isn't running, so there's nothing to press.") }
+            let r = callKeys.press(what, in: call, pid: pid)
+            var out = report(r.ok, r.message)
+            out.muted = r.muted
+            return out
+        }
 
         // 1. the meeting's own button
         if let app, misses[app, default: 0] < 2 {
@@ -127,6 +155,16 @@ final class MeetingWorker: @unchecked Sendable {
             }
             return report(true, "Sent \(to.label)'s shortcut to “\(window)”.")
         }
+    }
+
+    /// The process showing a FaceTime or WhatsApp call, or 0.
+    private static func pid(of app: LabelledCallApp) -> Int32 {
+        for id in app.appBundleIDs {
+            if let running = NSRunningApplication.runningApplications(withBundleIdentifier: id).first(where: { !$0.isTerminated }) {
+                return running.processIdentifier
+            }
+        }
+        return 0
     }
 
     /// Whether a press shows within `within` seconds: mute flips; leave ends the meeting.
@@ -185,9 +223,10 @@ final class MeetingKeys: ObservableObject {
 
     func start() { worker.start() }
 
-    /// Presses mute or leave in the meeting the keys act on.
-    func press(_ what: MeetingControl, then done: @escaping (MeetingPressReport) -> Void = { _ in }) {
-        worker.press(what) { [weak self] r in
+    /// Presses mute or leave in the meeting the keys act on: the Teams or Zoom
+    /// meeting, else `call`, the FaceTime or WhatsApp call on the mic.
+    func press(_ what: MeetingControl, call: LabelledCallApp? = nil, then done: @escaping (MeetingPressReport) -> Void = { _ in }) {
+        worker.press(what, call: call) { [weak self] r in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self?.lastPress = r
@@ -197,7 +236,7 @@ final class MeetingKeys: ObservableObject {
         }
     }
 
-    /// The meeting apps' controls, as text, for the settings.
+    /// The meeting apps' controls (and FaceTime's and WhatsApp's), as text, for the settings.
     func inspect(then done: @escaping (String) -> Void) {
         worker.inspect { text in DispatchQueue.main.async { done(text) } }
     }
