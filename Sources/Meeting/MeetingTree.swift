@@ -55,6 +55,27 @@ protocol MeetingBackend: AnyObject {
     func postEscape(_ pid: Int32) -> Bool
     func frontmostPID() -> Int32
     func activate(_ pid: Int32)
+
+    // FaceTime shows its call buttons only under the pointer (CallAppKeys)
+    /// A window's place on screen, in Accessibility's top-left coordinates.
+    func frame(_ e: AnyObject) -> CGRect?
+    /// A pointer move sent to one app only: the pointer itself stays put.
+    func nudge(_ pid: Int32, at point: CGPoint)
+    /// Where the pointer is.
+    func pointer() -> CGPoint?
+    /// Moves the pointer, as a real move does (the app under it sees it arrive).
+    func movePointer(to point: CGPoint)
+    /// Raises a window and brings its app forward; false if it didn't come.
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool
+}
+
+/// None of the pointer for a backend that doesn't do it (Checks/meeting's Teams and Zoom).
+extension MeetingBackend {
+    func frame(_ e: AnyObject) -> CGRect? { nil }
+    func nudge(_ pid: Int32, at point: CGPoint) {}
+    func pointer() -> CGPoint? { nil }
+    func movePointer(to point: CGPoint) {}
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool { false }
 }
 
 /// One element of a walked subtree.

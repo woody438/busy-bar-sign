@@ -18,8 +18,9 @@ let cases: [(String, String, Bool, Bool?)] = [
     // Slack huddles, Webex
     ("Mute mic", "AXButton", false, false), ("Unmute mic", "AXButton", false, true),
     ("Mute…", "AXButton", false, false),
-    // FaceTime: a "Mute" menu item, ticked while muted
+    // FaceTime: a "Mute" menu item, ticked while muted; WhatsApp's, after a left-to-right mark
     ("Mute", "AXMenuItem", true, true), ("Mute", "AXMenuItem", false, false),
+    ("\u{200E}Mute Microphone", "AXMenuItem", false, false),
     // a "Mute" that keeps its name and shows it's on: a toggle switched on, a selected button
     ("Mute", "AXCheckBox", true, true), ("Mute", "AXCheckBox", false, false),
     ("Mute", "AXButton", true, true), ("Mute mic", "AXButton", true, true), ("Unmute", "AXButton", true, true),
@@ -45,7 +46,8 @@ for (label, role, checked, want) in cases {
 let leaves: [(String, String, LeaveLabels.Kind?)] = [
     // FaceTime: its call window's button, and Apple's guide's "Leave Call"
     ("End", "AXButton", .bare), ("Leave", "AXButton", .bare), ("Leave Call", "AXButton", .call),
-    ("End Call", "AXMenuItem", .call), ("End FaceTime call", "AXButton", .call),
+    ("End Call", "AXMenuItem", .call), ("End FaceTime call", "AXButton", .call), ("Close", "AXButton", .bare),
+    ("\u{200E}End Call", "AXMenuItem", .call), ("close button", "AXButton", nil),
     // WhatsApp
     ("End call", "AXButton", .call), ("End Call (⌘⇧E)", "AXButton", .call), ("Hang up", "AXButton", .call),
     ("Leave call", "AXButton", .call), ("Raccrocher", "AXButton", .call), ("Terminer l’appel", "AXButton", .call),

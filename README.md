@@ -509,10 +509,20 @@ agree:
   MUTED and Leave shows LEAVE, as in a meeting. Neither app has a meeting
   window to find by id or a Meeting menu, so the app finds the call's own
   buttons by what they say and presses those: **Mute** the mic button in the
-  call's window (in FaceTime, else its menu bar's "Mute"); **Leave** a
-  button named for the call — "End call", "Leave Call", "Hang up" — or, in
-  FaceTime, a lone "End" or "Leave" beside that mic button. Each press is
-  checked: mute must flip, the end button must go. No shortcut is sent and
+  call's window, else the menu bar's — FaceTime's Video ▸ "Mute", WhatsApp's
+  "Mute Microphone"; **Leave** a button named for the call — "End call",
+  "Leave Call", "Hang up", WhatsApp's menu "End Call" — or, in FaceTime, its
+  ✕ ("End", "Leave" or "Close") beside that mic button. Each press is
+  checked: mute must flip; the end button must go, or the menu's mute item
+  grey out as the call ends. **FaceTime shows its buttons only while the
+  pointer is over its window** (checked on a real call: otherwise its window
+  shows Accessibility only your self-view, its close button is greyed out,
+  and its menus have no End). So in a FaceTime call the Leave key first sends
+  FaceTime alone a pointer move, which leaves your pointer where it is; if
+  its buttons still don't show, it brings FaceTime's window forward, moves
+  the pointer over it for about a second, presses ✕, and puts the pointer
+  and your app back. If nothing ends the call, the key says what FaceTime
+  showed. No shortcut is sent and
   nothing else is pressed — never a lone "End" or "Leave" away from the
   call's mic button, never WhatsApp's chat "Mute" (notifications) or a
   group's "Leave" — so Teams no longer comes forward when Leave is pressed
@@ -938,18 +948,22 @@ errors or warnings in its code.
   chat window full of text never taken for a survey; Inspect and Capture
   never showing chat; and Teams Meeting Keys' own `teams-ui.json` loading
   as a patterns file.
-- **Mute buttons are read right** (`Checks/mute`): 42 labels from Teams (in
+- **Mute buttons are read right** (`Checks/mute`): 43 labels from Teams (in
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
   live, a "Mute" that keeps its name read by its state, and the look-alikes —
   "Mute all", "Mute notifications", "Mute speaker", "Ask all to unmute" —
-  ignored. And 29 names for what ends a call: "End", "Leave Call", "End
-  call", "Hang up" and the French, against "Leave group", "End-to-end
-  encrypted", "Voice call", "Decline" and the like.
+  ignored. And 32 names for what ends a call: "End", "Leave Call", "Close",
+  "End call", "Hang up", WhatsApp's menu "End Call" and the French, against
+  "Leave group", "End-to-end encrypted", "Voice call", "Decline" and the
+  like.
 - **FaceTime and WhatsApp are pressed right** (`Checks/callkeys`) against a
   scripted FaceTime and WhatsApp: Mute presses the call window's mic button
   (or FaceTime's menu-bar "Mute" when the window's controls are hidden) and
   is only claimed once it flips; Leave presses End, Leave Call, End call or
-  Hang up and is only claimed once it's gone; a hold just leaves; focus is
+  Hang up and is only claimed once it's gone; FaceTime's buttons that show
+  only under the pointer, shown by a nudge or by moving the pointer over its
+  window and back, never outside a call; WhatsApp's menu "Mute Microphone"
+  and "End Call", never its chats' "Mute"; a hold just leaves; focus is
   handed back; a press the app was slow to answer is still checked; and
   nothing is pressed outside a call — not WhatsApp's chat "Mute" or a
   group's "Leave", not a lone "End" away from a mic button, not FaceTime's
@@ -987,10 +1001,10 @@ Calendar.app and an Elgato Stream Deck:
   preview, and the Call apps page, through the preview builds.
 
 **Not yet checked on a real Mac:** the Mute and Leave keys on a real FaceTime
-and WhatsApp call (2.8.7). The buttons' names are modelled on Apple's
-FaceTime guide (a Mute button and an End or Leave Call button in the call
-window) and on WhatsApp's call window, and checked against scripted windows,
-not yet the apps themselves. If a key shows the warning triangle on a call,
+and WhatsApp call (2.8.7). A real FaceTime call showed its buttons appear only
+under the pointer and the Video menu's "Mute"; WhatsApp's menus "Mute
+Microphone" and "End Call" (outside a call). Whether the nudge or the pointer
+move shows FaceTime's ✕, and what it's called, is still to be seen. If a key shows the warning triangle on a call,
 **Inspect meeting controls** during the call lists what the app shows. Also:
 the care of the screen in the app itself —
 the orbit, resting and dark wall drawn by `BarDisplayView` and the screen

@@ -74,7 +74,7 @@ enum MuteLabels {
 enum LeaveLabels {
     enum Kind: Equatable {
         case call       // says it's about the call
-        case bare       // "End", "Leave": only in a window with a mic control
+        case bare       // "End", "Leave", "Close": only in FaceTime, in a window with a mic control
     }
 
     /// What a control's name says about hanging up, or nil when it doesn't.
@@ -88,7 +88,7 @@ enum LeaveLabels {
     }
 
     private static let roles: Set<String> = ["AXButton", "AXMenuItem"]
-    private static let bare: Set<String> = ["end", "leave"]
+    private static let bare: Set<String> = ["end", "leave", "close"]     // FaceTime's ✕ may say any
     /// Whole names only: "End-to-end encrypted", "Leave group" and "End Chat" aren't calls.
     private static let phrases: Set<String> = [
         "end call", "end the call", "end this call", "end video call", "end voice call", "end audio call",

@@ -6,12 +6,21 @@ import Foundation
  * call controls are found by what they say (MuteLabels, LeaveLabels) and
  * pressed through Accessibility, as MeetingEngine presses Teams' buttons:
  *
- *   Mute   the mic control in the call's window, else FaceTime's menu-bar
- *          "Mute"; done once a mute control's reading flips
+ *   Mute   the mic control in the call's window, else the menu bar's:
+ *          FaceTime's "Mute", WhatsApp's "Mute Microphone"; done once a mute
+ *          control's reading flips
  *   Leave  a control named for the call ("End call", "Leave Call", "Hang
  *          up") in any of the app's windows or its menu bar, or in FaceTime a
- *          lone "End" or "Leave" beside that mic control; done once that
- *          button has gone (or greyed out), not merely hidden
+ *          lone "End", "Leave" or "Close" (its ✕) beside that mic control;
+ *          done once that button has gone or greyed out, or the menu's mute
+ *          item has — not when buttons merely hide
+ *
+ * FaceTime shows its call buttons only while the pointer is over its window
+ * (Accessibility sees only its self-view and greyed-out window buttons
+ * otherwise, and its menus have no End). So in a FaceTime call the Leave key
+ * shows them first: a pointer move sent to FaceTime alone, and if that isn't
+ * enough, its window brought forward and the pointer moved over it for about
+ * a second, then the pointer and your app put back.
  *
  * What it never presses: a lone "End" or "Leave" away from a mic control, or
  * in WhatsApp at all (a group's "Leave"), and in WhatsApp any "Mute" outside
@@ -48,8 +57,16 @@ enum LabelledCallApp: String, CaseIterable, Equatable {
         }
     }
 
-    /// Whether a "Mute" in the menu bar is the call's: FaceTime's is.
-    var menuMute: Bool { self == .facetime }
+    /// Whether a menu-bar mute item is the call's: any of FaceTime's (its
+    /// Video menu's "Mute"); in WhatsApp only one that names the mic ("Mute
+    /// Microphone") — its plain "Mute" is a chat's.
+    func menuMute(_ label: String) -> Bool {
+        if self == .facetime { return true }
+        return MuteLabels.normalise(label).split(separator: " ").contains { $0 == "mic" || $0 == "microphone" }
+    }
+    /// Whether the call's buttons show only while the pointer is over its
+    /// window: FaceTime's do (its window shows Accessibility nothing else).
+    var hoverControls: Bool { self == .facetime }
     /// Whether a mic control counts only in a window that can also end the
     /// call: WhatsApp's chats have a "Mute" of their own, for notifications.
     var muteNeedsLeave: Bool { self == .whatsapp }
@@ -102,6 +119,10 @@ struct CallControls {
     var mute: [Control] = []
     /// What the Leave key presses.
     var leave: Control?
+    /// An enabled mute item in the menu bar: FaceTime's and WhatsApp's are there only in a call.
+    var menuMic = false
+    /// The buttons a small window (a call's, not a list of chats) showed, by name, for when nothing's found.
+    var seen: [String] = []
     /// False when a walk ran out of time or the app stopped answering.
     var complete = true
 }
@@ -126,6 +147,8 @@ final class CallAppKeys {
     static let windowWalkCap = 3000
     static let menuWalkCap = 1500
     static let reportLines = 40
+    static let revealWait = 0.35        // for FaceTime's buttons to appear under the pointer
+    static let windowChrome: Set<String> = ["AXCloseButton", "AXMinimizeButton", "AXFullScreenButton", "AXZoomButton"]
 
     static let muteRoles: Set<String> = ["AXButton", "AXCheckBox", "AXMenuItem", "AXMenuButton", "AXRadioButton", "AXToggle"]
 
@@ -163,8 +186,13 @@ final class CallAppKeys {
 
             var mics: [CallControls.Control] = []
             var bare: [CallControls.Control] = [], named: [CallControls.Control] = []
+            var buttons: [String] = []
             tree.each { n in
-                guard n.expanded, n.attrs.isEnabled else { return true }
+                guard n.expanded else { return true }
+                if ["AXButton", "AXCheckBox"].contains(n.attrs.role), !Self.windowChrome.contains(n.attrs.subrole), !n.attrs.label.isEmpty {
+                    buttons.append(n.attrs.label)
+                }
+                guard n.attrs.isEnabled else { return true }
                 if Self.muteRoles.contains(n.attrs.role), let r = n.attrs.muteReading {
                     mics.append(.init(element: n.element, label: r.label, window: title, muted: r.muted))
                 } else if let r = n.attrs.leaveReading {
@@ -173,6 +201,7 @@ final class CallAppKeys {
                 }
                 return true
             }
+            if buttons.count <= Self.reportLines { out.seen += buttons }
             if !mics.isEmpty && !(bare.isEmpty && named.isEmpty) {
                 calls.append((mics, named + bare, !named.isEmpty))
             } else {
@@ -192,8 +221,9 @@ final class CallAppKeys {
             if truncated || late { out.complete = false }
             tree.each { n in
                 guard n.expanded, n.attrs.isEnabled, n.attrs.role == "AXMenuItem" else { return true }
-                if app.menuMute, let r = n.attrs.muteReading {
+                if let r = n.attrs.muteReading, app.menuMute(r.label) {
                     menuMutes.append(.init(element: n.element, label: r.label, window: "", muted: r.muted))
+                    out.menuMic = true
                 } else if let r = n.attrs.leaveReading, r.kind == .call {
                     namedLeaves.append(.init(element: n.element, label: r.label, window: ""))
                 }
@@ -213,39 +243,56 @@ final class CallAppKeys {
     func press(_ what: MeetingControl, in app: LabelledCallApp, pid: Int32) -> CallKeyResult {
         let appElement = backend.application(pid)
         backend.enable(appElement, full: false)  // a Chromium or Electron build shows its tree only when asked
-        let before = find(appElement, app)
+        let previous = backend.frontmostPID()
+        var before = find(appElement, app)
         var r = CallKeyResult()
+
+        // FaceTime's End button is there only under the pointer: in a call (its menu's Mute
+        // is on), show it — and put the pointer and your app back once it's pressed
+        var movedFrom: CGPoint?, raised = false
+        if what != .mute, before.leave == nil, app.hoverControls, before.menuMic {
+            let revealed = reveal(appElement, app, pid)
+            before = revealed.controls
+            movedFrom = revealed.movedFrom
+            raised = revealed.raised
+        }
+        func handBack(pressed: Bool) {
+            if let from = movedFrom { backend.movePointer(to: from); movedFrom = nil }
+            // an app may come forward on a press: put yours back on top
+            if (pressed || raised) && previous != 0 && previous != pid {
+                wait(Self.restoreDelay)
+                backend.activate(previous)
+            }
+        }
+        let shown = before.seen.isEmpty ? "" : " It showed: \(before.seen.prefix(12).map { "“\($0)”" }.joined(separator: ", "))."
 
         let target: CallControls.Control
         switch what {
         case .mute:
             guard let first = before.mute.first else {
-                r.message = "No mute button found in \(app.label)'s call. Settings ▸ Call apps ▸ Inspect lists what \(app.label) shows."
+                r.message = "No mute button found in \(app.label)'s call.\(shown) Settings ▸ Call apps ▸ Inspect lists what \(app.label) shows."
                 return r
             }
             target = first
         case .leave, .end:                       // neither app ends a call for everyone: a hold just leaves
             guard let leave = before.leave else {
-                r.message = "No button that ends the call found in \(app.label). Settings ▸ Call apps ▸ Inspect lists what \(app.label) shows."
+                handBack(pressed: false)
+                r.message = "No button that ends the call found in \(app.label).\(shown) Settings ▸ Call apps ▸ Inspect lists what \(app.label) shows."
                 return r
             }
             target = leave
         }
         let name = "\(app.label)'s “\(target.label)”\(target.window.isEmpty ? " (menu bar)" : "")"
 
-        let previous = backend.frontmostPID()
         do { try backend.perform(target.element, "AXPress") } catch MeetingAXError.busy {
             r.delivered = true                   // timed out waiting, but it may still land
         } catch {
+            handBack(pressed: false)
             r.message = "Couldn't press \(name): \(error)."
             return r
         }
         r.delivered = true
-        // an app may come forward on a press: put yours back on top
-        if previous != 0 && previous != pid {
-            wait(Self.restoreDelay)
-            backend.activate(previous)
-        }
+        handBack(pressed: true)
 
         if what == .mute {
             let was = before.mute.map(\.muted)
@@ -266,9 +313,13 @@ final class CallAppKeys {
                 r.message = "Pressed \(name), but its mute didn't change."
             }
         } else {
-            // only the button itself going (or greying out) counts: controls that hide
-            // themselves when the pointer leaves the window would look like a call that ended
-            let left = seen(within: Self.leaveVerify) { () -> Bool? in self.ended(target.element) ? true : nil }
+            // the button itself going (or greying out), or the app's menu-bar Mute greying out
+            // (there only in a call) — never just buttons hiding as the pointer leaves the window
+            let inCall = before.menuMic
+            let left = seen(within: Self.leaveVerify) { () -> Bool? in
+                if self.ended(target.element) { return true }
+                return inCall && !self.menuMicOn(appElement, app) ? true : nil
+            }
             if left != nil {
                 r.ok = true
                 r.message = "Pressed \(name): left the call."
@@ -277,6 +328,43 @@ final class CallAppKeys {
             }
         }
         return r
+    }
+
+    /// Shows FaceTime's call buttons: two small pointer moves sent to FaceTime
+    /// alone, which leave your pointer where it is; if its buttons still don't
+    /// show, its window brought forward and the pointer moved over it. Where
+    /// the pointer was, to put it back.
+    private func reveal(_ appElement: AnyObject, _ app: LabelledCallApp, _ pid: Int32)
+        -> (controls: CallControls, movedFrom: CGPoint?, raised: Bool) {
+        let framed = ((try? backend.windows(appElement)) ?? []).compactMap { w in backend.frame(w).map { (w, $0) } }
+        guard let biggest = framed.max(by: { $0.1.width * $0.1.height < $1.1.width * $1.1.height }) else {
+            return (find(appElement, app), nil, false)
+        }
+        let (window, frame) = biggest
+        backend.nudge(pid, at: CGPoint(x: frame.midX, y: frame.midY))
+        wait(Self.revealWait)
+        var found = find(appElement, app)
+        guard found.leave == nil, let from = backend.pointer() else { return (found, nil, false) }
+
+        let raised = backend.bringForward(window, pid: pid)
+        let spot = backend.frame(window) ?? frame                   // brought forward, it may be on another desktop
+        backend.movePointer(to: CGPoint(x: spot.midX, y: spot.midY))
+        wait(Self.revealWait)
+        backend.movePointer(to: CGPoint(x: spot.midX + 2, y: spot.midY))
+        wait(Self.revealWait)
+        found = find(appElement, app)
+        return (found, from, raised)
+    }
+
+    /// Whether the app's menu bar has an enabled mute item: its call is still on.
+    private func menuMicOn(_ appElement: AnyObject, _ app: LabelledCallApp) -> Bool {
+        guard let bar = backend.menuBar(appElement) else { return false }
+        var on = false
+        _ = MeetingNode.walk(backend, bar, maxNodes: Self.menuWalkCap, maxDepth: 5) { n in
+            if n.attrs.role == "AXMenuItem", n.attrs.isEnabled, let r = n.attrs.muteReading, app.menuMute(r.label) { on = true }
+            return on
+        }
+        return on
     }
 
     /// The first non-nil answer of `check`, asked until `within` seconds have passed.

@@ -177,6 +177,41 @@ final class AXMeetingBackend: MeetingBackend {
         if let w = element(app, "AXFocusedWindow") { AXUIElementPerformAction(w, "AXRaise" as CFString) }
     }
 
+    // MARK: - The pointer (FaceTime shows its call buttons only under it)
+
+    func frame(_ e: AnyObject) -> CGRect? {
+        guard let el = try? ax(e), let p = copy(el, "AXPosition"), let s = copy(el, "AXSize"),
+              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
+        var origin = CGPoint.zero, size = CGSize.zero
+        guard AXValueGetValue(p as! AXValue, .cgPoint, &origin), AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
+        return CGRect(origin: origin, size: size)
+    }
+
+    /// Two small moves posted to that process only; the pointer doesn't move.
+    func nudge(_ pid: Int32, at point: CGPoint) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        for dx in [0.0, 1.0] {
+            CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: CGPoint(x: point.x + dx, y: point.y),
+                    mouseButton: .left)?.postToPid(pid)
+        }
+    }
+
+    func pointer() -> CGPoint? { CGEvent(source: nil)?.location }
+
+    func movePointer(to point: CGPoint) {
+        CGWarpMouseCursorPosition(point)
+        let source = CGEventSource(stateID: .hidSystemState)
+        CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?
+            .post(tap: .cghidEventTap)
+    }
+
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool {
+        guard let w = try? ax(window) else { return false }
+        AXUIElementPerformAction(w, "AXRaise" as CFString)
+        AXUIElementSetAttributeValue(AXUIElementCreateApplication(pid), "AXFrontmost" as CFString, kCFBooleanTrue)
+        return waitForFront(pid)
+    }
+
     // MARK: - The keyboard shortcut
 
     enum ShortcutFailure: Error, Equatable {

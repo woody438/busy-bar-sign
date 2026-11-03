@@ -21,6 +21,7 @@ final class El {
     var children: [El] = []
     var gone = false            // destroyed: reading it fails
     var hidden = false          // left out of its parent's children, still readable (auto-hidden controls)
+    var frame: CGRect?          // a window's place on screen
     var onPress: (() -> Void)?
     weak var parent: El?
 
@@ -53,6 +54,12 @@ final class Fake: MeetingBackend {
     var pressed: [String] = []
     var activated: [Int32] = []
     var busyOnce: El?
+    var cursor = CGPoint(x: 2400, y: 1300)  // the pointer, nowhere near FaceTime's window
+    var moves: [CGPoint] = []
+    var nudges = 0
+    var raised = 0
+    var onNudge: (() -> Void)?
+    var onPointer: ((CGPoint) -> Void)?
 
     func trusted() -> Bool { true }
     func findApp(_ app: MeetingApp) -> Int32 { 0 }
@@ -87,7 +94,22 @@ final class Fake: MeetingBackend {
     func postEscape(_ pid: Int32) -> Bool { false }
     func frontmostPID() -> Int32 { front }
     func activate(_ pid: Int32) { activated.append(pid) }
+    func frame(_ e: AnyObject) -> CGRect? { (try? el(e))?.frame }
+    func nudge(_ pid: Int32, at point: CGPoint) { nudges += 1; onNudge?() }
+    func pointer() -> CGPoint? { cursor }
+    func movePointer(to point: CGPoint) {
+        cursor = point
+        moves.append(point)
+        onPointer?(point)
+    }
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool {
+        raised += 1
+        front = pid
+        return true
+    }
 }
+
+func inside(_ p: CGPoint, _ r: CGRect) -> Bool { p.x >= r.minX && p.x < r.maxX && p.y >= r.minY && p.y < r.maxY }
 
 func button(_ label: String, role: String = "AXButton") -> El { El(MeetingAttrs(role: role, desc: label)) }
 func text(_ s: String) -> El { El(MeetingAttrs(role: "AXStaticText", value: s)) }
@@ -117,20 +139,23 @@ final class Harness {
     }
 
     /// FaceTime in a call: its window's controls (a toggle "Mute" that keeps
-    /// its name), and its Video menu.
+    /// its name), and its Video menu, whose "Mute" is on only in a call.
     @discardableResult
-    func faceTimeCall(end endLabel: String = "End", mute role: String = "AXCheckBox") -> (mic: El, end: El, controls: El, menuMute: El) {
+    func faceTimeCall(end endLabel: String = "End", mute role: String = "AXCheckBox")
+        -> (mic: El, end: El, controls: El, menuMute: El, window: El) {
         let mic = button("Mute", role: role)
         mic.attrs.number = 0
         mic.onPress = { mic.attrs.number = mic.attrs.number == 1 ? 0 : 1 }
         let end = button(endLabel)
         let controls = group(button("Show Sidebar"), mic, button("Camera"), button("Share Screen"), end)
         end.onPress = { controls.gone = true }
-        f.wins[facetime] = [window("FaceTime", group(text("Mickey Curbishley"), text("00:42")), controls)]
+        let win = window("FaceTime", button("Your video, Me"), group(text("Mickey Curbishley"), text("00:42")), controls)
+        win.frame = CGRect(x: 100, y: 100, width: 800, height: 600)
+        f.wins[facetime] = [win]
         let menuMute = menuItem("Mute")
         f.menus[facetime] = menuBar(("FaceTime", [menuItem("Settings…"), menuItem("Quit FaceTime")]),
                                     ("Video", [menuItem("Camera"), menuMute, menuItem("Enter Full Screen")]))
-        return (mic, end, controls, menuMute)
+        return (mic, end, controls, menuMute, win)
     }
 
     /// WhatsApp with a chat window — a "Mute" for notifications and a group's
@@ -186,8 +211,8 @@ do { // Leave: its End button, checked to have gone; a held key (end) just leave
     }
 }
 
-do { // a Group FaceTime's "Leave Call", and a bare "Leave"
-    for label in ["Leave Call", "Leave"] {
+do { // a Group FaceTime's "Leave Call", a bare "Leave", and its ✕ if it's called "Close"
+    for label in ["Leave Call", "Leave", "Close"] {
         let h = Harness()
         let call = h.faceTimeCall(end: label)
         let r = h.keys.press(.leave, in: .facetime, pid: facetime)
@@ -291,7 +316,83 @@ do { // a lone "End" away from any mic control is never pressed
     expect(!r.delivered && h.f.pressed.isEmpty, "lone End pressed: \(h.f.pressed)")
 }
 
+do { // FaceTime's buttons show only under the pointer: a nudge sent to FaceTime shows them, the pointer never moves
+    let h = Harness()
+    let call = h.faceTimeCall()
+    call.controls.hidden = true
+    h.f.onNudge = { call.controls.hidden = false }
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(r.ok && h.f.pressed == ["End"] && h.f.nudges == 1, "nudged: \(r), pressed \(h.f.pressed)")
+    expect(h.f.moves.isEmpty && h.f.raised == 0, "the pointer moved, or FaceTime came forward, after a nudge did it: \(h.f.moves)")
+}
+
+do { // a nudge isn't enough: FaceTime forward, the pointer over it, End pressed, pointer and your app put back;
+     // the ✕ only hides as the pointer leaves, so the call's end is seen by FaceTime's menu Mute greying out
+    let h = Harness()
+    let call = h.faceTimeCall()
+    call.controls.hidden = true
+    let start = h.f.cursor
+    let frame = call.window.frame!
+    h.f.onPointer = { p in call.controls.hidden = !inside(p, frame) }
+    call.end.onPress = { call.menuMute.attrs.enabled = false }
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(r.ok && h.f.pressed == ["End"], "under the pointer: \(r), pressed \(h.f.pressed)")
+    expect(h.f.raised == 1 && h.f.moves.count == 3 && inside(h.f.moves[0], frame) && h.f.cursor == start,
+           "the pointer over FaceTime and back: \(h.f.moves)")
+    expect(h.f.activated == [777], "your app given back: \(h.f.activated)")
+}
+
+do { // the ✕ pressed under the pointer but the call goes on: not claimed
+    let h = Harness()
+    let call = h.faceTimeCall()
+    call.controls.hidden = true
+    let frame = call.window.frame!
+    h.f.onPointer = { p in call.controls.hidden = !inside(p, frame) }
+    call.end.onPress = {}
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(!r.ok && r.delivered && r.message.contains("still shows"), "call still on: \(r)")
+}
+
+do { // FaceTime's buttons never show: nothing pressed, pointer and app put back, and the key says what FaceTime showed
+    let h = Harness()
+    let call = h.faceTimeCall()
+    call.controls.hidden = true
+    let start = h.f.cursor
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(!r.delivered && h.f.pressed.isEmpty, "pressed something: \(h.f.pressed)")
+    expect(h.f.cursor == start && h.f.activated == [777], "not put back: pointer \(h.f.cursor), apps \(h.f.activated)")
+    expect(r.message.contains("“Your video, Me”"), "doesn't say what FaceTime showed: \(r.message)")
+}
+
+do { // no FaceTime call (its menu's Mute greyed out): the pointer is never moved, nothing nudged
+    let h = Harness()
+    let call = h.faceTimeCall()
+    call.controls.hidden = true
+    call.menuMute.attrs.enabled = false
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(!r.delivered && h.f.nudges == 0 && h.f.moves.isEmpty && h.f.raised == 0, "no call, yet: \(r), moves \(h.f.moves)")
+}
+
 // MARK: - WhatsApp
+
+do { // its menu bar: "Mute Microphone" and "End Call" in a call (as WhatsApp writes them, after a
+     // left-to-right mark), never its chats' plain "Mute"
+    let h = Harness()
+    h.whatsApp(call: false)
+    let micItem = menuItem("\u{200E}Mute Microphone")
+    micItem.onPress = { micItem.attrs.title = "\u{200E}Unmute Microphone" }
+    let endItem = menuItem("\u{200E}End Call")
+    endItem.onPress = {
+        endItem.attrs.enabled = false
+        micItem.attrs.enabled = false
+    }
+    h.f.menus[whatsapp] = menuBar(("Chat", [menuItem("\u{200E}Mute"), menuItem("Archive")]), ("Call", [micItem, endItem]))
+    let mute = h.keys.press(.mute, in: .whatsapp, pid: whatsapp)
+    expect(mute.ok && mute.muted == true && h.f.pressed == ["\u{200E}Mute Microphone"], "WhatsApp's menu mute: \(mute), pressed \(h.f.pressed)")
+    let leave = h.keys.press(.leave, in: .whatsapp, pid: whatsapp)
+    expect(leave.ok && h.f.pressed.last == "\u{200E}End Call", "WhatsApp's menu End Call: \(leave), pressed \(h.f.pressed)")
+    expect(h.f.moves.isEmpty && h.f.nudges == 0, "the pointer moved for WhatsApp")
+}
 
 do { // Mute and Leave: the call window's, never the chat's "Mute" or a group's "Leave"
     let h = Harness()
