@@ -515,7 +515,8 @@ agree:
   ✕ ("End", as a real call showed it, or "Leave" or "Close") beside a mic
   button or its "Microphone" button. Each press is
   checked: mute must flip; the end button must go, or the menu's mute item
-  grey out as the call ends. **FaceTime shows its buttons only while the
+  grey out as the call ends. Both keys checked on a real FaceTime call.
+  **FaceTime shows its buttons only while the
   pointer is over its window** (checked on a real call: otherwise its window
   shows Accessibility only your self-view, its close button is greyed out,
   and its menus have no End). So in a FaceTime call the Leave key first sends
@@ -1001,12 +1002,12 @@ Calendar.app and an Elgato Stream Deck:
 - The settings window's sidebar and its sections, World clocks with its
   preview, and the Call apps page, through the preview builds.
 
-**Not yet checked on a real Mac:** the Mute and Leave keys on a real FaceTime
-and WhatsApp call (2.8.7). Real FaceTime calls showed: its buttons only under
-the pointer, and the pointer move showing them — "FaceTime", "Camera",
-"Microphone", "More", "End" — and the Video menu's "Mute"; WhatsApp's menus
-"Mute Microphone" and "End Call" (outside a call). Still to be seen: Leave
-pressing FaceTime's "End", FaceTime's Mute, and a WhatsApp call. If a key shows the warning triangle on a call,
+**Checked on a real Mac (3 Nov 2026, 2.8.7 preview):** the Mute and Leave keys
+on a FaceTime call. Leave brings FaceTime's buttons up under the pointer —
+"FaceTime", "Camera", "Microphone", "More", "End" — presses End, and the call
+ends; Mute mutes and unmutes through its Video menu's "Mute". **Not yet:** a
+WhatsApp call (its menus "Mute Microphone" and "End Call" were seen outside a
+call, greyed out). If a key shows the warning triangle on a call,
 **Inspect meeting controls** during the call lists what the app shows. Also:
 the care of the screen in the app itself —
 the orbit, resting and dark wall drawn by `BarDisplayView` and the screen
