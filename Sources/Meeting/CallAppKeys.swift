@@ -127,6 +127,13 @@ struct CallControls {
     var complete = true
 }
 
+/// From the struct's own fields: with Foundation alone (Checks/callkeys) CGRect has
+/// none of CoreGraphics' helpers, such as its width or middle.
+private extension CGRect {
+    var centre: CGPoint { CGPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2) }
+    var area: CGFloat { size.width * size.height }
+}
+
 /// How a press in FaceTime or WhatsApp went.
 struct CallKeyResult: Equatable {
     var ok = false
@@ -337,20 +344,20 @@ final class CallAppKeys {
     private func reveal(_ appElement: AnyObject, _ app: LabelledCallApp, _ pid: Int32)
         -> (controls: CallControls, movedFrom: CGPoint?, raised: Bool) {
         let framed = ((try? backend.windows(appElement)) ?? []).compactMap { w in backend.frame(w).map { (w, $0) } }
-        guard let biggest = framed.max(by: { $0.1.width * $0.1.height < $1.1.width * $1.1.height }) else {
+        guard let biggest = framed.max(by: { $0.1.area < $1.1.area }) else {
             return (find(appElement, app), nil, false)
         }
         let (window, frame) = biggest
-        backend.nudge(pid, at: CGPoint(x: frame.midX, y: frame.midY))
+        backend.nudge(pid, at: frame.centre)
         wait(Self.revealWait)
         var found = find(appElement, app)
         guard found.leave == nil, let from = backend.pointer() else { return (found, nil, false) }
 
         let raised = backend.bringForward(window, pid: pid)
-        let spot = backend.frame(window) ?? frame                   // brought forward, it may be on another desktop
-        backend.movePointer(to: CGPoint(x: spot.midX, y: spot.midY))
+        let spot = (backend.frame(window) ?? frame).centre          // brought forward, it may be on another desktop
+        backend.movePointer(to: spot)
         wait(Self.revealWait)
-        backend.movePointer(to: CGPoint(x: spot.midX + 2, y: spot.midY))
+        backend.movePointer(to: CGPoint(x: spot.x + 2, y: spot.y))
         wait(Self.revealWait)
         found = find(appElement, app)
         return (found, from, raised)

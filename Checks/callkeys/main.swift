@@ -109,7 +109,11 @@ final class Fake: MeetingBackend {
     }
 }
 
-func inside(_ p: CGPoint, _ r: CGRect) -> Bool { p.x >= r.minX && p.x < r.maxX && p.y >= r.minY && p.y < r.maxY }
+// CGRect and CGPoint by their own fields: with Foundation alone they have none of CoreGraphics' helpers, nor ==
+func inside(_ p: CGPoint, _ r: CGRect) -> Bool {
+    p.x >= r.origin.x && p.x < r.origin.x + r.size.width && p.y >= r.origin.y && p.y < r.origin.y + r.size.height
+}
+func same(_ a: CGPoint?, _ b: CGPoint) -> Bool { a.map { $0.x == b.x && $0.y == b.y } ?? false }
 
 func button(_ label: String, role: String = "AXButton") -> El { El(MeetingAttrs(role: role, desc: label)) }
 func text(_ s: String) -> El { El(MeetingAttrs(role: "AXStaticText", value: s)) }
@@ -150,7 +154,7 @@ final class Harness {
         let controls = group(button("Show Sidebar"), mic, button("Camera"), button("Share Screen"), end)
         end.onPress = { controls.gone = true }
         let win = window("FaceTime", button("Your video, Me"), group(text("Mickey Curbishley"), text("00:42")), controls)
-        win.frame = CGRect(x: 100, y: 100, width: 800, height: 600)
+        win.frame = CGRect(origin: CGPoint(x: 100, y: 100), size: CGSize(width: 800, height: 600))
         f.wins[facetime] = [win]
         let menuMute = menuItem("Mute")
         f.menus[facetime] = menuBar(("FaceTime", [menuItem("Settings…"), menuItem("Quit FaceTime")]),
@@ -337,7 +341,7 @@ do { // a nudge isn't enough: FaceTime forward, the pointer over it, End pressed
     call.end.onPress = { call.menuMute.attrs.enabled = false }
     let r = h.keys.press(.leave, in: .facetime, pid: facetime)
     expect(r.ok && h.f.pressed == ["End"], "under the pointer: \(r), pressed \(h.f.pressed)")
-    expect(h.f.raised == 1 && h.f.moves.count == 3 && inside(h.f.moves[0], frame) && h.f.cursor == start,
+    expect(h.f.raised == 1 && h.f.moves.count == 3 && inside(h.f.moves[0], frame) && same(h.f.cursor, start),
            "the pointer over FaceTime and back: \(h.f.moves)")
     expect(h.f.activated == [777], "your app given back: \(h.f.activated)")
 }
@@ -360,7 +364,7 @@ do { // FaceTime's buttons never show: nothing pressed, pointer and app put back
     let start = h.f.cursor
     let r = h.keys.press(.leave, in: .facetime, pid: facetime)
     expect(!r.delivered && h.f.pressed.isEmpty, "pressed something: \(h.f.pressed)")
-    expect(h.f.cursor == start && h.f.activated == [777], "not put back: pointer \(h.f.cursor), apps \(h.f.activated)")
+    expect(same(h.f.cursor, start) && h.f.activated == [777], "not put back: pointer \(h.f.cursor), apps \(h.f.activated)")
     expect(r.message.contains("“Your video, Me”"), "doesn't say what FaceTime showed: \(r.message)")
 }
 
