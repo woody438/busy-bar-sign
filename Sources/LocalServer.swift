@@ -131,11 +131,14 @@ final class LocalServer: ObservableObject {
     }
 
     /// A Mute or Leave key (held: end): answers once the meeting app has been pressed, with how it went.
+    /// No Teams or Zoom meeting, a FaceTime or WhatsApp call on the mic gets the press.
     private func press(_ what: MeetingControl, on connection: NWConnection) {
-        status.meeting.press(what) { [weak self] report in
+        status.meeting.press(what, call: status.labelledCall) { [weak self] report in
             guard let self else { return connection.cancel() }
             self.status.evaluate()
             var answer = self.current
+            // FaceTime or WhatsApp: what it showed after the press, before the sign's next reading of it
+            if let muted = report.muted, answer.meeting != nil { answer.meeting?.muted = muted }
             answer.pressed = LocalAPI.Status.Pressed(ok: report.ok, message: report.message)
             self.send(LocalAPI.response(200, body: LocalAPI.encode(answer)), on: connection)
         }
@@ -147,10 +150,14 @@ final class LocalServer: ObservableObject {
         }
         // a muted call is still "call" to the Stream Deck, with muted alongside
         let muted = status.state == .callMuted
-        // the Teams or Zoom meeting the keys act on
+        // the Teams or Zoom meeting the keys act on, else a FaceTime or WhatsApp call on the mic
         let snap = status.meeting.snapshot
         let meeting = snap.active.flatMap { app in
             snap.apps[app].map { LocalAPI.Status.Meeting(app: app.rawValue, muted: $0.muted, canLeave: $0.canLeave) }
+        } ?? status.labelledCall.map { call -> LocalAPI.Status.Meeting in
+            // its mute as the sign reads it, from the control the Mute key presses
+            let reading = status.mute.reading.flatMap { LabelledCallApp(bundleID: $0.bundleID) == call ? $0.muted : nil }
+            return LocalAPI.Status.Meeting(app: call.rawValue, muted: reading, canLeave: true)
         }
         let away = status.away.kind.map { kind in
             LocalAPI.Status.Away(kind: kind.rawValue, until: status.away.until.map { Int64(($0.timeIntervalSince1970 * 1000).rounded()) })
