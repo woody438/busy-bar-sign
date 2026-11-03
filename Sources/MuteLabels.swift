@@ -82,7 +82,7 @@ enum LeaveLabels {
         guard roles.contains(role) else { return nil }
         let label = MuteLabels.normalise(raw)
         guard !label.isEmpty, label.count <= 40 else { return nil }
-        if bare.contains(label) { return .bare }
+        if bare.contains(label) { return role == "AXButton" ? .bare : nil }    // a button, never File ▸ Close
         if phrases.contains(label) { return .call }
         return nil
     }

@@ -11,9 +11,11 @@ import Foundation
  *          control's reading flips
  *   Leave  a control named for the call ("End call", "Leave Call", "Hang
  *          up") in any of the app's windows or its menu bar, or in FaceTime a
- *          lone "End", "Leave" or "Close" (its ✕) beside that mic control;
- *          done once that button has gone or greyed out, or the menu's mute
- *          item has — not when buttons merely hide
+ *          lone "End", "Leave" or "Close" (its ✕) beside that mic control
+ *          or a "Microphone" button (FaceTime's call window, as a real call
+ *          showed it: "Camera", "Microphone", "More", "End"); done once that
+ *          button has gone or greyed out, or the menu's mute item has — not
+ *          when buttons merely hide
  *
  * FaceTime shows its call buttons only while the pointer is over its window
  * (Accessibility sees only its self-view and greyed-out window buttons
@@ -156,6 +158,10 @@ final class CallAppKeys {
     static let reportLines = 40
     static let revealWait = 0.35        // for FaceTime's buttons to appear under the pointer
     static let windowChrome: Set<String> = ["AXCloseButton", "AXMinimizeButton", "AXFullScreenButton", "AXZoomButton"]
+    /// A mic toggle named for the mic, not for what pressing it does (FaceTime's "Microphone"):
+    /// no reading of its own, but it marks a call's window as a mute control does.
+    static let micToggleRoles: Set<String> = ["AXButton", "AXCheckBox", "AXToggle"]
+    static let micToggleNames: Set<String> = ["microphone", "mic"]
 
     static let muteRoles: Set<String> = ["AXButton", "AXCheckBox", "AXMenuItem", "AXMenuButton", "AXRadioButton", "AXToggle"]
 
@@ -194,10 +200,14 @@ final class CallAppKeys {
             var mics: [CallControls.Control] = []
             var bare: [CallControls.Control] = [], named: [CallControls.Control] = []
             var buttons: [String] = []
+            var micToggle = false
             tree.each { n in
                 guard n.expanded else { return true }
                 if ["AXButton", "AXCheckBox"].contains(n.attrs.role), !Self.windowChrome.contains(n.attrs.subrole), !n.attrs.label.isEmpty {
                     buttons.append(n.attrs.label)
+                }
+                if Self.micToggleRoles.contains(n.attrs.role), Self.micToggleNames.contains(MuteLabels.normalise(n.attrs.label)) {
+                    micToggle = true
                 }
                 guard n.attrs.isEnabled else { return true }
                 if Self.muteRoles.contains(n.attrs.role), let r = n.attrs.muteReading {
@@ -209,7 +219,8 @@ final class CallAppKeys {
                 return true
             }
             if buttons.count <= Self.reportLines { out.seen += buttons }
-            if !mics.isEmpty && !(bare.isEmpty && named.isEmpty) {
+            // a call's window: a mic control (or a "Microphone" toggle) beside something that ends the call
+            if (!mics.isEmpty || micToggle) && !(bare.isEmpty && named.isEmpty) {
                 calls.append((mics, named + bare, !named.isEmpty))
             } else {
                 if !app.muteNeedsLeave { otherMutes += mics }

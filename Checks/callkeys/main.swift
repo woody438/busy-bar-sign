@@ -162,6 +162,34 @@ final class Harness {
         return (mic, end, controls, menuMute, win)
     }
 
+    /// FaceTime as a real call showed it (3 Nov 2026): its window gives only your
+    /// self-view till the pointer's over it, then "FaceTime", "Camera",
+    /// "Microphone", "More" and "End" (its ✕); its menus "Mute", and File ▸
+    /// "Close", greyed out. Ending the call greys its Mute out.
+    @discardableResult
+    func faceTimeAsSeen(end endLabel: String? = "End") -> (controls: El, menuMute: El, window: El) {
+        let kids = [button("FaceTime"), button("Camera"), button("Microphone"), button("More")] + (endLabel.map { [button($0)] } ?? [])
+        let controls = El(MeetingAttrs(role: "AXGroup"), kids)
+        controls.hidden = true
+        let win = window("FaceTime", button("Your video, Me"), controls)
+        win.frame = CGRect(origin: CGPoint(x: 200, y: 150), size: CGSize(width: 640, height: 480))
+        f.wins[facetime] = [win]
+        let close = menuItem("Close")
+        close.attrs.enabled = false
+        let menuMute = menuItem("Mute")
+        menuMute.onPress = { menuMute.attrs.mark = menuMute.attrs.mark.isEmpty ? "✓" : "" }
+        f.menus[facetime] = menuBar(("File", [close]), ("Video", [menuItem("Camera"), menuMute]))
+        let frame = win.frame!
+        f.onPointer = { p in controls.hidden = !inside(p, frame) }
+        if let end = kids.last, endLabel != nil {
+            end.onPress = {
+                controls.gone = true
+                menuMute.attrs.enabled = false
+            }
+        }
+        return (controls, menuMute, win)
+    }
+
     /// WhatsApp with a chat window — a "Mute" for notifications and a group's
     /// "Leave" among its chats — and, on a call, its call window.
     @discardableResult
@@ -375,6 +403,26 @@ do { // no FaceTime call (its menu's Mute greyed out): the pointer is never move
     call.menuMute.attrs.enabled = false
     let r = h.keys.press(.leave, in: .facetime, pid: facetime)
     expect(!r.delivered && h.f.nudges == 0 && h.f.moves.isEmpty && h.f.raised == 0, "no call, yet: \(r), moves \(h.f.moves)")
+}
+
+do { // FaceTime as a real call showed it: "End" beside "Microphone", shown under the pointer, pressed; pointer back
+    let h = Harness()
+    h.faceTimeAsSeen()
+    let start = h.f.cursor
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(r.ok && h.f.pressed == ["End"], "FaceTime as seen: \(r), pressed \(h.f.pressed)")
+    expect(same(h.f.cursor, start) && h.f.activated == [777], "not put back: \(h.f.cursor), \(h.f.activated)")
+    let mute = Harness()
+    mute.faceTimeAsSeen()
+    let m = mute.keys.press(.mute, in: .facetime, pid: facetime)
+    expect(m.ok && m.muted == true && mute.f.pressed == ["Mute"] && mute.f.moves.isEmpty, "FaceTime as seen, Mute by its menu: \(m)")
+}
+
+do { // FaceTime's "Microphone" with no End beside it: nothing pressed; File ▸ Close never
+    let h = Harness()
+    h.faceTimeAsSeen(end: nil)
+    let r = h.keys.press(.leave, in: .facetime, pid: facetime)
+    expect(!r.delivered && h.f.pressed.isEmpty && r.message.contains("“Microphone”"), "no End: \(r), pressed \(h.f.pressed)")
 }
 
 // MARK: - WhatsApp

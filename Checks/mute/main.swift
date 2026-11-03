@@ -48,6 +48,7 @@ let leaves: [(String, String, LeaveLabels.Kind?)] = [
     ("End", "AXButton", .bare), ("Leave", "AXButton", .bare), ("Leave Call", "AXButton", .call),
     ("End Call", "AXMenuItem", .call), ("End FaceTime call", "AXButton", .call), ("Close", "AXButton", .bare),
     ("\u{200E}End Call", "AXMenuItem", .call), ("close button", "AXButton", nil),
+    ("Close", "AXMenuItem", nil), ("End", "AXMenuItem", nil),
     // WhatsApp
     ("End call", "AXButton", .call), ("End Call (⌘⇧E)", "AXButton", .call), ("Hang up", "AXButton", .call),
     ("Leave call", "AXButton", .call), ("Raccrocher", "AXButton", .call), ("Terminer l’appel", "AXButton", .call),

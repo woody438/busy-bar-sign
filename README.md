@@ -512,7 +512,8 @@ agree:
   call's window, else the menu bar's — FaceTime's Video ▸ "Mute", WhatsApp's
   "Mute Microphone"; **Leave** a button named for the call — "End call",
   "Leave Call", "Hang up", WhatsApp's menu "End Call" — or, in FaceTime, its
-  ✕ ("End", "Leave" or "Close") beside that mic button. Each press is
+  ✕ ("End", as a real call showed it, or "Leave" or "Close") beside a mic
+  button or its "Microphone" button. Each press is
   checked: mute must flip; the end button must go, or the menu's mute item
   grey out as the call ends. **FaceTime shows its buttons only while the
   pointer is over its window** (checked on a real call: otherwise its window
@@ -952,7 +953,7 @@ errors or warnings in its code.
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
   live, a "Mute" that keeps its name read by its state, and the look-alikes —
   "Mute all", "Mute notifications", "Mute speaker", "Ask all to unmute" —
-  ignored. And 32 names for what ends a call: "End", "Leave Call", "Close",
+  ignored. And 34 names for what ends a call: "End", "Leave Call", "Close",
   "End call", "Hang up", WhatsApp's menu "End Call" and the French, against
   "Leave group", "End-to-end encrypted", "Voice call", "Decline" and the
   like.
@@ -1001,10 +1002,11 @@ Calendar.app and an Elgato Stream Deck:
   preview, and the Call apps page, through the preview builds.
 
 **Not yet checked on a real Mac:** the Mute and Leave keys on a real FaceTime
-and WhatsApp call (2.8.7). A real FaceTime call showed its buttons appear only
-under the pointer and the Video menu's "Mute"; WhatsApp's menus "Mute
-Microphone" and "End Call" (outside a call). Whether the nudge or the pointer
-move shows FaceTime's ✕, and what it's called, is still to be seen. If a key shows the warning triangle on a call,
+and WhatsApp call (2.8.7). Real FaceTime calls showed: its buttons only under
+the pointer, and the pointer move showing them — "FaceTime", "Camera",
+"Microphone", "More", "End" — and the Video menu's "Mute"; WhatsApp's menus
+"Mute Microphone" and "End Call" (outside a call). Still to be seen: Leave
+pressing FaceTime's "End", FaceTime's Mute, and a WhatsApp call. If a key shows the warning triangle on a call,
 **Inspect meeting controls** during the call lists what the app shows. Also:
 the care of the screen in the app itself —
 the orbit, resting and dark wall drawn by `BarDisplayView` and the screen
