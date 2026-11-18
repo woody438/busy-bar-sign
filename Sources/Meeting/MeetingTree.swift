@@ -19,6 +19,7 @@ struct MeetingAttrs: Equatable {
     var number: Double?     // AXValue, when it's a number or a switch
     var enabled: Bool?      // AXEnabled; nil when not reported
     var mark = ""           // AXMenuItemMarkChar: a menu item's tick
+    var selected: Bool?     // AXSelected: a button showing it's on (FaceTime, WhatsApp)
 
     /// The name a screen reader would read.
     var label: String { !desc.isEmpty ? desc : !title.isEmpty ? title : help }
@@ -54,6 +55,27 @@ protocol MeetingBackend: AnyObject {
     func postEscape(_ pid: Int32) -> Bool
     func frontmostPID() -> Int32
     func activate(_ pid: Int32)
+
+    // FaceTime shows its call buttons only under the pointer (CallAppKeys)
+    /// A window's place on screen, in Accessibility's top-left coordinates.
+    func frame(_ e: AnyObject) -> CGRect?
+    /// A pointer move sent to one app only: the pointer itself stays put.
+    func nudge(_ pid: Int32, at point: CGPoint)
+    /// Where the pointer is.
+    func pointer() -> CGPoint?
+    /// Moves the pointer, as a real move does (the app under it sees it arrive).
+    func movePointer(to point: CGPoint)
+    /// Raises a window and brings its app forward; false if it didn't come.
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool
+}
+
+/// None of the pointer for a backend that doesn't do it (Checks/meeting's Teams and Zoom).
+extension MeetingBackend {
+    func frame(_ e: AnyObject) -> CGRect? { nil }
+    func nudge(_ pid: Int32, at point: CGPoint) {}
+    func pointer() -> CGPoint? { nil }
+    func movePointer(to point: CGPoint) {}
+    func bringForward(_ window: AnyObject, pid: Int32) -> Bool { false }
 }
 
 /// One element of a walked subtree.
@@ -185,7 +207,7 @@ final class MeetingNode {
 }
 
 extension MeetingAttrs {
-    /// One line: role/subrole #id "name" =value [disabled].
+    /// One line: role/subrole #id "name" =value [ticked] [selected] [disabled].
     var line: String {
         var s = role.hasPrefix("AX") ? String(role.dropFirst(2)) : role
         if !subrole.isEmpty { s += "/" + (subrole.hasPrefix("AX") ? String(subrole.dropFirst(2)) : subrole) }
@@ -193,6 +215,8 @@ extension MeetingAttrs {
         if !label.isEmpty { s += " “\(label.clipped(to: 90))”" }
         if !value.isEmpty, value != label { s += " =“\(value.clipped(to: 90))”" }
         if let number { s += " =\(number == number.rounded() ? String(Int(number)) : String(number))" }
+        if !mark.isEmpty { s += " [ticked]" }
+        if selected == true { s += " [selected]" }
         if enabled == false { s += " [disabled]" }
         return s
     }
