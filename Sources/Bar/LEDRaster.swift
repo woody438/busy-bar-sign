@@ -15,6 +15,10 @@ import Foundation
  * drawn once per row and copied everywhere else it's needed, and the 16
  * rows render in parallel, each with its own cache and its own band of
  * pixels.
+ *
+ * It draws into its own `pixels`, or into a `Canvas`: a buffer the caller
+ * owns (the panel's IOSurfaces), which remembers what each of its LEDs
+ * shows so that drawing into it again redraws only the LEDs that differ.
  */
 final class LEDRaster {
     /// Follows Flipper's own LED preview shader: rounded squares at 85% of
@@ -37,8 +41,11 @@ final class LEDRaster {
     let height: Int
     let glowWidth: Int, glowHeight: Int
     let look: Look
+    /// Bytes in B, G, R, A order rather than R, G, B, A: what an IOSurface the
+    /// screen shows as it is wants.
+    let bgra: Bool
 
-    /// RGBA8, row-major, alpha always 255. Valid until the next `render`.
+    /// RGBA8 (BGRA8 with `bgra`), row-major, alpha always 255. Valid until the next `render`.
     let pixels: UnsafeMutableRawBufferPointer
     var bytesPerRow: Int { width * 4 }
 
@@ -49,19 +56,40 @@ final class LEDRaster {
     private struct TileKey: Hashable { let rgb: UInt64 }
     private final class RowCache {
         var tiles: [TileKey: [UInt8]] = [:]
-        /// What each LED in the row showed last frame: an LED that hasn't
-        /// changed is already in `pixels`, so it isn't written again.
-        var shown: [UInt64]
-        init(cols: Int) { shown = [UInt64](repeating: .max, count: cols) }
     }
     private let caches: [RowCache]
 
-    init(pitch: Int, cols: Int = LEDFrame.cols, rows: Int = LEDFrame.rows, look: Look = Look()) {
+    /// A buffer of pixels the size of the panel, and what each of its LEDs
+    /// shows: an LED that hasn't changed since it was last drawn into this
+    /// buffer isn't written again. One for each buffer drawn into.
+    final class Canvas {
+        /// Each LED's key (its colour on the screen, 16 bits a channel), row by row; .max: not drawn yet.
+        let keys: UnsafeMutableBufferPointer<UInt64>
+        init(leds: Int) {
+            keys = .allocate(capacity: leds)
+            keys.initialize(repeating: .max)
+        }
+        deinit { keys.deallocate() }
+        /// Whether it shows exactly these keys.
+        func shows(_ wanted: UnsafeBufferPointer<UInt64>) -> Bool {
+            guard wanted.count == keys.count, let a = wanted.baseAddress, let b = keys.baseAddress else { return false }
+            return memcmp(a, b, keys.count * MemoryLayout<UInt64>.stride) == 0
+        }
+    }
+    /// What `pixels` shows.
+    private let own: Canvas
+    /// The keys of the frame being drawn by `render(_:dim:)`.
+    private let ownKeys: UnsafeMutableBufferPointer<UInt64>
+    /// The glow's sums, kept between frames rather than made each time.
+    private var glowSum: [SIMD3<Double>], glowCount: [Double]
+
+    init(pitch: Int, cols: Int = LEDFrame.cols, rows: Int = LEDFrame.rows, look: Look = Look(), bgra: Bool = false) {
         let p = max(2, pitch)
         self.pitch = p
         self.cols = cols
         self.rows = rows
         self.look = look
+        self.bgra = bgra
         self.width = cols * p
         self.height = rows * p
         self.glowWidth = (cols + 1) / 2
@@ -69,7 +97,14 @@ final class LEDRaster {
         self.pixels = UnsafeMutableRawBufferPointer.allocate(byteCount: width * height * 4, alignment: 16)
         self.pixels.initializeMemory(as: UInt8.self, repeating: 0)
         self.mask = LEDRaster.makeMask(pitch: p, look: look)
-        self.caches = (0..<rows).map { _ in RowCache(cols: cols) }
+        self.caches = (0..<rows).map { _ in RowCache() }
+        self.own = Canvas(leds: cols * rows)
+        self.ownKeys = .allocate(capacity: cols * rows)
+        self.ownKeys.initialize(repeating: .max)
+        self.glowSum = [SIMD3<Double>](repeating: .zero, count: glowWidth * glowHeight)
+        self.glowCount = [Double](repeating: 0, count: glowWidth * glowHeight)
+        self.drawnPerRow = .allocate(capacity: rows)
+        self.drawnPerRow.initialize(repeating: 0)
 
         // The glass: a faint reflection across the top, shading toward the bottom.
         var alpha = [Float](repeating: 0, count: height)
@@ -87,7 +122,14 @@ final class LEDRaster {
         self.glassAdd = add
     }
 
-    deinit { pixels.deallocate() }
+    deinit {
+        pixels.deallocate()
+        ownKeys.deallocate()
+        drawnPerRow.deallocate()
+    }
+
+    /// LEDs in the panel: the length of a frame's keys.
+    var leds: Int { cols * rows }
 
     /// One LED's worth of mask. Coverage comes from the rounded square's
     /// signed distance, anti-aliased over a pixel; shading is flat to 30% of
@@ -127,11 +169,17 @@ final class LEDRaster {
         return q(c.x) << 32 | q(c.y) << 16 | q(c.z)
     }
 
+    /// The colour a key stands for: what its LED is drawn from.
+    @inline(__always) private static func colour(_ key: UInt64) -> SIMD3<Double> {
+        SIMD3<Double>(Double(key >> 32 & 0xFFFF), Double(key >> 16 & 0xFFFF), Double(key & 0xFFFF)) / 65535
+    }
+
     /// Draws one LED's p x p pixels into `out`, `stride` bytes per row.
     @inline(__always)
     private func drawTile(_ c: SIMD3<Double>, row ly: Int, into out: UnsafeMutablePointer<UInt8>, stride: Int) {
         let p = pitch
-        let cr = Float(c.x), cg = Float(c.y), cb = Float(c.z)
+        let cg = Float(c.y)
+        let (c0, c2) = bgra ? (Float(c.z), Float(c.x)) : (Float(c.x), Float(c.z))
         mask.withUnsafeBufferPointer { m in
             for py in 0..<p {
                 let y = ly * p + py
@@ -140,9 +188,9 @@ final class LEDRaster {
                 for px in 0..<p {
                     let k = m[py * p + px] * keep
                     let o = px * 4
-                    line[o] = UInt8(min(255, max(0, (cr * k + add) * 255 + 0.5)))
+                    line[o] = UInt8(min(255, max(0, (c0 * k + add) * 255 + 0.5)))
                     line[o + 1] = UInt8(min(255, max(0, (cg * k + add) * 255 + 0.5)))
-                    line[o + 2] = UInt8(min(255, max(0, (cb * k + add) * 255 + 0.5)))
+                    line[o + 2] = UInt8(min(255, max(0, (c2 * k + add) * 255 + 0.5)))
                     line[o + 3] = 255
                 }
             }
@@ -160,51 +208,86 @@ final class LEDRaster {
     /// New tiles cached per row per frame. When nearly every LED changes (the
     /// shockwave), the rest are drawn straight in rather than cached unused.
     private let newTilesPerFrame = 12
+    /// How many LEDs each row's worker drew in the last `render`.
+    private let drawnPerRow: UnsafeMutableBufferPointer<Int>
 
+    /// Draws `frame` into `pixels`: only the LEDs that changed since the last call.
     func render(_ frame: LEDFrame, dim: Double = 1) {
-        let p = pitch, rowBytes = width * 4, tileRow = p * 4
         guard frame.w == cols, frame.h == rows, let start = pixels.baseAddress else { return }
-        // Shared across the row workers: each writes only its own rows.
-        nonisolated(unsafe) let base = start
+        keys(frame, dim: dim, into: ownKeys)
+        render(keys: UnsafeBufferPointer(ownKeys), into: own, base: start, bytesPerRow: bytesPerRow)
+    }
+
+    /// Each LED's key for `frame` at `dim` — its colour on the screen, 16 bits
+    /// a channel — row by row. An LED is drawn from its key alone, so two
+    /// frames with the same keys look the same to the pixel.
+    func keys(_ frame: LEDFrame, dim: Double = 1, into out: UnsafeMutableBufferPointer<UInt64>) {
+        guard frame.w == cols, frame.h == rows, out.count >= leds else { return }
+        for ly in 0..<rows {
+            for lx in 0..<cols {
+                out[ly * cols + lx] = LEDRaster.quantise(ledColour(frame.get(lx, ly), dim: dim))
+            }
+        }
+    }
+
+    /// Draws a frame, given its keys (keys(_:dim:into:)), into the buffer
+    /// `canvas` stands for — at `base`, `bytesPerRow` apart: only the LEDs
+    /// whose keys differ from what it shows. Returns how many LEDs it drew.
+    @discardableResult
+    func render(keys: UnsafeBufferPointer<UInt64>, into canvas: Canvas,
+                base: UnsafeMutableRawPointer, bytesPerRow rowBytes: Int) -> Int {
+        let p = pitch, tileRow = p * 4, cols = cols
+        guard keys.count >= leds, canvas.keys.count >= leds, rowBytes >= width * 4 else { return 0 }
+        // Shared across the row workers: each writes only its own rows, and its own LEDs' keys.
+        nonisolated(unsafe) let base = base, shown = canvas.keys, wanted = keys, drawn = drawnPerRow
         DispatchQueue.concurrentPerform(iterations: rows) { ly in
             let cache = caches[ly]
             if cache.tiles.count > maxTilesPerRow { cache.tiles.removeAll(keepingCapacity: true) }
-            var added = 0
+            var added = 0, n = 0
             for lx in 0..<cols {
-                let c = ledColour(frame.get(lx, ly), dim: dim)
-                let key = TileKey(rgb: LEDRaster.quantise(c))
-                if cache.shown[lx] == key.rgb { continue }          // already on screen
-                cache.shown[lx] = key.rgb
+                let i = ly * cols + lx, rgb = wanted[i]
+                if shown[i] == rgb { continue }                    // already in the buffer
+                shown[i] = rgb
+                n += 1
+                let at = base + ly * p * rowBytes + lx * tileRow
+                let key = TileKey(rgb: rgb)
                 let tile: [UInt8]
                 if let cached = cache.tiles[key] {
                     tile = cached
                 } else if added < newTilesPerFrame {
-                    tile = makeTile(c, row: ly)
+                    tile = makeTile(LEDRaster.colour(rgb), row: ly)
                     cache.tiles[key] = tile
                     added += 1
                 } else {
-                    drawTile(c, row: ly, into: (base + ly * p * rowBytes + lx * tileRow).assumingMemoryBound(to: UInt8.self),
-                             stride: rowBytes)
+                    drawTile(LEDRaster.colour(rgb), row: ly, into: at.assumingMemoryBound(to: UInt8.self), stride: rowBytes)
                     continue
                 }
                 tile.withUnsafeBytes { src in
                     guard let s = src.baseAddress else { return }
                     for py in 0..<p {
-                        (base + (ly * p + py) * rowBytes + lx * tileRow)
-                            .copyMemory(from: s + py * tileRow, byteCount: tileRow)
+                        (at + py * rowBytes).copyMemory(from: s + py * tileRow, byteCount: tileRow)
                     }
                 }
             }
+            drawn[ly] = n
         }
+        return drawn.reduce(0, +)
     }
 
     /// The light that spills into the gaps and onto the face: only the
     /// brighter LEDs, at half resolution (as the simulator's wide glow),
     /// RGBA8. The GPU scales it up smoothly and adds it over the panel.
     func glow(_ frame: LEDFrame, dim: Double = 1) -> [UInt8] {
+        var out = [UInt8](repeating: 255, count: glowWidth * glowHeight * 4)
+        out.withUnsafeMutableBytes { glow(frame, dim: dim, into: $0.baseAddress!, bytesPerRow: glowWidth * 4) }
+        return out
+    }
+
+    /// The glow into a buffer of glowWidth x glowHeight pixels, `bytesPerRow`
+    /// apart, in the raster's byte order.
+    func glow(_ frame: LEDFrame, dim: Double = 1, into out: UnsafeMutableRawPointer, bytesPerRow: Int) {
         let gw = glowWidth, gh = glowHeight
-        var sum = [SIMD3<Double>](repeating: .zero, count: gw * gh)
-        var count = [Double](repeating: 0, count: gw * gh)
+        for i in 0..<(gw * gh) { glowSum[i] = .zero; glowCount[i] = 0 }
         for y in 0..<min(rows, frame.h) {
             for x in 0..<min(cols, frame.w) {
                 let c = frame.get(x, y) * dim
@@ -213,17 +296,23 @@ final class LEDRaster {
                 let lum = max(g.x, max(g.y, g.z))
                 let k = min(1, max(0, (lum - look.bloomFrom) / (1 - look.bloomFrom)))
                 let i = (y / 2) * gw + x / 2
-                sum[i] += g * k
-                count[i] += 1
+                glowSum[i] += g * k
+                glowCount[i] += 1
             }
         }
-        var out = [UInt8](repeating: 255, count: gw * gh * 4)
-        for i in 0..<(gw * gh) {
-            let v = count[i] > 0 ? sum[i] / count[i] : .zero
-            out[i * 4] = UInt8(min(255, (v.x * 255).rounded()))
-            out[i * 4 + 1] = UInt8(min(255, (v.y * 255).rounded()))
-            out[i * 4 + 2] = UInt8(min(255, (v.z * 255).rounded()))
+        let bytes = out.assumingMemoryBound(to: UInt8.self)
+        for gy in 0..<gh {
+            for gx in 0..<gw {
+                let i = gy * gw + gx
+                let v = glowCount[i] > 0 ? glowSum[i] / glowCount[i] : .zero
+                let r = UInt8(min(255, (v.x * 255).rounded())), g = UInt8(min(255, (v.y * 255).rounded()))
+                let b = UInt8(min(255, (v.z * 255).rounded()))
+                let o = gy * bytesPerRow + gx * 4
+                bytes[o] = bgra ? b : r
+                bytes[o + 1] = g
+                bytes[o + 2] = bgra ? r : b
+                bytes[o + 3] = 255
+            }
         }
-        return out
     }
 }

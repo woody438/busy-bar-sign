@@ -822,13 +822,42 @@ The words are **ON A CALL** rather than the firmware's own "ON CALL", which in
 British English means on standby. The mic pictogram echoes the firmware's
 on-call theme; the tick is the "available" mark meeting apps use.
 
+**Drawing it** (from 2.8.8). The engine is a function of time, but most of
+the time the bar only changes as the clock turns. So the panel works out a
+frame on every display refresh (up to 60 a second) only while something on
+it moves: a change of state, the sheen crossing the pill, the quarter-hour
+scroll, the LEDs easing down to rest, the muted mic's flash, LATE's
+breathing, the world clocks. Otherwise it wakes once a turn: on the clock's
+whole second (the time, the colon), or on its countdown's own whole second,
+or when the next thing starts to move — and at once on any change of state.
+A frame whose LEDs are all as they are on the screen isn't drawn at all.
+One that differs goes into an **IOSurface** that Core Animation shows as it
+is: no copy of the 7.7 MB frame, and no colour conversion on the CPU (it's
+tagged sRGB, as the images before were, and the window server converts it as
+it composites). There are up to three: one on the screen, one the window
+server may still be letting go of, one to draw into; each remembers what its
+LEDs show, so only the LEDs that changed since are drawn into it. Each LED is
+drawn from its colour to 16 bits a channel, so the same LEDs are the same
+pixels whenever they're drawn. Before 2.8.8 the panel drew every refresh
+and handed Core Animation a new image each time: on a Mac Studio with the
+wall FREE that was about 0.9 of a core all day.
+
+The sheen is the one thing that moves all the time: it's on the pill for
+about 7 s of every 8, so with the wall up the panel still draws about 50
+frames a second, just much more cheaply. `Checks/raster` plays the panel's
+own schedule against drawing every frame, through FREE, resting, the scroll,
+a change, a call, muted, LATE, DND, CALL IN, AWAY and the stacked layout,
+and finds no display frame where they differ; it prints the wakes, frames
+drawn and idle, LEDs drawn and CPU per second for each.
+
 In the code:
 
 | | |
 |---|---|
 | `Sources/Bar/BarEngine.swift` | Decides every LED's colour for a moment in time. A line-for-line port of `simulator/engine.js`. |
-| `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. |
-| `Sources/Bar/LEDPanelView.swift` | Runs engine and raster on each display refresh and hands the pixels to a layer. |
+| `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. Draws only the LEDs that differ from what a buffer already shows. |
+| `Sources/Bar/LEDPanelView.swift` | Runs engine and raster when the schedule says, and shows the pixels from IOSurfaces. |
+| `Sources/Bar/PanelSchedule.swift` | When the panel draws: every display refresh while something moves, else as the clock turns. |
 | `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body, where the LEDs go, and their orbit. |
 | `Sources/WallHours.swift` | The wall's hours: when it goes dark. |
 | `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
@@ -910,6 +939,12 @@ errors or warnings in its code.
 - **A frame takes under 3 ms** for the wide bar at 4K in the worst case, and
   under 1 ms for the stacked layout at 960 × 540, on four slow virtual
   cores — the display allows 16.7 ms.
+- **The panel draws only what's needed, and shows exactly what drawing every
+  frame did** (`Checks/raster`): its own schedule against every display frame
+  through twelve scenes, with not one frame different; a buffer drawn a
+  changed LED at a time is the frame drawn whole. Cutting the schedule short —
+  the sheen's reach at 26 LEDs rather than 34.7, or the muted mic's flash
+  left out — fails it.
 - **The call detector makes the right decisions** on a scripted 40 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a
@@ -1038,7 +1073,9 @@ misbehaves on another Mac, these are the likeliest places:
    Microphone list show the app you're calling from?
 2. `DisplayWindow.swift` — placement on the wall screen, and the scaled-mode
    warning (`CGDisplayCopyAllDisplayModes`).
-3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
+3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14),
+   and the IOSurfaces the panel is shown from. If the wall's colours look
+   different from 2.8.7, the sRGB tag on them is where to look.
 4. `FloatingWindow.swift` — the window's shadow, traced from the device's
    outline; if it's missing or boxy, that's where to look.
 5. `CalendarSource.swift` — the permission prompt, and how Exchange events
