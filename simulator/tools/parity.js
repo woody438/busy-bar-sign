@@ -142,6 +142,12 @@ const WORLD_CASES = [
 ];
 // ...and as a call starts: [layout, plan, how long FREE had been up]
 const WORLD_PRESSES = [['wide', 'all', 9.367], ['wide', 'plain', 9.167], ['stacked', 'all', 9.367]];
+// the wall's panel, which rests: the sheen's last pass before the LEDs ease down, then none —
+// through the scroll too — and still crossing a call (keep in step with main.swift)
+const RESTING_CASES = [
+  ['wide', 'free', 'call', 1795.0], ['wide', 'free', 'call', 1802.5], ['wide', 'free', 'call', 2405.3], ['wide', 'free', 'call', 2705.367],
+  ['stacked', 'free', 'call', 1802.5], ['stacked', 'away', 'free', 3600.7], ['wide', 'nearby', 'free', 7200.3], ['wide', 'call', 'free', 7200.3]
+];
 
 const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(STACKED_CASES.map((c) => ['stacked', ...c, timer]))
@@ -149,7 +155,8 @@ const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(STACKED_CALENDAR_CASES.map(([s, p, e, k]) => ['stacked', s, p, e, k ? TIMERS[k] : undefined]))
   .concat(NEARBY_CASES.map(([word, layout, e]) => [layout, 'nearby', 'free', e, undefined, word]))
   .concat(WORLD_CASES.map(([layout, plan, e]) => [layout, 'free', 'call', e, undefined, undefined, { plan, prevFor: 0 }]))
-  .concat(WORLD_PRESSES.map(([layout, plan, up]) => [layout, 'call', 'free', 0.05, timer, undefined, { plan, prevFor: up }]));
+  .concat(WORLD_PRESSES.map(([layout, plan, up]) => [layout, 'call', 'free', 0.05, timer, undefined, { plan, prevFor: up }]))
+  .concat(RESTING_CASES.map(([layout, state, prev, e]) => [layout, state, prev, e, undefined, undefined, undefined, true]));
 const size = (layout) => (layout === 'wide' ? E.COLS * E.ROWS : E.STACKED.cols * E.STACKED.rows) * 3;
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -157,7 +164,7 @@ const total = JOBS.reduce((sum, [layout]) => sum + size(layout), 0);
 if (buf.length !== total * 8) { console.error('size mismatch', buf.length, 'expected', total * 8); process.exit(2); }
 
 let worst = 0, failed = 0, offset = 0;
-JOBS.forEach(([layout, state, prev, e, tm, word, world]) => {
+JOBS.forEach(([layout, state, prev, e, tm, word, world, rests]) => {
   const stacked = layout === 'stacked';
   const f = stacked ? new E.Frame(E.STACKED.cols, E.STACKED.rows) : new E.Frame();
   // a word of its own must be the one drawn, not NEARBY in its place
@@ -165,7 +172,7 @@ JOBS.forEach(([layout, state, prev, e, tm, word, world]) => {
   if (world) {
     (stacked ? E.renderStackedWorld : E.renderWorld)(f, 1000 + e, state, prev, 1000, clock, tm, WORLD_PLANS[world.plan], world.prevFor);
   } else {
-    (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm);
+    (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm, rests);
   }
   const n = size(layout);
   let maxd = 0, at = -1, bad = 0;
@@ -178,7 +185,7 @@ JOBS.forEach(([layout, state, prev, e, tm, word, world]) => {
   offset += n;
   worst = Math.max(worst, maxd);
   const led = at >= 0 ? `x${Math.floor(at / 3) % f.w} y${Math.floor(at / 3 / f.w)}` : '';
-  console.log(`${layout.padEnd(8)} ${((world ? 'world ' + world.plan + ' ' : '') + (word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
+  console.log(`${layout.padEnd(8)} ${((world ? 'world ' + world.plan + ' ' : '') + (rests ? 'resting ' : '') + (word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
   if (bad) failed++;
 });
 console.log(failed ? `\n${failed} of ${JOBS.length} frames differ` : `\nall ${JOBS.length} frames match (worst ${(worst * 255).toFixed(5)}/255)`);

@@ -27,7 +27,8 @@ struct BarMoment: Equatable {
  * the wall clock's whole seconds, a countdown on its moment's. So the panel
  * draws on every display frame only while something moves — a change of
  * state, the scroll, the LEDs easing down to rest, the muted mic's flash,
- * LATE's breathing, the sheen crossing the pill — and otherwise once a turn.
+ * LATE's breathing, the sheen crossing the pill (which stops while the LEDs
+ * rest) — and otherwise once a turn.
  *
  * Foundation only, so Checks/raster runs the panel's own schedule against
  * drawing every frame and finds no LED that differs.
@@ -77,7 +78,8 @@ enum PanelSchedule {
                 if e < from { until = min(until, since + from) }
             }
         }
-        // the sheen, crossing the pill every 8 s
+        // the sheen, crossing the pill every 8 s — stopped while the LEDs rest
+        if rests && BarEngine.sheenRests(now, state, since: since) { return until }
         guard let sheen = sheenStill(now: now, layout: layout) else { return nil }
         return min(until, sheen)
     }

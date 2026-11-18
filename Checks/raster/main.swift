@@ -73,6 +73,10 @@ let scenarios = [
     Scenario(name: "CALL IN, counting down", state: .callIn, prev: .free, from: 30, seconds: 20, moment: (451.2, .countdown)),
     Scenario(name: "AWAY", state: .away, prev: .free, from: 600, seconds: 20),
     Scenario(name: "FREE, stacked on 960 x 540", state: .free, prev: .call, from: 600, seconds: 20, layout: .stacked, pitch: 11),
+    Scenario(name: "FREE, stacked, resting", state: .free, prev: .call, from: 2400, seconds: 20, layout: .stacked, pitch: 11),
+    Scenario(name: "AWAY, resting", state: .away, prev: .free, from: 2400, seconds: 20),
+    Scenario(name: "FREE, resting, the scroll", state: .free, prev: .call,
+             from: BarEngine.Timing.settled + 2 * BarEngine.Scroll.every - 4, seconds: 10),
 ]
 
 /// What drawing every frame cost before 2.8.8: engine, raster, and the frame copied into an image.
@@ -99,15 +103,17 @@ for sc in scenarios {
     let raster = LEDRaster(pitch: sc.pitch, cols: cols, rows: rows, bgra: true)
     let since = 5000.0, t0 = since + sc.from, end = t0 + sc.seconds
     let moment = sc.moment.map { BarMoment(at: Date(timeIntervalSince1970: wall0 + t0 + $0.0), kind: $0.1) }
-    let rests = sc.layout == .wide
+    let rests = true                                    // the wall's, wide or stacked
     var frame = LEDFrame(w: cols, h: rows)
     func keysAt(_ t: Double, into out: UnsafeMutableBufferPointer<UInt64>) {
         let date = Date(timeIntervalSince1970: wall0 + t)
         let timer = moment?.timer(at: date), clock = ClockReading(date)
         if sc.layout == .wide {
-            BarEngine.render(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer)
+            BarEngine.render(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer,
+                             rests: rests)
         } else {
-            BarEngine.renderStacked(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer)
+            BarEngine.renderStacked(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer,
+                                    rests: rests)
         }
         raster.keys(frame, dim: rests ? BarEngine.restAt(t, sc.state, since: since) : 1, into: out)
     }

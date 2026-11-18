@@ -150,11 +150,11 @@ your desk screen among everything else, doesn't.
 |---|---|---|
 | **Out of hours** | Outside 07:30–19:00, Monday to Friday, while the sign would say FREE or that you're not here, the wall goes black — and the screen saver with it — and the app lets the displays sleep. A call, a meeting or a warning lights it as usual. | The big one: about two thirds of the week, with nobody there to read it. Black on an OLED is its pixels off. |
 | **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. |
-| **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light. Any change brings them straight back, with its announcement. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
+| **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light, and the sheen stops crossing the pill: the pass already on it finishes, and no other starts (from 2.8.8). Any change brings them straight back, with its announcement, and the sheen with them. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
 | **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds — or, with the world clocks' ticker set to run in its place, the ticker does. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
 
 Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark.
-The simulator shows all four: **Quiet hour** plays the orbit, resting and
+The simulator shows all four: **Quiet hour** plays the orbit, resting (no sheen) and
 the scroll sped up, and **Out of hours** the dark (as does **Calendar
 day**, from 06:45 to 07:30).
 
@@ -842,13 +842,18 @@ pixels whenever they're drawn. Before 2.8.8 the panel drew every refresh
 and handed Core Animation a new image each time: on a Mac Studio with the
 wall FREE that was about 0.9 of a core all day.
 
-The sheen is the one thing that moves all the time: it's on the pill for
-about 7 s of every 8, so with the wall up the panel still draws about 50
-frames a second, just much more cheaply. `Checks/raster` plays the panel's
-own schedule against drawing every frame, through FREE, resting, the scroll,
-a change, a call, muted, LATE, DND, CALL IN, AWAY and the stacked layout,
-and finds no display frame where they differ; it prints the wakes, frames
-drawn and idle, LEDs drawn and CPU per second for each.
+The sheen is what moves most: it's on the pill for about 7 s of every 8,
+so while it runs the panel still draws about 50 frames a second, just much
+more cheaply. It stops while the wall rests (half an hour into FREE or
+another quiet state, [above](#looking-after-the-screen)), so for most of a
+quiet day the wall draws once a second: as the colon blinks. `Checks/raster`
+plays the panel's own schedule against drawing every frame, through FREE
+before and after it rests, easing down, the scroll, a change, a call, muted,
+LATE, DND, CALL IN, AWAY and the stacked layout, and finds no display frame
+where they differ; it prints the wakes, frames drawn and idle, LEDs drawn
+and CPU per second for each. With the world clocks showing, the panel still
+draws every frame (their timings aren't in the schedule yet), and the sheen
+keeps crossing.
 
 In the code:
 
@@ -889,7 +894,7 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 197 moments —
+- **The Swift engine matches the simulator LED for LED** across 205 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
@@ -901,7 +906,8 @@ errors or warnings in its code.
   the rest, FREE pressed down as a call starts, and with one or two
   cities fewer — to within float rounding. Both
   take and turn away the same words for Nearby, and rest the LEDs at the
-  same brightness at the same moments. What you see in the
+  same brightness at the same moments, and stop the sheen on a resting wall
+  after the same pass. What you see in the
   simulator is what the app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 3,189
   cases: a scripted working day every 15 seconds — a call joined late and

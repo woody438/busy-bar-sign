@@ -333,10 +333,10 @@ final class LEDPanelNSView: NSView {
                                          clock: clock, timer: timer, world: p, prevFor: model.prevFor)
         case (.wide, nil):
             BarEngine.render(into: &frameBuffer, now: now, state: model.state,
-                             prev: model.prev, since: model.since, clock: clock, timer: timer)
+                             prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests)
         case (.stacked, nil):
             BarEngine.renderStacked(into: &frameBuffer, now: now, state: model.state,
-                                    prev: model.prev, since: model.since, clock: clock, timer: timer)
+                                    prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests)
         }
         let rest = rests ? BarEngine.restAt(now, model.state, since: model.since) : 1
 
