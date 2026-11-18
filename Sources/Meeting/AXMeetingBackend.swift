@@ -81,6 +81,16 @@ final class AXMeetingBackend: MeetingBackend {
         if full { AXUIElementSetAttributeValue(e, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) }
     }
 
+    func axSwitch(_ app: AnyObject, _ which: MeetingAXSwitch) -> Bool? {
+        guard let e = try? ax(app) else { return nil }
+        return (copy(e, which.rawValue) as? NSNumber)?.boolValue
+    }
+
+    func setAXSwitch(_ app: AnyObject, _ which: MeetingAXSwitch, _ on: Bool) {
+        guard let e = try? ax(app) else { return }
+        AXUIElementSetAttributeValue(e, which.rawValue as CFString, on ? kCFBooleanTrue : kCFBooleanFalse)
+    }
+
     func windows(_ app: AnyObject) throws -> [AnyObject] {
         let e = try ax(app)
         var v: CFTypeRef?

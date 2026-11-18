@@ -544,6 +544,12 @@ agree:
 - Settings ▸ Call apps shows what the keys see — each app's meeting window and
   mute button — and lists every button it can find (**Inspect meeting
   controls**) if Teams or Zoom ever changes them.
+- **Settings ▸ Call apps ▸ Read Teams and Zoom meetings (Mute and Leave
+  keys)**, on unless you switch it off (2.8.9). Off, nothing at all is asked
+  of Teams or Zoom through Accessibility — not their windows, not their
+  shortcuts: the keys stay dark in their meetings and the sign can't tell
+  you're muted in them. FaceTime and WhatsApp are still read, and END still
+  ends the calendar event.
 
 ## Your calendar
 
@@ -767,9 +773,28 @@ never read.
 
 Each control is read in one round trip and the search walks the window in
 order, which is what lets it reach the button in a big Teams window. Teams
-is asked to build its accessibility tree quietly first; if it comes back
-empty, it's asked as VoiceOver asks (`AXEnhancedUserInterface`), which in
-some apps upsets window managers such as Rectangle.
+is asked to build its accessibility tree quietly first
+(`AXManualAccessibility`); if it comes back empty, it's asked as VoiceOver
+asks (`AXEnhancedUserInterface`), which in some apps upsets window managers
+such as Rectangle, and is known to slow apps built on Chromium. Teams needs
+the second: on a real Mac it showed its meeting controls only once asked
+that way. Once asked, Teams keeps the tree up to date for as long as the
+switch stays on.
+
+So from 2.8.9 the app asks as lightly as it can:
+
+- Teams is asked only once a meeting window is open, not as soon as it's
+  running.
+- Each switch it turned on is turned off again once there's no meeting to
+  read (after the 75 seconds it watches for the survey), when Teams quits,
+  when the reading's switched off and when Busy Bar Sign quits. If it's
+  stopped without the chance (a crash), the next launch puts them back.
+- A switch something else turned on first, VoiceOver say, is left alone.
+- With no meeting window, Teams' and Zoom's windows are listed less and less
+  often, up to every 16 seconds, and nothing is walked; nor is Zoom's menu
+  bar, but for a look every 16 seconds (a meeting full screen on another
+  desktop isn't in its window list).
+- An app that takes the mic is looked at straight away.
 
 - macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
   Accessibility), and keeps it across updates as long as each build is signed
@@ -975,7 +1000,7 @@ errors or warnings in its code.
   the Mute, Leave and away keys, and the widest words of your own the sign
   takes for Nearby, on the Nearby and Status keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
-  Meeting Keys' helper tests carried across, and more: 118 checks) against a scripted
+  Meeting Keys' helper tests carried across, and more: 145 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
   flyout covering the toolbar keeps the last reading for 20 s, a closed
   window or "Rejoin" ends the meeting at once; a press of the meeting's own
@@ -990,7 +1015,16 @@ errors or warnings in its code.
   window never touched, an unknown popup reported once and left alone, a
   chat window full of text never taken for a survey; Inspect and Capture
   never showing chat; and Teams Meeting Keys' own `teams-ui.json` loading
-  as a patterns file.
+  as a patterns file. And lightly (2.8.9): no switch turned on with no
+  meeting window; AXManualAccessibility on for a meeting, and
+  AXEnhancedUserInterface too when its page doesn't show, both put back off
+  once it and its survey watch are over, in the opposite order, and when
+  Teams quits; one VoiceOver turned on left on; one an earlier copy left on
+  put back by the next; switched off, not one Accessibility call to Teams or
+  Zoom in two minutes, Inspect, Capture and a key press included; windows
+  listed less and less often with no meeting, Zoom's menu not walked but now
+  and then, and an app taking the mic looked at at once. Taking out the
+  putting back, the switch-off or the backing off each fails it.
 - **Mute buttons are read right** (`Checks/mute`): 43 labels from Teams (in
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
   live, a "Mute" that keeps its name read by its state, and the look-alikes —
