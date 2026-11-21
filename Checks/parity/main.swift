@@ -213,7 +213,25 @@ for (stacked, plan, up) in worldPresses {
     }
     f.px.withUnsafeBytes { out.append(contentsOf: $0) }
 }
+// the wall's panel, which rests: the sheen's last pass before the LEDs ease down, then none —
+// through the scroll too — and still crossing a call (keep in step with parity.js)
+let restingCases: [(stacked: Bool, BarState, BarState, Double)] = [
+    (false, .free, .call, 1795.0), (false, .free, .call, 1802.5), (false, .free, .call, 2405.3), (false, .free, .call, 2705.367),
+    (true, .free, .call, 1802.5), (true, .away, .free, 3600.7), (false, .nearby, .free, 7200.3), (false, .call, .free, 7200.3)
+]
+for (stacked, state, prev, e) in restingCases {
+    let since = 1000.0
+    if stacked {
+        var f = LEDFrame(w: BarEngine.Stacked.cols, h: BarEngine.Stacked.rows)
+        BarEngine.renderStacked(into: &f, now: since + e, state: state, prev: prev, since: since, clock: clock, rests: true)
+        f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+    } else {
+        var f = LEDFrame()
+        BarEngine.render(into: &f, now: since + e, state: state, prev: prev, since: since, clock: clock, rests: true)
+        f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+    }
+}
 try! out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
 print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count + nearbyCases.count
-      + worldCases.count + worldPresses.count,
+      + worldCases.count + worldPresses.count + restingCases.count,
       "bytes:", out.count)

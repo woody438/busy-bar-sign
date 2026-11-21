@@ -25,8 +25,9 @@ echo; echo "== geometry (and the LEDs' orbit)"
 "$SWIFTC" -O $B/BarGeometry.swift Checks/geometry/main.swift -o "$OUT/geometry"
 "$OUT/geometry" | tail -1
 
-echo; echo "== frame time"
-"$SWIFTC" -O $B/BarEngine.swift $B/PixelFonts.swift $B/FontData.swift $B/LEDRaster.swift Checks/raster/main.swift -o "$OUT/raster"
+echo; echo "== frame time, and when the panel draws"
+"$SWIFTC" -O $B/BarEngine.swift $B/PixelFonts.swift $B/FontData.swift $B/LEDRaster.swift $B/BarGeometry.swift \
+  $B/PanelSchedule.swift Checks/raster/main.swift -o "$OUT/raster"
 "$OUT/raster"
 
 echo; echo "== call detection (runs a scripted 52 seconds in real time)"

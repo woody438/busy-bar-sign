@@ -659,7 +659,7 @@
    *   timer — Do Not Disturb's countdown, { left: seconds, h, m } (the end
    *           time), shown in place of the clock while the state is 'dnd'
    */
-  function render(f, now, state, prev, since, clock, timer) {
+  function render(f, now, state, prev, since, clock, timer, rests) {
     f.px.fill(0);
     const pal = palOf(state);
     const e = now - since;
@@ -698,17 +698,26 @@
       const slide = Math.round(LAYOUT.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawRight(f, state, clock, timer, slide, Math.ceil(edge) + 2);
     } else {
-      drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW));
+      drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW), !(rests && sheenRests(now, state, since)));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
+  const SHEEN_CYCLE = 8.0;
   function sheenAt(now, cols) {
     // a soft band of light crosses the pill every 8 s — the firmware's
     // indicator_busy loop does the same over 20 s
-    const cycle = 8.0;
+    const cycle = SHEEN_CYCLE;
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
+  }
+
+  /* Whether the sheen's stopped on a panel that rests (the wall's): from the
+     first pass that would start once the LEDs begin to ease down, till
+     anything changes. The pass already crossing the pill finishes. */
+  function sheenRests(now, state, since) {
+    if (!quiet(state)) return false;
+    return Math.floor(now / SHEEN_CYCLE) * SHEEN_CYCLE >= since + REST.after;
   }
 
   /* How far the pill is dimmed. LATE FOR (a call or a meeting) breathes: by up to a third and
@@ -740,10 +749,11 @@
       HERO[state].base, PALETTE.white, heroStyle(state, pal));
   }
 
-  /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill. */
-  function drawSteady(f, now, state, clock, timer, slide, scroll) {
+  /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
+     sheen: false while it rests (sheenRests). */
+  function drawSteady(f, now, state, clock, timer, slide, scroll, sheen) {
     const pal = palOf(state);
-    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
+    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheen !== false ? sheenAt(now) : undefined, dim: pulseAt(now, state) });
     const clip = scroll ? [LAYOUT.statusX + 1, LAYOUT.statusX + LAYOUT.statusW - 1] : undefined;
     drawStatusContent(f, now, state, pal, LAYOUT.statusX + (scroll || 0), LAYOUT.statusW, 1, clip);
     drawRight(f, state, clock, timer, slide, 0);
@@ -962,7 +972,7 @@
     return w;
   }
 
-  function renderStacked(f, now, state, prev, since, clock, timer) {
+  function renderStacked(f, now, state, prev, since, clock, timer, rests) {
     f.px.fill(0);
     const S = STACKED, pal = palOf(state);
     const e = now - since;
@@ -992,15 +1002,15 @@
       const slide = Math.round(S.slideIn * (1 - easeOut((e - collapseStart) / T.collapse)));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
     } else {
-      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW));
+      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW), !(rests && sheenRests(now, state, since)));
     }
 
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
-  function drawStackedSteady(f, now, state, clock, timer, slide, scroll) {
+  function drawStackedSteady(f, now, state, clock, timer, slide, scroll, sheen) {
     const S = STACKED, pal = palOf(state);
-    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
+    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheen !== false ? sheenAt(now, f.w) : undefined, h: S.pillH, dim: pulseAt(now, state) });
     const clip = scroll ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined;
     drawStatusContent(f, now, state, pal, S.pillX + (scroll || 0), S.pillW, 1, clip);
     drawStackedClock(f, state, clock, timer, slide, 0);
@@ -1506,7 +1516,7 @@
     COLS: COLS, ROWS: ROWS, PALETTE: PALETTE, LAYOUT: LAYOUT, WORDS: WORDS, T: T,
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
-    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
+    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt, sheenRests: sheenRests,
     hash: hash,
     REST: REST, SCROLL: SCROLL, SETTLED: SETTLED, quiet: quiet, restAt: restAt, scrollAt: scrollAt,
     NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord,

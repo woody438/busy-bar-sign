@@ -66,6 +66,8 @@ final class Fake: MeetingBackend {
     func alive(_ pid: Int32) -> Bool { wins[pid] != nil }
     func application(_ pid: Int32) -> AnyObject { AppRef(pid) }
     func enable(_ app: AnyObject, full: Bool) {}
+    func axSwitch(_ app: AnyObject, _ which: MeetingAXSwitch) -> Bool? { nil }
+    func setAXSwitch(_ app: AnyObject, _ which: MeetingAXSwitch, _ on: Bool) {}
     func windows(_ app: AnyObject) throws -> [AnyObject] {
         guard let pid = (app as? AppRef)?.pid else { throw MeetingAXError.invalid }
         return (wins[pid] ?? []).filter { !$0.gone }

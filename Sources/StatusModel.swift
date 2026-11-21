@@ -194,6 +194,8 @@ final class StatusModel: ObservableObject {
             if let sure, !keyApps.contains(sure) { keyApps.append(sure) }
         }
         if keyCallApps != keyApps { keyCallApps = keyApps }
+        // Teams or Zoom taking the mic: their meeting's looked for straight away
+        meeting.onMic(Set(callApps.compactMap(MeetingApp.init(bundleID:))))
         mute.update(onCall: detector.micOn, apps: callApps)
         // muted, by the call app's own button: the same ON A CALL, quieter
         if next == .call && mute.muted { next = .callMuted }

@@ -150,11 +150,11 @@ your desk screen among everything else, doesn't.
 |---|---|---|
 | **Out of hours** | Outside 07:30–19:00, Monday to Friday, while the sign would say FREE or that you're not here, the wall goes black — and the screen saver with it — and the app lets the displays sleep. A call, a meeting or a warning lights it as usual. | The big one: about two thirds of the week, with nobody there to read it. Black on an OLED is its pixels off. |
 | **The orbit** | The LEDs move a device pixel at a time, snaking through every position within one LED and back: a one-way pass an hour (a step every 14 s at 16 pixels an LED, every 3.5 s on 4K). In the wide layout they move inside the case, which stays still, on rounded corners so they never leave its face. | Every pixel of the screen spends as long under a dot as in a gap, so the grid of dots can't burn in, and the edges of the pill and the type spread across a whole LED. One pixel a step can't be seen across a room. |
-| **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light. Any change brings them straight back, with its announcement. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
+| **Resting** | After half an hour of FREE (or AWAY, LUNCH, NEARBY, OUT OF OFFICE, OUT ON SITE) unchanged, the LEDs ease down over 20 seconds to about 60% of their light, and the sheen stops crossing the pill: the pass already on it finishes, and no other starts (from 2.8.8). Any change brings them straight back, with its announcement, and the sheen with them. | Wear grows faster than brightness, and the quiet states are the ones up for hours. A change at full brightness after a dim stretch stands out more, too. |
 | **The scroll** | Every 15 minutes of a quiet state, the pill's icon and word scroll out to the left and back in from the right, in 2.4 seconds — or, with the world clocks' ticker set to run in its place, the ticker does. | Mostly to look alive, as a sign does now and then: 2.4 seconds in 15 minutes is too little to matter to the screen. |
 
 Calls, meetings, warnings and Do Not Disturb never dim, scroll or go dark.
-The simulator shows all four: **Quiet hour** plays the orbit, resting and
+The simulator shows all four: **Quiet hour** plays the orbit, resting (no sheen) and
 the scroll sped up, and **Out of hours** the dark (as does **Calendar
 day**, from 06:45 to 07:30).
 
@@ -495,7 +495,7 @@ agree:
   shows as usual. A Do Not Disturb ends too, and **Sign ▸ Force ON A CALL**
   goes back to Automatic. If the meeting's still on after all — the mic
   still held 20 seconds on, or Teams or Zoom showing a meeting again — the
-  sign says ON A CALL again (from 2.8.8).
+  sign says ON A CALL again (from 2.8.10).
 - **Outside a Teams or Zoom meeting**, while the sign shows a meeting or
   call from your calendar — MEETING after a call you took on your phone,
   LATE FOR, OUT ON SITE, an event of your own — **Leave** says **END** in
@@ -555,6 +555,12 @@ agree:
 - Settings ▸ Call apps shows what the keys see — each app's meeting window and
   mute button — and lists every button it can find (**Inspect meeting
   controls**) if Teams or Zoom ever changes them.
+- **Settings ▸ Call apps ▸ Read Teams and Zoom meetings (Mute and Leave
+  keys)**, on unless you switch it off (2.8.9). Off, nothing at all is asked
+  of Teams or Zoom through Accessibility — not their windows, not their
+  shortcuts: the keys stay dark in their meetings and the sign can't tell
+  you're muted in them. FaceTime and WhatsApp are still read, and END still
+  ends the calendar event.
 
 ## Your calendar
 
@@ -779,9 +785,28 @@ never read.
 
 Each control is read in one round trip and the search walks the window in
 order, which is what lets it reach the button in a big Teams window. Teams
-is asked to build its accessibility tree quietly first; if it comes back
-empty, it's asked as VoiceOver asks (`AXEnhancedUserInterface`), which in
-some apps upsets window managers such as Rectangle.
+is asked to build its accessibility tree quietly first
+(`AXManualAccessibility`); if it comes back empty, it's asked as VoiceOver
+asks (`AXEnhancedUserInterface`), which in some apps upsets window managers
+such as Rectangle, and is known to slow apps built on Chromium. Teams needs
+the second: on a real Mac it showed its meeting controls only once asked
+that way. Once asked, Teams keeps the tree up to date for as long as the
+switch stays on.
+
+So from 2.8.9 the app asks as lightly as it can:
+
+- Teams is asked only once a meeting window is open, not as soon as it's
+  running.
+- Each switch it turned on is turned off again once there's no meeting to
+  read (after the 75 seconds it watches for the survey), when Teams quits,
+  when the reading's switched off and when Busy Bar Sign quits. If it's
+  stopped without the chance (a crash), the next launch puts them back.
+- A switch something else turned on first, VoiceOver say, is left alone.
+- With no meeting window, Teams' and Zoom's windows are listed less and less
+  often, up to every 16 seconds, and nothing is walked; nor is Zoom's menu
+  bar, but for a look every 16 seconds (a meeting full screen on another
+  desktop isn't in its window list).
+- An app that takes the mic is looked at straight away.
 
 - macOS asks once for the permission (System Settings ▸ Privacy & Security ▸
   Accessibility), and keeps it across updates as long as each build is signed
@@ -834,13 +859,47 @@ The words are **ON A CALL** rather than the firmware's own "ON CALL", which in
 British English means on standby. The mic pictogram echoes the firmware's
 on-call theme; the tick is the "available" mark meeting apps use.
 
+**Drawing it** (from 2.8.8). The engine is a function of time, but most of
+the time the bar only changes as the clock turns. So the panel works out a
+frame on every display refresh (up to 60 a second) only while something on
+it moves: a change of state, the sheen crossing the pill, the quarter-hour
+scroll, the LEDs easing down to rest, the muted mic's flash, LATE's
+breathing, the world clocks. Otherwise it wakes once a turn: on the clock's
+whole second (the time, the colon), or on its countdown's own whole second,
+or when the next thing starts to move — and at once on any change of state.
+A frame whose LEDs are all as they are on the screen isn't drawn at all.
+One that differs goes into an **IOSurface** that Core Animation shows as it
+is: no copy of the 7.7 MB frame, and no colour conversion on the CPU (it's
+tagged sRGB, as the images before were, and the window server converts it as
+it composites). There are up to three: one on the screen, one the window
+server may still be letting go of, one to draw into; each remembers what its
+LEDs show, so only the LEDs that changed since are drawn into it. Each LED is
+drawn from its colour to 16 bits a channel, so the same LEDs are the same
+pixels whenever they're drawn. Before 2.8.8 the panel drew every refresh
+and handed Core Animation a new image each time: on a Mac Studio with the
+wall FREE that was about 0.9 of a core all day.
+
+The sheen is what moves most: it's on the pill for about 7 s of every 8,
+so while it runs the panel still draws about 50 frames a second, just much
+more cheaply. It stops while the wall rests (half an hour into FREE or
+another quiet state, [above](#looking-after-the-screen)), so for most of a
+quiet day the wall draws once a second: as the colon blinks. `Checks/raster`
+plays the panel's own schedule against drawing every frame, through FREE
+before and after it rests, easing down, the scroll, a change, a call, muted,
+LATE, DND, CALL IN, AWAY and the stacked layout, and finds no display frame
+where they differ; it prints the wakes, frames drawn and idle, LEDs drawn
+and CPU per second for each. With the world clocks showing, the panel still
+draws every frame (their timings aren't in the schedule yet), and the sheen
+keeps crossing.
+
 In the code:
 
 | | |
 |---|---|
 | `Sources/Bar/BarEngine.swift` | Decides every LED's colour for a moment in time. A line-for-line port of `simulator/engine.js`. |
-| `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. |
-| `Sources/Bar/LEDPanelView.swift` | Runs engine and raster on each display refresh and hands the pixels to a layer. |
+| `Sources/Bar/LEDRaster.swift` | Turns a frame into panel pixels: dots, shading, gamma, glass. Draws only the LEDs that differ from what a buffer already shows. |
+| `Sources/Bar/LEDPanelView.swift` | Runs engine and raster when the schedule says, and shows the pixels from IOSurfaces. |
+| `Sources/Bar/PanelSchedule.swift` | When the panel draws: every display refresh while something moves, else as the clock turns. |
 | `Sources/Bar/BarDisplayView.swift`, `BarGeometry.swift` | The screen: the device body, where the LEDs go, and their orbit. |
 | `Sources/WallHours.swift` | The wall's hours: when it goes dark. |
 | `Sources/Bar/PixelFonts.swift`, `FontData.swift` | The firmware's fonts. |
@@ -872,7 +931,7 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 197 moments —
+- **The Swift engine matches the simulator LED for LED** across 205 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   NEARBY and BACK IN counting down, each with the countdown the app gives
@@ -884,7 +943,8 @@ errors or warnings in its code.
   the rest, FREE pressed down as a call starts, and with one or two
   cities fewer — to within float rounding. Both
   take and turn away the same words for Nearby, and rest the LEDs at the
-  same brightness at the same moments. What you see in the
+  same brightness at the same moments, and stop the sheen on a resting wall
+  after the same pass. What you see in the
   simulator is what the app draws.
 - **The Swift status rules decide exactly what the simulator's do** in 3,228
   cases, and pick the same events for the Leave key to end: a scripted working day every 15 seconds — a call joined late and
@@ -924,6 +984,12 @@ errors or warnings in its code.
 - **A frame takes under 3 ms** for the wide bar at 4K in the worst case, and
   under 1 ms for the stacked layout at 960 × 540, on four slow virtual
   cores — the display allows 16.7 ms.
+- **The panel draws only what's needed, and shows exactly what drawing every
+  frame did** (`Checks/raster`): its own schedule against every display frame
+  through twelve scenes, with not one frame different; a buffer drawn a
+  changed LED at a time is the frame drawn whole. Cutting the schedule short —
+  the sheen's reach at 26 LEDs rather than 34.7, or the muted mic's flash
+  left out — fails it.
 - **The call detector makes the right decisions** on a scripted 52 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a
@@ -952,7 +1018,7 @@ errors or warnings in its code.
   the Mute, Leave and away keys, and the widest words of your own the sign
   takes for Nearby, on the Nearby and Status keys (`streamdeck/test/keys.js`).
 - **Teams and Zoom are followed and pressed right** (`Checks/meeting`, Teams
-  Meeting Keys' helper tests carried across, and more: 118 checks) against a scripted
+  Meeting Keys' helper tests carried across, and more: 145 checks) against a scripted
   Teams and Zoom: the mute state from the mic button and Zoom's menu; a
   flyout covering the toolbar keeps the last reading for 20 s, a closed
   window or "Rejoin" ends the meeting at once; a press of the meeting's own
@@ -967,7 +1033,16 @@ errors or warnings in its code.
   window never touched, an unknown popup reported once and left alone, a
   chat window full of text never taken for a survey; Inspect and Capture
   never showing chat; and Teams Meeting Keys' own `teams-ui.json` loading
-  as a patterns file.
+  as a patterns file. And lightly (2.8.9): no switch turned on with no
+  meeting window; AXManualAccessibility on for a meeting, and
+  AXEnhancedUserInterface too when its page doesn't show, both put back off
+  once it and its survey watch are over, in the opposite order, and when
+  Teams quits; one VoiceOver turned on left on; one an earlier copy left on
+  put back by the next; switched off, not one Accessibility call to Teams or
+  Zoom in two minutes, Inspect, Capture and a key press included; windows
+  listed less and less often with no meeting, Zoom's menu not walked but now
+  and then, and an app taking the mic looked at at once. Taking out the
+  putting back, the switch-off or the backing off each fails it.
 - **Mute buttons are read right** (`Checks/mute`): 43 labels from Teams (in
   English and French), Zoom, Meet, Slack, Webex and FaceTime read as muted or
   live, a "Mute" that keeps its name read by its state, and the look-alikes —
@@ -1036,7 +1111,7 @@ the orbit and the hours beneath them are checked, and the simulator shows
 the look. The world clocks on the wall itself, through a day of FREE —
 the board, resting and the ticker at their real times — and the Leave key's
 END on a real Stream Deck, and its putting the sign straight back to FREE or
-what's next through real Teams and Zoom meetings (from 2.8.8). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
+what's next through real Teams and Zoom meetings (from 2.8.10). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen
@@ -1057,7 +1132,9 @@ misbehaves on another Mac, these are the likeliest places:
    Microphone list show the app you're calling from?
 2. `DisplayWindow.swift` — placement on the wall screen, and the scaled-mode
    warning (`CGDisplayCopyAllDisplayModes`).
-3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14).
+3. `LEDPanelView.swift` — the display link (`NSView.displayLink`, macOS 14),
+   and the IOSurfaces the panel is shown from. If the wall's colours look
+   different from 2.8.7, the sRGB tag on them is where to look.
 4. `FloatingWindow.swift` — the window's shadow, traced from the device's
    outline; if it's missing or boxy, that's where to look.
 5. `CalendarSource.swift` — the permission prompt, and how Exchange events

@@ -20,6 +20,10 @@ import Combine
  * The patterns it reads Teams' labels and surveys with can be changed in
  * ~/Library/Application Support/Busy Bar Sign/meeting-ui.json (Teams
  * Meeting Keys' teams-ui.json works as it is).
+ *
+ * Settings ▸ Call apps ▸ Read Teams and Zoom meetings switches it off: then
+ * nothing at all is asked of Teams or Zoom — not their windows, not their
+ * shortcuts — and the keys stay dark in their meetings.
  */
 
 /// How a key press went, for the key and the settings.
@@ -45,17 +49,34 @@ final class MeetingWorker: @unchecked Sendable {
     private let engine: MeetingEngine
     private let callKeys: CallAppKeys
     private var started = false
+    private var reading: Bool
+    private var looping = false
     private var misses: [MeetingApp: Int] = [:]
+    /// Where the engine notes the switches it has on in Teams, by pid (MeetingEngine.noted).
+    private static let notedKey = "meetingAXSwitches"
 
     /// Called on the queue.
     var onState: (MeetingSnapshot) -> Void = { _ in }
     var onPopup: (MeetingPopup) -> Void = { _ in }
 
-    init(patterns: MeetingPatterns, dismissSurveys: Bool) {
+    init(patterns: MeetingPatterns, dismissSurveys: Bool, reading: Bool) {
         engine = MeetingEngine(backend: backend, patterns: patterns)
         callKeys = CallAppKeys(backend: backend)
+        self.reading = reading
         engine.dismissSurveys = dismissSurveys
         engine.log = { NSLog("Busy Bar Sign meeting keys: %@", $0) }
+        // what a copy that quit without putting back (a crash) left on in Teams
+        let kept = UserDefaults.standard.dictionary(forKey: Self.notedKey) as? [String: [String]] ?? [:]
+        var noted: [Int32: [MeetingAXSwitch]] = [:]
+        for (pid, names) in kept {
+            if let p = Int32(pid) { noted[p] = names.compactMap { MeetingAXSwitch(rawValue: $0) } }
+        }
+        engine.noted = noted
+        engine.onNoted = { noted in
+            var out: [String: [String]] = [:]
+            for (pid, switches) in noted { out[String(pid)] = switches.map { $0.rawValue } }
+            UserDefaults.standard.set(out, forKey: MeetingWorker.notedKey)
+        }
     }
 
     func start() {
@@ -64,20 +85,57 @@ final class MeetingWorker: @unchecked Sendable {
             self.started = true
             self.engine.onState = { [unowned self] in self.onState($0) }
             self.engine.onPopup = { [unowned self] in self.onPopup($0) }
-            self.loop()
+            if self.reading {
+                self.looping = true
+                self.loop()
+            } else {
+                self.engine.stop()                  // says so: no meeting for the keys
+            }
         }
     }
 
     private func loop() {
+        guard reading else {
+            looping = false
+            return
+        }
         let wait = engine.tick()
         queue.asyncAfter(deadline: .now() + wait) { [weak self] in self?.loop() }
     }
 
-    func configure(patterns: MeetingPatterns? = nil, dismissSurveys: Bool? = nil) {
+    func configure(patterns: MeetingPatterns? = nil, dismissSurveys: Bool? = nil, reading: Bool? = nil) {
         queue.async {
             if let patterns { self.engine.patterns = patterns }
             if let dismissSurveys { self.engine.dismissSurveys = dismissSurveys }
+            if let reading, reading != self.reading {
+                self.reading = reading
+                if reading {
+                    self.engine.resume()
+                    if self.started && !self.looping {
+                        self.looping = true
+                        self.loop()
+                    }
+                } else {
+                    self.engine.stop()              // puts back what it switched on in Teams
+                }
+            }
         }
+    }
+
+    /// The meeting apps on the mic now: one that's just taken it is looked at straight away.
+    func hint(onMic apps: Set<MeetingApp>) {
+        queue.async { self.engine.hint(onMic: apps) }
+    }
+
+    /// Before the app quits: puts back what was switched on in Teams, waiting
+    /// for the queue at most two seconds.
+    func shutdown() {
+        let done = DispatchSemaphore(value: 0)
+        queue.async {
+            self.engine.stop()
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + 2)
     }
 
     /// `call`: the FaceTime or WhatsApp call on the mic, pressed when there's no Teams or Zoom meeting.
@@ -117,6 +175,11 @@ final class MeetingWorker: @unchecked Sendable {
             var out = report(r.ok, r.message)
             out.muted = r.muted
             return out
+        }
+
+        // Teams and Zoom aren't read: nothing's asked of them, not even their shortcut
+        guard reading else {
+            return report(false, "Busy Bar Sign isn't reading Teams or Zoom meetings: Settings ▸ Call apps ▸ Read Teams and Zoom meetings.")
         }
 
         // 1. the meeting's own button
@@ -197,8 +260,17 @@ final class MeetingKeys: ObservableObject {
             worker.configure(dismissSurveys: closeSurveys)
         }
     }
+    /// Whether Teams and Zoom are read at all: for the sign's muted look and
+    /// the Mute and Leave keys. Off, nothing is asked of them.
+    @Published var reading: Bool {
+        didSet {
+            UserDefaults.standard.set(reading, forKey: "readMeetings")
+            worker.configure(reading: reading)
+        }
+    }
 
     private let worker: MeetingWorker
+    private var micApps: Set<MeetingApp> = []
 
     /// Where the patterns can be changed without a new build.
     static var patternsFile: URL {
@@ -209,9 +281,11 @@ final class MeetingKeys: ObservableObject {
 
     init() {
         let close = UserDefaults.standard.object(forKey: "closeSurveys") as? Bool ?? true
+        let read = UserDefaults.standard.object(forKey: "readMeetings") as? Bool ?? true
         closeSurveys = close
+        reading = read
         let loaded = MeetingPatterns.load(Self.patternsFile)
-        worker = MeetingWorker(patterns: loaded.patterns, dismissSurveys: close)
+        worker = MeetingWorker(patterns: loaded.patterns, dismissSurveys: close, reading: read)
         problems = loaded.problems
         worker.onState = { [weak self] s in
             DispatchQueue.main.async { MainActor.assumeIsolated { if self?.snapshot != s { self?.snapshot = s } } }
@@ -222,6 +296,16 @@ final class MeetingKeys: ObservableObject {
     }
 
     func start() { worker.start() }
+
+    /// Before the app quits: Teams' accessibility switches put back as they were.
+    func stop() { worker.shutdown() }
+
+    /// The meeting apps holding the mic (StatusModel, once a second and on a change).
+    func onMic(_ apps: Set<MeetingApp>) {
+        guard apps != micApps else { return }
+        micApps = apps
+        worker.hint(onMic: apps)
+    }
 
     /// Presses mute or leave in the meeting the keys act on: the Teams or Zoom
     /// meeting, else `call`, the FaceTime or WhatsApp call on the mic.
