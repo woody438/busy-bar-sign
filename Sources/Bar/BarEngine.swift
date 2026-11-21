@@ -595,7 +595,7 @@ enum BarEngine {
      *           `slot` for the time-left rail
      */
     static func render(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                       since: Double, clock: ClockReading, timer: BarTimer? = nil) {
+                       since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false) {
         f.clear()
         let pal = BarPalette.of(state)
         let e = now - since
@@ -652,7 +652,8 @@ enum BarEngine {
                 drawBig(&f, now: now, state: state, pal: pal, clock: clock, timer: timer, p: big)
             } else {
                 drawSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
-                           scroll: scrollAt(now, state, since: since, pillW: Layout.statusW))
+                           scroll: scrollAt(now, state, since: since, pillW: Layout.statusW),
+                           sheen: !(rests && sheenRests(now, state, since: since)))
             }
             if let slot = slotOf(state, timer) { drawSweep(&f, sweepAt(now, slot.left)) }
         }
@@ -686,9 +687,11 @@ enum BarEngine {
     }
 
     /// The rail: cells x0..<x0+n on each of `rows`, lit for the time left; `grow` (0...1) as it fills in.
+    /// In whole seconds, as the countdown beside it, so it moves only as the clock turns (PanelSchedule).
     static func drawSlot(_ f: inout LEDFrame, _ slot: BarSlot, x0: Int, n: Int, rows slotRows: [Int], grow: Double) {
-        let c = slot.left <= Slot.amber ? BarPalette.amber.top : white
-        let lit = clamp(slot.left / slot.total, 0, 1) * Double(n) * grow
+        let left = Double(max(Int((slot.left - 1e-9).rounded(.up)), 0))
+        let c = left <= Slot.amber ? BarPalette.amber.top : white
+        let lit = clamp(left / slot.total, 0, 1) * Double(n) * grow
         let track = RGB(Slot.track, Slot.track, Slot.track), on = c * Slot.lit
         for y in slotRows {
             for i in 0..<n { f.set(x0 + i, y, mix(track, on, clamp(lit - Double(i), 0, 1))) }
@@ -735,10 +738,20 @@ enum BarEngine {
 
     /// A soft band of light crosses the pill every 8 s — the firmware's
     /// indicator_busy loop does the same over 20 s.
+    static let sheenCycle = 8.0
+    /// Where the sheen is at a moment.
     static func sheenAt(_ now: Double, cols: Int = BarEngine.cols) -> Sheen {
-        let cycle = 8.0
+        let cycle = sheenCycle
         let pos = (now.truncatingRemainder(dividingBy: cycle) / cycle) * Double(cols + 50) - 25
         return Sheen(pos: pos, width: 6, strength: 0.18)
+    }
+
+    /// Whether the sheen's stopped on a panel that rests (the wall's): from the
+    /// first pass that would start once the LEDs begin to ease down, till
+    /// anything changes. The pass already crossing the pill finishes.
+    static func sheenRests(_ now: Double, _ state: BarState, since: Double) -> Bool {
+        guard quiet(state) else { return false }
+        return (now / sheenCycle).rounded(.down) * sheenCycle >= since + Rest.after
     }
 
     static func heroStyle(_ state: BarState, _ pal: BarPalette, alpha: Double = 1) -> TextStyle {
@@ -782,11 +795,12 @@ enum BarEngine {
     }
 
     /// `scroll`: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
+    /// `sheen`: false while it rests (sheenRests).
     static func drawSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                           timer: BarTimer?, slide: Int, scroll: Int = 0) {
+                           timer: BarTimer?, slide: Int, scroll: Int = 0, sheen: Bool = true) {
         let pal = BarPalette.of(state)
         let slot = slotOf(state, timer), lift = slot == nil ? 0 : 1
-        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheenAt(now), h: rows - 2 * lift,
+        drawPill(&f, x0: Layout.statusX, w: Layout.statusW, pal: pal, sheen: sheen ? sheenAt(now) : nil, h: rows - 2 * lift,
                  dim: pulseAt(now, state))
         let clip: (lo: Int, hi: Int)? = scroll == 0 ? nil
             : (lo: Int(Layout.statusX) + 1, hi: Int(Layout.statusX + Layout.statusW) - 1)
@@ -1247,7 +1261,7 @@ enum BarEngine {
     }
 
     static func renderStacked(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                              since: Double, clock: ClockReading, timer: BarTimer? = nil) {
+                              since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false) {
         f.clear()
         let pal = BarPalette.of(state)
         let e = now - since
@@ -1286,7 +1300,8 @@ enum BarEngine {
             }
         } else {
             drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
-                              scroll: scrollAt(now, state, since: since, pillW: Stacked.pillW))
+                              scroll: scrollAt(now, state, since: since, pillW: Stacked.pillW),
+                              sheen: !(rests && sheenRests(now, state, since: since)))
             // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
             let slot = slotOf(state, timer)
             let soon = state == .callIn || state == .busyIn ? timer?.left : nil
@@ -1297,9 +1312,9 @@ enum BarEngine {
     }
 
     static func drawStackedSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                                  timer: BarTimer?, slide: Int, scroll: Int = 0) {
+                                  timer: BarTimer?, slide: Int, scroll: Int = 0, sheen: Bool = true) {
         let pal = BarPalette.of(state)
-        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: Stacked.pillH,
+        drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheen ? sheenAt(now, cols: f.w) : nil, h: Stacked.pillH,
                  dim: pulseAt(now, state))
         let clip: (lo: Int, hi: Int)? = scroll == 0 ? nil
             : (lo: Int(Stacked.pillX) + 1, hi: Int(Stacked.pillX + Stacked.pillW) - 1)

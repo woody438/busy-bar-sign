@@ -89,11 +89,12 @@ final class BusyBarSignSaverView: ScreenSaverView {
     // drawn by the panel's layers; the black is the view's own layer
     override func draw(_ rect: NSRect) {}
 
-    /// The panel draws on its display link. Where that doesn't run — the host
-    /// can leave a second monitor's link idle — the screen saver's own
-    /// animation timer draws it instead.
+    /// The panel draws on its display link while something moves, and on a
+    /// timer as the clock turns. Where the link doesn't run — the host can
+    /// leave a second monitor's idle — the screen saver's own animation timer
+    /// draws it instead.
     override func animateOneFrame() {
-        guard poll != nil, !panel.isHidden, CACurrentMediaTime() - panel.lastDrawn > 0.1 else { return }
+        guard poll != nil, !panel.isHidden, panel.isOverdue(at: CACurrentMediaTime()) else { return }
         panel.drawNow()
     }
 
@@ -136,7 +137,8 @@ final class BusyBarSignSaverView: ScreenSaverView {
     private func makeReport() -> LocalAPI.SaverReport? {
         guard !isPreview, let screen = window?.screen,
               let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return nil }
-        let drawing = panel.framesDrawn != framesReported
+        // with nothing moving the panel draws once a second, not always between two asks
+        let drawing = panel.framesDrawn != framesReported || CACurrentMediaTime() - panel.lastDrawn < 1.5
         framesReported = panel.framesDrawn
         return LocalAPI.SaverReport(display: number.uint32Value, drawing: drawing, name: screen.localizedName)
     }

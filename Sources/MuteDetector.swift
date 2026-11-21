@@ -139,6 +139,9 @@ final class MuteDetector: ObservableObject {
         guard enabled else { return "Off" }
         guard trusted else { return "Needs Accessibility permission" }
         if let reading { return "\(reading.app) · “\(reading.label)” · \(reading.muted ? "muted" : "mic live")" }
+        if let lookingIn, !meeting.snapshot.reading, MeetingApp.allCases.contains(where: { $0.label == lookingIn }) {
+            return "\(lookingIn) isn't read: Read Teams and Zoom meetings is off"
+        }
         if let lookingIn { return "No mute button found in \(lookingIn) yet" }
         return "Not on a call"
     }

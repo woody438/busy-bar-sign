@@ -27,6 +27,15 @@ struct MeetingAttrs: Equatable {
     var isEnabled: Bool { enabled ?? true }
 }
 
+/// The switches that make a Chromium app such as Teams build its accessibility
+/// tree, and keep it up to date as the page changes, for as long as they're on.
+enum MeetingAXSwitch: String, CaseIterable {
+    /// The quiet way to ask.
+    case manual = "AXManualAccessibility"
+    /// VoiceOver's: Teams shows its meeting controls only once this is on.
+    case full = "AXEnhancedUserInterface"
+}
+
 enum MeetingAXError: Error, Equatable {
     case invalid            // the element's gone
     case busy               // the app didn't answer in time
@@ -42,8 +51,13 @@ protocol MeetingBackend: AnyObject {
     func alive(_ pid: Int32) -> Bool
     func application(_ pid: Int32) -> AnyObject
     /// Asks a Chromium app to build its accessibility tree; `full` also flips
-    /// AXEnhancedUserInterface, what VoiceOver sets.
+    /// AXEnhancedUserInterface, what VoiceOver sets. (FaceTime, WhatsApp and
+    /// other call apps; Teams is switched with setAXSwitch, and switched back.)
     func enable(_ app: AnyObject, full: Bool)
+    /// One of an app's accessibility switches: whether it's on; nil if it can't be read.
+    func axSwitch(_ app: AnyObject, _ which: MeetingAXSwitch) -> Bool?
+    /// Turns one of an app's accessibility switches on or off.
+    func setAXSwitch(_ app: AnyObject, _ which: MeetingAXSwitch, _ on: Bool)
     func windows(_ app: AnyObject) throws -> [AnyObject]
     func node(_ e: AnyObject) throws -> (MeetingAttrs, [AnyObject])
     func read(_ e: AnyObject) throws -> MeetingAttrs

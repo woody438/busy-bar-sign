@@ -936,8 +936,8 @@
     // a quiet hour: three quarters of an hour into FREE, the scroll playing a second into every 6 s
     if (mode === 'idle') s = t - (E.SETTLED + 3 * E.SCROLL.every + (t - idleAt) % 6 - 1);
     const L = stacked ? STACK : WIDE;
-    (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
-    // the wall's LEDs rest when nothing's going on, and orbit (60x in a quiet hour)
+    // the wall's LEDs rest when nothing's going on (and the sheen with them), and orbit (60x in a quiet hour)
+    (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer, !floating);
     L.painter.paint(L.frame, floating ? 1 : E.restAt(t, state, s));
     const o = floating ? { x: 0, y: 0 } : orbit(mode === 'idle' ? (t - idleAt) * 60 : Date.now() / 1000, stacked ? stackPitch : PITCH);
     win.style.transform = `translate(${o.x * scale}px, ${o.y * scale}px)`;

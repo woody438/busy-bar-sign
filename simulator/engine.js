@@ -667,10 +667,12 @@
   function slotOf(state, timer) {
     return timer && timer.slot && timer.slot.total > 0 && SLOT_STATES[state] === true ? timer.slot : null;
   }
-  /* The rail: cells x0..x0+n-1 on each of `rows`, lit for the time left; `grow` (0..1) as it fills in. */
+  /* The rail: cells x0..x0+n-1 on each of `rows`, lit for the time left; `grow` (0..1) as it fills in.
+     In whole seconds, as the countdown beside it, so it moves only as the clock turns (PanelSchedule). */
   function drawSlot(f, slot, x0, n, rows, grow) {
-    const c = slot.left <= SLOT.amber ? PALETTE.amber.top : PALETTE.white;
-    const lit = clamp(slot.left / slot.total, 0, 1) * n * grow;
+    const left = Math.max(Math.ceil(slot.left - 1e-9), 0);
+    const c = left <= SLOT.amber ? PALETTE.amber.top : PALETTE.white;
+    const lit = clamp(left / slot.total, 0, 1) * n * grow;
     const track = [SLOT.track, SLOT.track, SLOT.track], on = [c[0] * SLOT.lit, c[1] * SLOT.lit, c[2] * SLOT.lit];
     for (const y of rows) for (let i = 0; i < n; i++) f.set(x0 + i, y, mix(track, on, clamp(lit - i, 0, 1)));
   }
@@ -716,7 +718,7 @@
    *           time), shown in place of the clock while the state is 'dnd';
    *           on a call or in a meeting, `slot: { left, total }` for the rail
    */
-  function render(f, now, state, prev, since, clock, timer) {
+  function render(f, now, state, prev, since, clock, timer, rests) {
     f.px.fill(0);
     const pal = palOf(state);
     const e = now - since;
@@ -762,7 +764,7 @@
     } else {
       const big = bigAt(now, state, timer);
       if (big >= 0) drawBig(f, now, state, pal, clock, timer, big);
-      else drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW));
+      else drawSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, LAYOUT.statusW), !(rests && sheenRests(now, state, since)));
       const slot = slotOf(state, timer);
       if (slot) drawSweep(f, sweepAt(now, slot.left));
     }
@@ -770,11 +772,20 @@
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
+  const SHEEN_CYCLE = 8.0;
   function sheenAt(now, cols) {
     // a soft band of light crosses the pill every 8 s — the firmware's
     // indicator_busy loop does the same over 20 s
-    const cycle = 8.0;
+    const cycle = SHEEN_CYCLE;
     return { pos: ((now % cycle) / cycle) * ((cols || COLS) + 50) - 25, width: 6, strength: 0.18 };
+  }
+
+  /* Whether the sheen's stopped on a panel that rests (the wall's): from the
+     first pass that would start once the LEDs begin to ease down, till
+     anything changes. The pass already crossing the pill finishes. */
+  function sheenRests(now, state, since) {
+    if (!quiet(state)) return false;
+    return Math.floor(now / SHEEN_CYCLE) * SHEEN_CYCLE >= since + REST.after;
   }
 
   /* How far the pill is dimmed. LATE FOR (a call or a meeting) breathes: by up to a third and
@@ -806,11 +817,13 @@
       HERO[state].base, PALETTE.white, heroStyle(state, pal));
   }
 
-  /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill. */
-  function drawSteady(f, now, state, clock, timer, slide, scroll) {
+  /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
+     sheen: false while it rests (sheenRests). */
+  function drawSteady(f, now, state, clock, timer, slide, scroll, sheen) {
     const pal = palOf(state);
     const slot = slotOf(state, timer), lift = slot ? 1 : 0;
-    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state), h: ROWS - 2 * lift });
+    drawPill(f, LAYOUT.statusX, LAYOUT.statusW, pal,
+      { sheen: sheen !== false ? sheenAt(now) : undefined, dim: pulseAt(now, state), h: ROWS - 2 * lift });
     const clip = scroll ? [LAYOUT.statusX + 1, LAYOUT.statusX + LAYOUT.statusW - 1] : undefined;
     drawStatusContent(f, now, state, pal, LAYOUT.statusX + (scroll || 0), LAYOUT.statusW, 1, clip, lift);
     drawRight(f, state, clock, timer, slide, 0);
@@ -1051,7 +1064,7 @@
     return w;
   }
 
-  function renderStacked(f, now, state, prev, since, clock, timer) {
+  function renderStacked(f, now, state, prev, since, clock, timer, rests) {
     f.px.fill(0);
     const S = STACKED, pal = palOf(state);
     const e = now - since;
@@ -1084,7 +1097,7 @@
       const slot = slotOf(state, timer);
       if (slot) drawSlot(f, slot, S.pillX, S.pillW, S.slotRows.filter((y) => y > h), p);
     } else {
-      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW));
+      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW), !(rests && sheenRests(now, state, since)));
       // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
       const slot = slotOf(state, timer);
       const soon = (state === 'callIn' || state === 'busyIn') && timer ? timer.left : null;
@@ -1094,9 +1107,9 @@
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
-  function drawStackedSteady(f, now, state, clock, timer, slide, scroll) {
+  function drawStackedSteady(f, now, state, clock, timer, slide, scroll, sheen) {
     const S = STACKED, pal = palOf(state);
-    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: S.pillH, dim: pulseAt(now, state) });
+    drawPill(f, S.pillX, S.pillW, pal, { sheen: sheen !== false ? sheenAt(now, f.w) : undefined, h: S.pillH, dim: pulseAt(now, state) });
     const clip = scroll ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined;
     drawStatusContent(f, now, state, pal, S.pillX + (scroll || 0), S.pillW, 1, clip);
     drawStackedClock(f, state, clock, timer, slide, 0);
@@ -1605,7 +1618,7 @@
     SLOT: SLOT, slotOf: slotOf, sweepAt: sweepAt, bigAt: bigAt,
     STATES: Object.keys(STATE_PALETTE), palOf: palOf, heroWord: heroWord, rightText: rightText,
     Frame: Frame, render: render, setFonts: setFonts, textWidth: textWidth,
-    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt,
+    drawPill: drawPill, drawText: drawText, drawShockwave: drawShockwave, sheenAt: sheenAt, sheenRests: sheenRests,
     hash: hash,
     REST: REST, SCROLL: SCROLL, SETTLED: SETTLED, quiet: quiet, restAt: restAt, scrollAt: scrollAt,
     NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord,
