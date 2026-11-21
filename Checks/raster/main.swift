@@ -58,6 +58,7 @@ struct Scenario {
     let name: String, state: BarState, prev: BarState?, from: Double, seconds: Double
     var layout = BarLayout.wide, pitch = 32
     var moment: (Double, BarMoment.Kind)? = nil      // seconds from the start, kind
+    var slot: (Double, Double)? = nil                 // the meeting you're in (time left): start and end, from the start
 }
 let scenarios = [
     Scenario(name: "FREE, settled", state: .free, prev: .call, from: 600, seconds: 30),
@@ -77,6 +78,28 @@ let scenarios = [
     Scenario(name: "AWAY, resting", state: .away, prev: .free, from: 2400, seconds: 20),
     Scenario(name: "FREE, resting, the scroll", state: .free, prev: .call,
              from: BarEngine.Timing.settled + 2 * BarEngine.Scroll.every - 4, seconds: 10),
+    // the time left (2.9): its meeting ends on a fraction of a second of its own, not the
+    // countdown's (the end of a run back to back) or the clock's
+    Scenario(name: "A change: FREE to ON A CALL, time left", state: .call, prev: .free, from: 0, seconds: 10,
+             moment: (1800.37, .countdown), slot: (-0.81, 1799.19)),
+    Scenario(name: "ON A CALL, time left", state: .call, prev: .free, from: 300, seconds: 20,
+             moment: (1234.567, .countdown), slot: (-712.81, 1087.19)),
+    Scenario(name: "IN A MEETING, last five minutes", state: .meeting, prev: .free, from: 300, seconds: 20,
+             moment: (1234.567, .countdown), slot: (-1549.81, 250.19)),
+    Scenario(name: "ON A CALL, into its last two minutes", state: .call, prev: .free, from: 300, seconds: 20,
+             moment: (1234.567, .countdown), slot: (-1671.81, 128.19)),
+    Scenario(name: "ON A CALL, muted, its last two minutes", state: .callMuted, prev: .call, from: 300, seconds: 20,
+             moment: (90.567, .countdown), slot: (-1709.81, 90.19)),
+    Scenario(name: "CALL IN, into its last two minutes", state: .callIn, prev: .free, from: 30, seconds: 30,
+             moment: (125.2, .countdown)),
+    // CALL IN across the bar while the sheen's off the pill (its last second in every 8): at 5103 s
+    // a widening starts (every 9 s) as the sheen leaves, so only the schedule's own beat draws it
+    Scenario(name: "CALL IN across the bar, sheen away", state: .callIn, prev: .free, from: 95, seconds: 15,
+             moment: (60.3, .countdown)),
+    Scenario(name: "ON A CALL, stacked, last two minutes", state: .call, prev: .free, from: 300, seconds: 20,
+             layout: .stacked, pitch: 11, moment: (1234.567, .countdown), slot: (-1699.81, 100.19)),
+    Scenario(name: "CALL IN, stacked, into last two", state: .callIn, prev: .free, from: 30, seconds: 20,
+             layout: .stacked, pitch: 11, moment: (125.2, .countdown)),
 ]
 
 /// What drawing every frame cost before 2.8.8: engine, raster, and the frame copied into an image.
@@ -102,7 +125,9 @@ for sc in scenarios {
     let cols = sc.layout.cols, rows = sc.layout.rows
     let raster = LEDRaster(pitch: sc.pitch, cols: cols, rows: rows, bgra: true)
     let since = 5000.0, t0 = since + sc.from, end = t0 + sc.seconds
-    let moment = sc.moment.map { BarMoment(at: Date(timeIntervalSince1970: wall0 + t0 + $0.0), kind: $0.1) }
+    let slot = sc.slot.map { DateInterval(start: Date(timeIntervalSince1970: wall0 + t0 + $0.0),
+                                          end: Date(timeIntervalSince1970: wall0 + t0 + $0.1)) }
+    let moment = sc.moment.map { BarMoment(at: Date(timeIntervalSince1970: wall0 + t0 + $0.0), kind: $0.1, slot: slot) }
     let rests = true                                    // the wall's, wide or stacked
     var frame = LEDFrame(w: cols, h: rows)
     func keysAt(_ t: Double, into out: UnsafeMutableBufferPointer<UInt64>) {

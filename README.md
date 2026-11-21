@@ -640,7 +640,8 @@ Worth knowing:
 
 On a call or in a meeting from your calendar, a **line along the bottom** of
 the sign shows how much of the meeting is left: white on a faint track, so
-you can see its full length, draining to the left. The pill and the clock
+you can see its full length, draining to the left a second at a time, as
+the countdown counts. The pill and the clock
 move up a row to make room, and as a call starts the line fills in beneath
 them.
 
@@ -885,9 +886,12 @@ the time the bar only changes as the clock turns. So the panel works out a
 frame on every display refresh (up to 60 a second) only while something on
 it moves: a change of state, the sheen crossing the pill, the quarter-hour
 scroll, the LEDs easing down to rest, the muted mic's flash, LATE's
-breathing, the world clocks. Otherwise it wakes once a turn: on the clock's
-whole second (the time, the colon), or on its countdown's own whole second,
-or when the next thing starts to move — and at once on any change of state.
+breathing, the world clocks, and in their last two minutes the time left's
+sweep and CALL IN's widening across the bar. Otherwise it wakes once a turn:
+on the clock's whole second (the time, the colon), or on its countdown's own
+whole second, or its meeting's (the time-left line drains a second at a
+time), or when the next thing starts to move — and at once on any change of
+state.
 A frame whose LEDs are all as they are on the screen isn't drawn at all.
 One that differs goes into an **IOSurface** that Core Animation shows as it
 is: no copy of the 7.7 MB frame, and no colour conversion on the CPU (it's
@@ -907,7 +911,9 @@ another quiet state, [above](#looking-after-the-screen)), so for most of a
 quiet day the wall draws once a second: as the colon blinks. `Checks/raster`
 plays the panel's own schedule against drawing every frame, through FREE
 before and after it rests, easing down, the scroll, a change, a call, muted,
-LATE, DND, CALL IN, AWAY and the stacked layout, and finds no display frame
+LATE, DND, CALL IN, AWAY, the stacked layout and the time left (filling in,
+white, amber, into its last two minutes and their sweep, CALL IN widening,
+wide and stacked), and finds no display frame
 where they differ; it prints the wakes, frames drawn and idle, LEDs drawn
 and CPU per second for each. With the world clocks showing, the panel still
 draws every frame (their timings aren't in the schedule yet), and the sheen
@@ -1007,10 +1013,11 @@ errors or warnings in its code.
   cores — the display allows 16.7 ms.
 - **The panel draws only what's needed, and shows exactly what drawing every
   frame did** (`Checks/raster`): its own schedule against every display frame
-  through twelve scenes, with not one frame different; a buffer drawn a
-  changed LED at a time is the frame drawn whole. Cutting the schedule short —
-  the sheen's reach at 26 LEDs rather than 34.7, or the muted mic's flash
-  left out — fails it.
+  through 24 scenes, nine of them the time left's, with not one frame
+  different; a buffer drawn a changed LED at a time is the frame drawn whole.
+  Cutting the schedule short — the sheen's reach at 26 LEDs rather than 34.7,
+  the muted mic's flash left out, or the time left's sweep, CALL IN's
+  widening, the line's whole seconds or its meeting's turns — fails it.
 - **The call detector makes the right decisions** on a scripted 40 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a

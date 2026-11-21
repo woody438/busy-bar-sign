@@ -689,7 +689,10 @@ enum BarEngine {
     /// The rail: cells x0..<x0+n on each of `rows`, lit for the time left; `grow` (0...1) as it fills in.
     static func drawSlot(_ f: inout LEDFrame, _ slot: BarSlot, x0: Int, n: Int, rows slotRows: [Int], grow: Double) {
         let c = slot.left <= Slot.amber ? BarPalette.amber.top : white
-        let lit = clamp(slot.left / slot.total, 0, 1) * Double(n) * grow
+        // on the meeting's whole seconds, as a countdown shows them: the rail changes only as the
+        // clock turns, so the panel needn't draw every frame for it (PanelSchedule)
+        let secs = max((slot.left - 1e-9).rounded(.up), 0)
+        let lit = clamp(secs / slot.total, 0, 1) * Double(n) * grow
         let track = RGB(Slot.track, Slot.track, Slot.track), on = c * Slot.lit
         for y in slotRows {
             for i in 0..<n { f.set(x0 + i, y, mix(track, on, clamp(lit - Double(i), 0, 1))) }

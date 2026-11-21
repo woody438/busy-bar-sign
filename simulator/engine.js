@@ -670,7 +670,9 @@
   /* The rail: cells x0..x0+n-1 on each of `rows`, lit for the time left; `grow` (0..1) as it fills in. */
   function drawSlot(f, slot, x0, n, rows, grow) {
     const c = slot.left <= SLOT.amber ? PALETTE.amber.top : PALETTE.white;
-    const lit = clamp(slot.left / slot.total, 0, 1) * n * grow;
+    // on the meeting's whole seconds, as a countdown shows them (so the app's panel draws it only as the clock turns)
+    const secs = Math.max(Math.ceil(slot.left - 1e-9), 0);
+    const lit = clamp(secs / slot.total, 0, 1) * n * grow;
     const track = [SLOT.track, SLOT.track, SLOT.track], on = [c[0] * SLOT.lit, c[1] * SLOT.lit, c[2] * SLOT.lit];
     for (const y of rows) for (let i = 0; i < n; i++) f.set(x0 + i, y, mix(track, on, clamp(lit - i, 0, 1)));
   }
