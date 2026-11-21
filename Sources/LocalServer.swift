@@ -132,9 +132,11 @@ final class LocalServer: ObservableObject {
 
     /// A Mute or Leave key (held: end): answers once the meeting app has been pressed, with how it went.
     /// No Teams or Zoom meeting, a FaceTime or WhatsApp call on the mic gets the press.
+    /// Left, the sign moves straight on (StatusModel.leftCall), so the answer has FREE or what's next.
     private func press(_ what: MeetingControl, on connection: NWConnection) {
         status.meeting.press(what, call: status.labelledCall) { [weak self] report in
             guard let self else { return connection.cancel() }
+            if report.ok && what != .mute { self.status.leftCall() }
             self.status.evaluate()
             var answer = self.current
             // FaceTime or WhatsApp: what it showed after the press, before the sign's next reading of it

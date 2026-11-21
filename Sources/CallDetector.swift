@@ -179,6 +179,9 @@ final class CallDetector: ObservableObject {
     /// the way down stops the sign flickering when an app briefly drops the mic.
     private let onDelay:  TimeInterval = 2
     private let offDelay: TimeInterval = 10
+    /// After the Leave key, the longest the call app may take letting go of
+    /// the mic before it counts again: a new call, or a leave that didn't take.
+    var leaveGrace: TimeInterval = 20
     /// Polls land a second apart; this stops timer jitter turning "2 s" into 3.
     private let slack:    TimeInterval = 0.25
 
@@ -187,6 +190,8 @@ final class CallDetector: ObservableObject {
     private var micCandidateSince: TimeInterval?
     private var micCandidate = false
     private var micStarted = false
+    /// Until when (uptime) the mic is taken for the call just left, while the app lets go of it.
+    private var leftUntil: TimeInterval?
     private var timer: Timer?
 
     /// Monotonic, so a clock change can't upset the debounce.
@@ -212,6 +217,27 @@ final class CallDetector: ObservableObject {
     func endDND() { setDND(nil) }
     /// What a double-click on the bar does: on if it's off, off if it's on.
     func toggleDND() { dndUntil == nil ? startDND() : endDND() }
+
+    /// The Leave key left the meeting: the call's over now, not once the
+    /// debounce agrees. The mic session ends here, and the app still holding
+    /// the mic as it lets go doesn't light the sign again — until it's let go,
+    /// or for `leaveGrace` at most. Do Not Disturb ends, and Force ON A CALL
+    /// goes back to Automatic: the sign moves straight on, to FREE or what's next.
+    func callLeft() {
+        leftUntil = uptime + leaveGrace
+        micCandidate = false
+        micCandidateSince = uptime
+        if micOn { setMic(false, at: Date().timeIntervalSince1970 * 1000) }
+        setDND(nil)
+        if override == .onCall { override = .auto } else { evaluate(force: true) }
+    }
+
+    /// A Teams or Zoom meeting has started since the Leave key: the mic is that call's.
+    func endLeaveGrace() {
+        guard leftUntil != nil else { return }
+        leftUntil = nil
+        evaluate()
+    }
 
     /// "Do Not Disturb (30 min)", for a menu item that turns it on.
     var dndStartLabel: String { "Do Not Disturb (\(Int(dndLength / 60)) min)" }
@@ -269,13 +295,16 @@ final class CallDetector: ObservableObject {
 
         let raw = sample()
         if detection != raw { detection = raw }
-        trackMic(raw.onCall)
+        // just left a call: the app letting go of the mic is still that call
+        if let until = leftUntil, !raw.onCall || uptime >= until - slack { leftUntil = nil }
+        let heard = raw.onCall && leftUntil == nil
+        trackMic(heard)
 
         let target: Bool
         switch override {
         case .onCall: target = true
         case .free:   target = false
-        case .auto:   target = raw.onCall
+        case .auto:   target = heard
         }
 
         if override != .auto || force {

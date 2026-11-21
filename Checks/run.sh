@@ -30,7 +30,7 @@ echo; echo "== frame time, and when the panel draws"
   $B/PanelSchedule.swift Checks/raster/main.swift -o "$OUT/raster"
 "$OUT/raster"
 
-echo; echo "== call detection (runs a scripted 40 seconds in real time)"
+echo; echo "== call detection (runs a scripted 52 seconds in real time)"
 LINK=()
 if ! printf 'import Combine\n' | "$SWIFTC" -typecheck - >/dev/null 2>&1; then
   # no Combine here (Linux): build the two-name stand-in as a module
