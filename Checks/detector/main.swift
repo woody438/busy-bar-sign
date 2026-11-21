@@ -12,7 +12,13 @@ import Foundation
 //   25-26 s  Zoom, for one second only                    -> too short: stays FREE
 //   28 s     override: Force ON A CALL                    -> ON A CALL at once
 //   29 s     override: Automatic                          -> FREE at once
-//   31-40 s  Google Meet, captured in a Chrome helper     -> ON A CALL (~33 s)
+//   31-39.5  Google Meet, captured in a Chrome helper     -> ON A CALL (~33 s)
+//   38 s     the Leave key, Meet still letting go         -> FREE at once, and stays FREE
+//   41-53 s  Zoom again                                   -> ON A CALL (~43 s)
+//   44 s     override: Force ON A CALL                    -> stays ON A CALL
+//   45 s     the Leave key, but Zoom stays on (it didn't
+//            take): Force back to Automatic               -> FREE at once, then ON A CALL
+//            once the 3 s grace is up and the mic's held 2 s (~50 s)
 //
 // and Do Not Disturb, set to 20 s for the test:
 //
@@ -22,6 +28,7 @@ import Foundation
 //   29.5 s   turned on                                    -> DO NOT DISTURB at once
 //   30.5 s   turned off                                   -> FREE at once
 //   35-36.5  on and off again during the Meet call        -> stays ON A CALL
+//   37 s     on again: the Leave key ends it              -> FREE, not DO NOT DISTURB
 func user(_ raw: String?, _ app: String?, _ path: String, _ name: String) -> MicUser {
     MicUser(pid: 100, rawBundleID: raw, appBundleID: app, executablePath: path, name: name)
 }
@@ -34,9 +41,10 @@ Script.spans = [
     Span(from: 19, to: 35, user: user(nil, nil, "/System/Library/PrivateFrameworks/SoundAnalysis.framework/soundanalysisd",
                                       "soundanalysisd")),
     Span(from: 25, to: 26, user: zoom),
-    Span(from: 31, to: 40, user: user("com.google.Chrome.helper", "com.google.Chrome",
+    Span(from: 31, to: 39.5, user: user("com.google.Chrome.helper", "com.google.Chrome",
                                       "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper",
                                       "Google Chrome")),
+    Span(from: 41, to: 53, user: zoom),
 ]
 
 var changes: [(Double, Sign)] = []
@@ -59,6 +67,7 @@ Task { @MainActor in
     let detector = CallDetector()
     detector.endDND()                  // nothing left over from an earlier run
     detector.dndLength = 20
+    detector.leaveGrace = 3
     detector.start()
     var last = detector.sign
     changes.append((Script.elapsed, last))
@@ -79,29 +88,48 @@ Task { @MainActor in
                 detector.toggleDND()
                 if detector.dndUntil != nil { failures.append("a second double-click should end Do Not Disturb") }
             }
+            once("dnd on before leave", at: 37) { detector.startDND() }
+            once("leave", at: 38) {
+                detector.callLeft()
+                if detector.dndUntil != nil { failures.append("the Leave key should end Do Not Disturb") }
+            }
+            once("force on in zoom", at: 44) { detector.override = .onCall }
+            once("leave again", at: 45) {
+                detector.callLeft()
+                if detector.override != .auto { failures.append("the Leave key should put Force ON A CALL back to Automatic") }
+            }
             // a change an action made shows at once: note it now, not on the next tick
             if detector.sign != last { last = detector.sign; changes.append((Script.elapsed, last)) }
         }
     }
     RunLoop.main.add(watch, forMode: .common)
     // the microphone's own sessions, for the calendar rules: forcing ON A CALL isn't one
-    let check = Timer(timeInterval: 40.5, repeats: false) { _ in
+    // (fire: — Linux's Foundation fires a Timer(timeInterval:) at once)
+    let check = Timer(fire: Script.start.addingTimeInterval(51.5), interval: 0, repeats: false) { _ in
         MainActor.assumeIsolated {
             let s = detector.micSessions.map { (($0.start / 1000) - Script.start.timeIntervalSince1970,
                                                 $0.end.map { ($0 / 1000) - Script.start.timeIntervalSince1970 }) }
             print("mic sessions:", s.map { String(format: "%.1f–%@", $0.0, $0.1.map { String(format: "%.1f", $0) } ?? "on") }.joined(separator: ", "))
-            if s.count != 2 { failures.append("expected two mic sessions (Zoom, Meet), saw \(s.count)") }
+            if s.count != 4 { failures.append("expected four mic sessions (Zoom, Meet, Zoom, Zoom again), saw \(s.count)") }
             else {
                 // polls are a second apart, so each edge lands up to a second after the event
                 if abs(s[0].0 - 1.6) > 0.8 || abs((s[0].1 ?? 0) - 7.6) > 0.8 { failures.append("the Zoom session should run from about 1 s to 7 s") }
-                if abs(s[1].0 - 31.6) > 0.8 || s[1].1 != nil { failures.append("the Meet session should start about 31 s and still be on") }
+                // the Leave key ends a session there and then
+                if abs(s[1].0 - 31.6) > 0.8 || abs((s[1].1 ?? 0) - (actedAt["leave"] ?? 0)) > 0.1 {
+                    failures.append("the Meet session should run from about 31 s to the Leave key")
+                }
+                if abs(s[2].0 - 41.6) > 0.8 || abs((s[2].1 ?? 0) - (actedAt["leave again"] ?? 0)) > 0.1 {
+                    failures.append("the second Zoom session should run from about 41 s to the Leave key")
+                }
+                // Zoom still holding the mic once the grace is up: a session of its own, from then
+                if abs(s[3].0 - 48.5) > 0.8 || s[3].1 != nil { failures.append("a mic still held after the grace should start a session about 48 s") }
             }
         }
     }
     RunLoop.main.add(check, forMode: .common)
 }
 
-RunLoop.main.run(until: Date().addingTimeInterval(41))
+RunLoop.main.run(until: Date().addingTimeInterval(52))
 
 let names: [Sign: String] = [.call: "ON A CALL", .dnd: "DO NOT DISTURB", .free: "FREE"]
 for (t, sign) in changes { print(String(format: "%5.2f s  %@", t, names[sign] ?? "?")) }
@@ -124,7 +152,14 @@ expect(.call, between: 32.8, and: 33.3, "Google Meet in a Chrome helper should c
 if changes.contains(where: { $0.1 == .call && $0.0 > 18 && $0.0 < 27.9 }) {
     failures.append("dictation, an Apple system process or a 1-second blip lit the sign")
 }
-let expected: [Sign] = [.free, .call, .dnd, .free, .call, .free, .dnd, .free, .call]
+expectAtOnce(.free, after: "leave", "the Leave key should return to FREE at once, not after 10 s, and not to Do Not Disturb")
+if changes.contains(where: { $0.1 != .free && $0.0 > (actedAt["leave"] ?? 38) + 0.2 && $0.0 < 42.5 }) {
+    failures.append("Meet letting go of the mic after the Leave key lit the sign again")
+}
+expect(.call, between: 42.8, and: 43.3, "Zoom should light the sign again 2 s after it takes the mic")
+expectAtOnce(.free, after: "leave again", "the Leave key should return to FREE at once with Force ON A CALL on")
+expect(.call, between: 49.3, and: 51.2, "a mic still held after the grace (the leave didn't take) should light the sign again")
+let expected: [Sign] = [.free, .call, .dnd, .free, .call, .free, .dnd, .free, .call, .free, .call, .free, .call]
 if changes.map(\.1) != expected {
     failures.append("expected " + expected.map { names[$0]! }.joined(separator: ", ")
                     + "; saw " + changes.map { names[$0.1]! }.joined(separator: ", "))
