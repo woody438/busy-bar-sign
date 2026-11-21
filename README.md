@@ -1027,10 +1027,10 @@ errors or warnings in its code.
   cores — the display allows 16.7 ms.
 - **The panel draws only what's needed, and shows exactly what drawing every
   frame did** (`Checks/raster`): its own schedule against every display frame
-  through twelve scenes, with not one frame different; a buffer drawn a
-  changed LED at a time is the frame drawn whole. Cutting the schedule short —
-  the sheen's reach at 26 LEDs rather than 34.7, or the muted mic's flash
-  left out — fails it.
+  through 22 scenes, seven of them the time left's, with not one frame
+  different; a buffer drawn a changed LED at a time is the frame drawn whole.
+  Cutting the schedule short — the sheen's reach at 26 LEDs rather than 34.7,
+  or the muted mic's flash left out — fails it.
 - **The call detector makes the right decisions** on a scripted 52 seconds:
   Zoom lights the sign after exactly 2 s and it goes dark exactly 10 s after;
   dictation through a helper, an always-listening Apple process and a
@@ -1136,6 +1136,18 @@ Calendar.app and an Elgato Stream Deck:
 - The settings window's sidebar and its sections, World clocks with its
   preview, and the Call apps page, through the preview builds.
 
+**Checked on a real Mac (21 Nov 2026, 2.9.1):** the Leave key on a real
+Stream Deck putting the sign straight back. In a Teams call in the
+calendar, FREE at once, not after the mic's 10 s, and the time-left line
+gone with it; a meeting in a room with a Teams link, joined from the desk,
+FREE rather than MEETING; CALL IN with a call or meeting in the next ten
+minutes; Do Not Disturb ended by the press; a Zoom meeting you host, held
+to end it for everyone; a FaceTime call, FREE at once; and ON A CALL back
+within a couple of seconds on joining the next meeting straight after.
+Outside a meeting, its END ends the event on the sign. And the time-left
+line (2.9) on the wall through a real meeting: white, amber for the last
+five minutes, and the sweep in the last two.
+
 **Checked on a real Mac (3 Nov 2026, 2.8.7 preview):** the Mute and Leave keys
 on a FaceTime call. Leave brings FaceTime's buttons up under the pointer —
 "FaceTime", "Camera", "Microphone", "More", "End" — presses End, and the call
@@ -1150,18 +1162,15 @@ displays sleep out of hours and waking them when the hours begin
 (`IOPMAssertionDeclareUserActivity`), on whatever the wall is. The engine,
 the orbit and the hours beneath them are checked, and the simulator shows
 the look. The world clocks on the wall itself, through a day of FREE —
-the board, resting and the ticker at their real times — and the Leave key's
-END on a real Stream Deck, and its putting the sign straight back to FREE or
-what's next through real Teams and Zoom meetings (from 2.9.1). For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
+the board, resting and the ticker at their real times. For places and in person: whether EventKit marks a room booked on an Outlook invite as a room (if
 not, the location words and room codes still catch it), whether the Mac's
 idle time reads right for LATE FOR MTG, and the Status key's press during
 LATE. And the away keys and the screen saver — whether `Away.swift` sees the Mac lock and unlock and starts the screen
 saver (`ScreenSaverEngine`), whether `SaverInstaller.swift` puts it in place,
 and above all whether macOS 27's screen saver host shows it on every
 monitor, lets it reach the app, and stops it when you're back. The
-time-left line (2.9) on the wall through real meetings: the line refilling
-at the change from one back-to-back meeting to the next, and the screen
-saver drawing it from the app's answer.
+time-left line (2.9) refilling at the change from one back-to-back meeting
+to the next, and the screen saver drawing it from the app's answer.
 
 **Run, but on one Mac only:** the AppKit, SwiftUI, Core Audio, EventKit and
 Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
