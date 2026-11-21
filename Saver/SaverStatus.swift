@@ -5,7 +5,7 @@ import Network
 
 /*
  * What the screen saver needs from the app: what the sign says, the moment
- * its countdown is about, which monitor is the wall and how it's laid out,
+ * its countdown is about (and the meeting its time-left rail is), which monitor is the wall and how it's laid out,
  * the Nearby key's word if it's been given one, and whether the wall's dark
  * out of hours — read from the app's answer to GET /status
  * (Sources/LocalAPI.swift).
@@ -17,6 +17,11 @@ struct SaverStatus: Equatable {
     struct Moment: Equatable {
         var at: Double                  // ms since 1970
         var kind: String                // countdown, countUp, fixed
+        var slot: Slot? = nil           // on a call or in a meeting: the meeting you're in, for the time-left rail
+
+        struct Slot: Equatable {
+            var start: Double, end: Double      // ms since 1970
+        }
     }
     struct Wall: Equatable {
         var display: UInt32             // the monitor's CGDirectDisplayID
@@ -50,6 +55,10 @@ struct SaverStatus: Equatable {
         var status = SaverStatus(state: state == "call" && o["muted"] as? Bool == true ? "callMuted" : state)
         if let m = o["moment"] as? [String: Any], let at = (m["at"] as? NSNumber)?.doubleValue, let kind = m["kind"] as? String {
             status.moment = Moment(at: at, kind: kind)
+            if let s = m["slot"] as? [String: Any], let start = (s["start"] as? NSNumber)?.doubleValue,
+               let end = (s["end"] as? NSNumber)?.doubleValue {
+                status.moment?.slot = Moment.Slot(start: start, end: end)
+            }
         }
         if let w = o["wall"] as? [String: Any], let display = (w["display"] as? NSNumber)?.uint32Value,
            let layout = w["layout"] as? String {

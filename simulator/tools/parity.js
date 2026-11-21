@@ -30,7 +30,13 @@ const STACKED_CASES = [
 // the calendar's states, each with the timer the app gives it (keep in step with main.swift)
 const TIMERS = {
   soon: { left: 461.2, h: 11, m: 0 }, late: { left: 80.4, h: 9, m: 45 }, till: { left: 0, h: 11, m: 0 },
-  free: { left: 4532.6, h: 12, m: 0 }, dnd: { left: 1234.4, h: 15, m: 2 }
+  free: { left: 4532.6, h: 12, m: 0 }, dnd: { left: 1234.4, h: 15, m: 2 },
+  // time left: a call's meeting half done; its last two minutes (amber, sweeping); joined early (full)
+  slot: { left: 4532.6, h: 12, m: 0, slot: { left: 1834.2, total: 3600 } },
+  slotEnd: { left: 4532.6, h: 12, m: 0, slot: { left: 101.7, total: 1800 } },
+  slotEarly: { left: 3700, h: 12, m: 0, slot: { left: 3700, total: 3600 } },
+  // CALL SOON in its last two minutes, and just before them
+  bigSoon: { left: 101.5, h: 11, m: 0 }, bigLater: { left: 125, h: 11, m: 0 }
 };
 const CALENDAR_CASES = [
   ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 3.75, 'free'], ['meeting', 'free', 9.0, 'free'],
@@ -62,7 +68,15 @@ const CALENDAR_CASES = [
   // right (and not after it, or a call); the next quarter's; and the other quiet states'
   ['free', 'call', 904.467, null], ['free', 'call', 905.067, null], ['free', 'call', 905.667, null], ['free', 'call', 906.267, null],
   ['free', 'call', 907.0, null], ['call', 'free', 905.067, 'free'], ['free', 'call', 1804.767, null],
-  ['nearby', null, 905.0, null], ['ooo', 'free', 906.0, null], ['lunch', 'free', 905.5, 'free']
+  ['nearby', null, 905.0, null], ['ooo', 'free', 906.0, null], ['lunch', 'free', 905.5, 'free'],
+  // time left: the rail filling in as the call settles, settled, muted, amber and sweeping, full;
+  // pressed down as FREE takes over; not for lunch; CALL SOON's big countdown widening, held,
+  // narrowing and between them (every 9 s by `now`: 1000 + e), not yet, and in the announcement
+  ['call', 'free', 3.9, 'slot'], ['call', 'free', 4.1, 'slot'], ['call', 'free', 9.0, 'slot'], ['callMuted', null, 9.0, 'slotEnd'],
+  ['meeting', 'free', 9.0, 'slotEnd'], ['meeting', 'free', 9.0, 'slotEarly'], ['free', 'call', 0.05, 'slot'], ['lunch', 'free', 9.0, 'slot'],
+  ['callIn', 'free', 8.1, 'bigSoon'], ['callIn', 'free', 9.4, 'bigSoon'], ['callIn', 'free', 11.1, 'bigSoon'], ['callIn', 'free', 13.0, 'bigSoon'],
+  ['callIn', 'free', 9.4, 'bigLater'], ['busyIn', 'free', 9.4, 'bigSoon'], ['callIn', 'free', 2.0, 'bigSoon'],
+  ['callIn', 'free', 8.03, 'bigSoon'], ['callIn', 'free', 11.25, 'bigSoon']
 ];
 const STACKED_CALENDAR_CASES = [
   ['meeting', 'free', 2.0, 'free'], ['meeting', 'free', 9.0, 'free'], ['callIn', 'free', 2.0, 'soon'], ['callIn', 'free', 3.8, 'soon'],
@@ -75,7 +89,9 @@ const STACKED_CALENDAR_CASES = [
   ['lateMtg', 'busyIn', 2.0, 'late'], ['lateMtg', 'busyIn', 9.3, 'late'], ['onSite', 'free', 2.0, null], ['onSite', 'free', 9.0, null],
   ['lunch', 'free', 9.0, 'free'],
   // the scroll, stacked
-  ['free', 'call', 904.767, null], ['free', 'call', 905.967, null], ['onSite', 'free', 905.3, null]
+  ['free', 'call', 904.767, null], ['free', 'call', 905.967, null], ['onSite', 'free', 905.3, null],
+  // time left, stacked: filling in, settled, amber and sweeping; CALL SOON sweeping
+  ['call', 'free', 4.1, 'slot'], ['call', 'free', 9.0, 'slot'], ['meeting', 'free', 9.0, 'slotEnd'], ['callIn', 'free', 9.0, 'bigSoon']
 ];
 // the Nearby key's own word, through each way of fitting it: as it is; stacked a step
 // tighter; the announcement in the status face, stacked in it too; stacked on two lines

@@ -24,6 +24,11 @@ expect(SaverStatus.read(answer(LocalAPI.Status(state: "free", moment: nil, dnd: 
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)))?.state == "callMuted",
        "muted on a call reads as the bar draws it")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false)))?.state == "call", "on a call")
+let railed = LocalAPI.Status(state: "call", moment: LocalAPI.Status.Moment(at: 1_760_000_000_000, kind: "countdown",
+                             slot: .init(start: 1_759_996_400_000, end: 1_760_000_000_000)), dnd: false)
+expect(SaverStatus.read(answer(railed))?.moment
+       == .init(at: 1_760_000_000_000, kind: "countdown", slot: .init(start: 1_759_996_400_000, end: 1_760_000_000_000)),
+       "on a call, the meeting for the time-left rail")
 expect(SaverStatus.read(LocalAPI.response(403)) == nil, "a refusal is no answer")
 expect(SaverStatus.read(Data("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".utf8)) == nil, "an answer with no state")
 expect(SaverStatus.read(Data("HTTP/1.1 200 OK\r\n".utf8)) == nil, "half an answer")
