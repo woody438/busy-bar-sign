@@ -111,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     func applicationWillTerminate(_ notification: Notification) {
         detector.stop()
+        status.meeting.stop()                   // Teams' accessibility switches put back
         window.hide(remember: false)
     }
 }

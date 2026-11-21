@@ -16,6 +16,18 @@ import Foundation
  * come back. Nothing here touches a meeting window that is still live
  * except its mute and leave buttons, and a popup is only pressed when its
  * text reads as a survey, and then only on a button that just closes it.
+ *
+ * Lightly, from 2.8.9. Teams builds the tree of its page for Accessibility
+ * only once asked (AXManualAccessibility, then AXEnhancedUserInterface — what
+ * VoiceOver sets — if that isn't enough), and keeps it up to date for as long
+ * as it's asked. So it's asked only once a meeting window is open, and each
+ * switch it turned on is turned off again once there's no meeting to read
+ * (its survey watch done), when Teams quits, when the reading is switched
+ * off and when Busy Bar Sign quits. One something else turned on first is
+ * left on. With no meeting window, an app's windows are listed (a few
+ * Accessibility calls) less and less often, up to every 16 s, and nothing is
+ * walked; an app taking the mic is looked at straight away. Switched off
+ * (Settings ▸ Call apps), nothing at all is asked of Teams or Zoom.
  */
 
 /// One meeting app, as the keys see it.
@@ -32,6 +44,8 @@ struct MeetingAppState: Equatable {
 /// Both apps, and which one the keys act on.
 struct MeetingSnapshot: Equatable {
     var trusted = false
+    /// Whether Teams and Zoom are read at all (Settings ▸ Call apps).
+    var reading = true
     /// The most recently joined meeting, or nil when there's none.
     var active: MeetingApp?
     var apps: [MeetingApp: MeetingAppState] = [:]
@@ -71,8 +85,12 @@ final class MeetingEngine {
     static let pollIdle = 2.0
     static let pollUntrusted = 3.0
     static let discoverEvery = 2.0
+    static let discoverIdleMax = 16.0  // looking less and less often while there's no meeting window, up to this
     static let slowWalkEvery = 4.0
     static let slowWalkBig = 15.0      // windows too big to be a lobby (a popped-out chat)
+    static let slowWalkOffMic = 4.0    // those gaps times this while the app isn't on the mic and no meeting's found
+    static let askedAgain = 1.0        // a window walked this often for a while after Teams was asked in full,
+    static let askedFor = 10.0         // ...this long, till its page shows
     static let pidCheckEvery = 5.0
     static let trustCheck = 30.0
     static let flyoutGrace = 20.0
@@ -94,10 +112,20 @@ final class MeetingEngine {
     var now: () -> Date = Date.init
     var wait: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
     var onState: (MeetingSnapshot) -> Void = { _ in }
+    /// The switches it has on in each app, by pid, kept by MeetingKeys (UserDefaults): a
+    /// copy that quit without putting them back (a crash) has them put back by the next.
+    var noted: [Int32: [MeetingAXSwitch]] = [:] {
+        didSet { if noted != oldValue { onNoted(noted) } }
+    }
+    var onNoted: ([Int32: [MeetingAXSwitch]]) -> Void = { _ in }
     var onPopup: (MeetingPopup) -> Void = { _ in }
     var log: (String) -> Void = { _ in }
 
     private(set) var trusted = false
+    /// Off (stop()): nothing is asked of Teams or Zoom till resume().
+    private(set) var reading = true
+    /// The meeting apps on the mic (CallDetector, through hint): a meeting's likely, so look now.
+    private(set) var onMic: Set<MeetingApp> = []
     private var trustCheckedAt = Date.distantPast
     let trackers: [Tracker]
     private var attempts: [String: Int] = [:]
@@ -129,7 +157,14 @@ final class MeetingEngine {
 
         var nextDiscovery = Date.distantPast
         var slowWalk: [String: Date] = [:]
-        var askedFull = false       // Teams asked as VoiceOver asks (AXEnhancedUserInterface)
+        /// The switches this engine turned on in the app, to put back.
+        var switched: [MeetingAXSwitch] = []
+        /// Seconds till the next look while there's no meeting window: doubles each look that finds none.
+        var idleGap = MeetingEngine.discoverEvery
+        /// Whether the last look found a meeting window (or Zoom's meeting).
+        var meetingWindow = false
+        /// When Teams was asked as VoiceOver asks: its page takes a moment to show.
+        var askedFullAt = Date.distantPast
 
         var surveyUntil = Date.distantPast
         var nextSurveyScan = Date.distantPast
@@ -152,6 +187,7 @@ final class MeetingEngine {
     /// One round of work; returns how long to wait before the next.
     @discardableResult
     func tick() -> TimeInterval {
+        guard reading else { return Self.pollIdle }
         let now = self.now()
         if !trusted || now.timeIntervalSince(trustCheckedAt) >= Self.trustCheck {
             let was = trusted
@@ -181,8 +217,11 @@ final class MeetingEngine {
 
         if t.mute != nil { readControls(t, now) }
         if t.mute == nil && now >= t.nextDiscovery {
-            discover(t, now)
-            t.nextDiscovery = now.addingTimeInterval(Self.discoverEvery)
+            t.meetingWindow = discover(t, now)
+            // no meeting window: look less and less often, unless the app's on the mic
+            let quiet = !t.meetingWindow && !t.inMeeting && !onMic.contains(t.app) && now >= t.surveyUntil && now >= t.confirmUntil
+            t.idleGap = quiet ? min(t.idleGap * 2, Self.discoverIdleMax) : Self.discoverEvery
+            t.nextDiscovery = now.addingTimeInterval(quiet ? t.idleGap : Self.discoverEvery)
         } else if t.app == .teams && t.mute != nil && t.leave == nil && now >= t.nextDiscovery {
             // Teams can redraw its hang-up button mid-call while the mute button reads on
             t.nextDiscovery = now.addingTimeInterval(findLeave(t) ? Self.discoverEvery : Self.slowWalkEvery)
@@ -194,11 +233,16 @@ final class MeetingEngine {
             _ = scanPopups(t, act: true)
             t.nextSurveyScan = self.now().addingTimeInterval(Self.surveyScanGap)
         }
+        // no meeting to read, its survey watch done: Teams as it would be without Busy Bar Sign
+        if !t.switched.isEmpty && !t.inMeeting && !t.meetingWindow && !surveyActive && now >= t.confirmUntil {
+            putBack(t, why: "no meeting")
+        }
         return t.inMeeting || surveyActive || now < t.confirmUntil
     }
 
     /// Forgets everything tied to an app's previous process.
     private func reset(_ t: Tracker, pid: Int32) {
+        putBack(t, why: pid == 0 ? "it quit" : "attaching again")
         dropControls(t)
         t.element = nil
         t.inMeeting = false
@@ -209,13 +253,85 @@ final class MeetingEngine {
         t.pid = pid
         t.nextDiscovery = .distantPast
         t.slowWalk = [:]
-        t.askedFull = false
+        t.idleGap = Self.discoverEvery
+        t.meetingWindow = false
         if pid != 0 {
-            let app = backend.application(pid)
-            t.element = app
-            if t.app == .teams { backend.enable(app, full: false) }   // Chromium builds its tree on request
+            t.element = backend.application(pid)
             log("attached to \(t.app.label) (pid \(pid))")
+            // what an earlier copy switched on in this process and didn't put back
+            noted = noted.filter { $0.key == pid || backend.alive($0.key) }
+            if let left = noted[pid], !left.isEmpty {
+                t.switched = left
+                log("\(t.app.label)'s \(left.map(\.rawValue).joined(separator: " and ")) left on by an earlier copy: to be put back")
+            }
         }
+    }
+
+    /// Turns one of the app's accessibility switches on, unless it's on already
+    /// (VoiceOver, or another tool): only what this engine turned on is put back.
+    private func switchOn(_ t: Tracker, _ which: MeetingAXSwitch) {
+        guard !t.switched.contains(which), let app = t.element else { return }
+        if backend.axSwitch(app, which) == true { return }
+        backend.setAXSwitch(app, which, true)
+        t.switched.append(which)
+        noted[t.pid] = t.switched
+        log(which == .full ? "asking \(t.app.label) to show its meeting controls to Accessibility as VoiceOver asks (\(which.rawValue))"
+                           : "asking \(t.app.label) for its accessibility tree (\(which.rawValue))")
+    }
+
+    /// Turns off what this engine turned on in the app.
+    private func putBack(_ t: Tracker, why: String) {
+        guard !t.switched.isEmpty else { return }
+        if let app = t.element {
+            for which in t.switched.reversed() { backend.setAXSwitch(app, which, false) }
+        }
+        log("put \(t.app.label)'s \(t.switched.map(\.rawValue).joined(separator: " and ")) back off (\(why))")
+        t.switched = []
+        noted[t.pid] = nil
+    }
+
+    /// Stops reading Teams and Zoom: puts back what it switched on, forgets their
+    /// meetings, and asks nothing of them till resume().
+    func stop() {
+        guard reading else { return }
+        for t in trackers {
+            putBack(t, why: "reading switched off")
+            dropControls(t)
+            t.element = nil
+            t.pid = 0
+            t.inMeeting = false
+            t.muted = nil
+            t.label = ""
+            t.canLeave = false
+            t.window = ""
+            t.surveyUntil = .distantPast
+            t.confirmUntil = .distantPast
+            t.meetingWindow = false
+        }
+        reading = false
+        log("not reading Teams or Zoom")
+        publish()
+    }
+
+    /// Reads them again.
+    func resume() {
+        guard !reading else { return }
+        reading = true
+        for t in trackers {
+            t.pidCheckedAt = .distantPast
+            t.nextDiscovery = .distantPast
+            t.idleGap = Self.discoverEvery
+        }
+        log("reading Teams and Zoom")
+    }
+
+    /// The meeting apps on the mic now: one that's just taken it is looked at straight away.
+    func hint(onMic apps: Set<MeetingApp>) {
+        for t in trackers where apps.contains(t.app) && !onMic.contains(t.app) {
+            t.idleGap = Self.discoverEvery
+            t.nextDiscovery = .distantPast
+        }
+        onMic = apps
     }
 
     private func dropControls(_ t: Tracker) {
@@ -316,16 +432,22 @@ final class MeetingEngine {
         t.surveyUntil = .distantPast
     }
 
-    private func discover(_ t: Tracker, _ now: Date) {
-        if t.app == .teams { discoverTeams(t, now) } else { discoverZoom(t, now) }
+    /// Looks for a meeting; true if there's a meeting window (or Zoom's meeting) to read.
+    private func discover(_ t: Tracker, _ now: Date) -> Bool {
+        t.app == .teams ? discoverTeams(t, now) : discoverZoom(t, now)
     }
 
-    /// Looks for the meeting toolbar in Teams' meeting windows.
-    private func discoverTeams(_ t: Tracker, _ now: Date) {
+    /// Looks for the meeting toolbar in Teams' meeting windows. Their titles
+    /// first, which costs a few calls: with none, nothing's walked, and Teams
+    /// isn't asked for its tree.
+    private func discoverTeams(_ t: Tracker, _ now: Date) -> Bool {
         let wins = windows(t)
         let candidates = wins.filter { $0.kind == .meeting } + wins.filter { $0.kind == .compact }
         let stillThere = !t.window.isEmpty && wins.contains { $0.title == t.window }
         var endedSeen = false
+        if !candidates.isEmpty { switchOn(t, .manual) }      // Chromium builds its page's tree on request
+        // off the mic, with no meeting found, a window's walked a quarter as often
+        let gap = t.inMeeting || onMic.contains(t.app) ? 1.0 : Self.slowWalkOffMic
 
         for w in candidates.prefix(4) {
             if let next = t.slowWalk[w.title], now < next { continue }
@@ -348,30 +470,29 @@ final class MeetingEngine {
                 meetingStarted(t, now, window: w.title)
                 applyMute(t, mic.attrs)
                 t.slowWalk[w.title] = nil
-                return
+                return true
             }
             tree.each { n in
                 if n.expanded && MeetingPatterns.matches(patterns.ended, n.attrs.label) { endedSeen = true; return false }
                 return true
             }
-            t.slowWalk[w.title] = now.addingTimeInterval(read >= Self.bigWindow ? Self.slowWalkBig : Self.slowWalkEvery)
+            t.slowWalk[w.title] = now.addingTimeInterval((read >= Self.bigWindow ? Self.slowWalkBig : Self.slowWalkEvery) * gap)
             // No web content in a meeting window — only its title-bar buttons — means Chromium
-            // (Teams is built on it) hasn't built the page's tree: ask as VoiceOver does
-            if read < 10 || !web, let app = t.element {
-                if !t.askedFull {
-                    log("asking Teams to show its meeting controls to Accessibility (AXEnhancedUserInterface)")
-                    t.askedFull = true
-                }
-                backend.enable(app, full: true)
+            // (Teams is built on it) hasn't built the page's tree: ask as VoiceOver does, and look again soon
+            if read < 10 || !web {
+                if !t.switched.contains(.full) { t.askedFullAt = now }
+                switchOn(t, .full)
+                if now.timeIntervalSince(t.askedFullAt) < Self.askedFor { t.slowWalk[w.title] = now.addingTimeInterval(Self.askedAgain) }
             }
         }
 
         if t.inMeeting {
             if stillThere && !endedSeen && now.timeIntervalSince(t.toolbarSeen) < Self.flyoutGrace {
-                return                              // a menu or popup is covering the toolbar: keep the last reading
+                return true                         // a menu or popup is covering the toolbar: keep the last reading
             }
             meetingEnded(t, now, why: "toolbar gone")
         }
+        return !candidates.isEmpty
     }
 
     /// Looks for Teams' hang-up button again in the meeting window, the mute
@@ -392,10 +513,17 @@ final class MeetingEngine {
     }
 
     /// Reads Zoom's Meeting menu: "Mute audio" / "Unmute audio" is there only in a meeting.
-    private func discoverZoom(_ t: Tracker, _ now: Date) {
+    /// Its windows first, which costs a few calls: the menu's walked only with a meeting
+    /// window, Zoom on the mic, or — for a meeting full screen on another desktop, whose
+    /// window isn't listed — once the looks have backed off all the way.
+    private func discoverZoom(_ t: Tracker, _ now: Date) -> Bool {
+        let meetingWindow = windows(t).first { $0.kind == .meeting }
+        guard t.inMeeting || meetingWindow != nil || onMic.contains(.zoom) || t.idleGap >= Self.discoverIdleMax else {
+            return false
+        }
         guard let app = t.element, let bar = backend.menuBar(app) else {
             if t.inMeeting { meetingEnded(t, now, why: "no menu bar") }
-            return
+            return meetingWindow != nil
         }
         var item: MeetingNode?
         _ = MeetingNode.walk(backend, bar, maxNodes: Self.menuWalkCap, maxDepth: 4) { n in
@@ -407,12 +535,12 @@ final class MeetingEngine {
         }
         guard let item else {
             if t.inMeeting { meetingEnded(t, now, why: "Meeting menu gone") }
-            return
+            return meetingWindow != nil
         }
         t.mute = item.element
-        let window = windows(t).first { $0.kind == .meeting }?.title ?? "Zoom Meeting"
-        meetingStarted(t, now, window: window)
+        meetingStarted(t, now, window: meetingWindow?.title ?? "Zoom Meeting")
         applyMute(t, item.attrs)
+        return true
     }
 
     private func meetingEnded(_ t: Tracker, _ now: Date, why: String) {
@@ -457,7 +585,7 @@ final class MeetingEngine {
     func pressed() {
         let now = self.now()
         for t in trackers {
-            if t.mute != nil { readControls(t, now) } else { t.nextDiscovery = .distantPast }
+            if t.mute != nil { readControls(t, now) } else { t.nextDiscovery = .distantPast; t.idleGap = Self.discoverEvery }
         }
         publish(force: true)
     }
@@ -506,7 +634,7 @@ final class MeetingEngine {
         for _ in 0..<Self.verifySteps where !r.ok {
             let now = self.now()
             if what == .mute {
-                if t.mute == nil { discover(t, now) }   // the button was rebuilt: find it again
+                if t.mute == nil { _ = discover(t, now) }   // the button was rebuilt: find it again
                 if t.mute != nil { readControls(t, now) }
                 r.ok = before == nil || (t.muted != nil && t.muted != before)
             } else {
@@ -575,7 +703,7 @@ final class MeetingEngine {
     // MARK: - State
 
     func snapshot() -> MeetingSnapshot {
-        var s = MeetingSnapshot(trusted: trusted)
+        var s = MeetingSnapshot(trusted: trusted, reading: reading)
         for t in trackers {
             s.apps[t.app] = MeetingAppState(running: t.pid != 0, inMeeting: t.inMeeting, muted: t.muted,
                                             canLeave: t.canLeave, window: t.window, muteLabel: t.label)
@@ -742,6 +870,9 @@ final class MeetingEngine {
 
     /// Each app's meeting controls (or its windows, outside a meeting).
     func inspect() -> String {
+        guard reading else {
+            return "Busy Bar Sign isn't reading Teams or Zoom: Settings ▸ Call apps ▸ Read Teams and Zoom meetings.\n\n"
+        }
         guard trusted else {
             return "Busy Bar Sign isn't allowed to use Accessibility yet: System Settings ▸ Privacy & Security ▸ Accessibility."
         }
@@ -796,6 +927,7 @@ final class MeetingEngine {
 
     /// Every dialog and secondary window, touching nothing.
     func capture() -> String {
+        guard reading else { return "Busy Bar Sign isn't reading Teams or Zoom: Settings ▸ Call apps ▸ Read Teams and Zoom meetings." }
         guard trusted else { return "Busy Bar Sign isn't allowed to use Accessibility yet." }
         let out = trackers.filter { $0.pid != 0 }.map { scanPopups($0, act: false) }.joined()
         return out.isEmpty ? "No dialogs or extra Teams or Zoom windows are open." : out

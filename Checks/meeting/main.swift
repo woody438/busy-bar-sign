@@ -55,8 +55,13 @@ final class FakeBackend: MeetingBackend {
     var performed: [String] = []
     var escapes = 0
     var activated: [Int32] = []
-    var enables = 0
-    var fullEnables = 0
+    /// Teams' and Zoom's accessibility switches, by pid, and every time one was set.
+    var switches: [Int32: [MeetingAXSwitch: Bool]] = [:]
+    var switchSets: [(pid: Int32, which: MeetingAXSwitch, on: Bool)] = []
+    /// Accessibility calls to the apps: none at all while the reading's off.
+    var axCalls = 0
+    var windowLists = 0
+    var menuWalks = 0
     var finds = 0
     var busy: [FakeEl] = []
 
@@ -82,34 +87,49 @@ final class FakeBackend: MeetingBackend {
     func findApp(_ app: MeetingApp) -> Int32 { finds += 1; return app == .zoom ? zoomPid : pid }
     func alive(_ p: Int32) -> Bool { p != 0 && (p == pid || p == zoomPid) }
     func application(_ p: Int32) -> AnyObject { FakeApp(p) }
-    func enable(_ app: AnyObject, full: Bool) {
-        enables += 1
-        if full { fullEnables += 1 }
+    func enable(_ app: AnyObject, full: Bool) { axCalls += 1 }
+    func axSwitch(_ app: AnyObject, _ which: MeetingAXSwitch) -> Bool? {
+        axCalls += 1
+        guard let p = (app as? FakeApp)?.pid else { return nil }
+        return switches[p]?[which] ?? false
     }
+    func setAXSwitch(_ app: AnyObject, _ which: MeetingAXSwitch, _ on: Bool) {
+        axCalls += 1
+        guard let p = (app as? FakeApp)?.pid else { return }
+        switches[p, default: [:]][which] = on
+        switchSets.append((p, which, on))
+    }
+    func fullSets(on: Bool = true) -> Int { switchSets.filter { $0.which == .full && $0.on == on }.count }
     func windows(_ app: AnyObject) throws -> [AnyObject] {
+        axCalls += 1
+        windowLists += 1
         let list = (app as? FakeApp)?.pid == zoomPid && zoomPid != 0 ? zoomWindows : teamsWindows
         return list.filter { !$0.gone }
     }
     func node(_ e: AnyObject) throws -> (MeetingAttrs, [AnyObject]) {
+        axCalls += 1
         if busy.contains(where: { $0 === e }) { throw MeetingAXError.busy }
         let x = try fake(e)
         return (x.attrs, x.children.filter { !$0.gone })
     }
-    func read(_ e: AnyObject) throws -> MeetingAttrs { try fake(e).attrs }
-    func actions(_ e: AnyObject) -> [String] { (try? fake(e))?.actions ?? [] }
+    func read(_ e: AnyObject) throws -> MeetingAttrs { axCalls += 1; return try fake(e).attrs }
+    func actions(_ e: AnyObject) -> [String] { axCalls += 1; return (try? fake(e))?.actions ?? [] }
     func perform(_ e: AnyObject, _ action: String) throws {
+        axCalls += 1
         if busy.contains(where: { $0 === e }) { throw MeetingAXError.busy }
         let x = try fake(e)
         guard x.actions.contains(action) else { throw MeetingAXError.failed(-25206) }
         performed.append("\(action) “\(x.attrs.label)”")
         x.onAction?(action)
     }
-    func closeButton(_ window: AnyObject) -> AnyObject? { (try? fake(window))?.closeButton }
+    func closeButton(_ window: AnyObject) -> AnyObject? { axCalls += 1; return (try? fake(window))?.closeButton }
     func menuBar(_ app: AnyObject) -> AnyObject? {
+        axCalls += 1
+        menuWalks += 1
         guard (app as? FakeApp)?.pid == zoomPid, zoomPid != 0, let m = zoomMenu, !m.gone else { return nil }
         return m
     }
-    func postEscape(_ pid: Int32) -> Bool { escapes += 1; return true }
+    func postEscape(_ pid: Int32) -> Bool { axCalls += 1; escapes += 1; return true }
     func frontmostPID() -> Int32 { front }
     func activate(_ pid: Int32) { activated.append(pid) }
 }
@@ -535,15 +555,15 @@ do { // a Teams meeting window showing only its title-bar buttons: Teams is aske
     win.add(chrome)
     f.teamsWindows = [f.window("Chat | Lydia Morgan | Microsoft Teams"), win]
     h.run(3)
-    expect(f.fullEnables >= 1 && !h.teams.inMeeting, "no web content: asked in full \(f.fullEnables) times")
+    expect(f.fullSets() == 1 && !h.teams.inMeeting, "no web content: asked in full \(f.fullSets()) times")
     // once Teams shows its page, the toolbar is found
     let mic = f.button("microphone-button", "Unmute mic")
     win.add([f.el(MeetingAttrs(role: "AXWebArea"), f.group(mic, f.button("hangup-button", "Leave")))])
     h.run(6)
     expect(h.teams.inMeeting && h.teams.muted == true, "found after Teams showed its page: \(h.teams)")
-    let asked = f.fullEnables
+    let asked = f.fullSets()
     h.run(10)
-    expect(f.fullEnables == asked, "not asked again once found")
+    expect(f.fullSets() == asked, "not asked again once found")
 }
 
 do { // Zoom's feedback window is closed; its main window never is
@@ -622,6 +642,147 @@ do { // the process list isn't asked every tick
     h.f.zoomPid = 0
     h.run(20)
     expect(h.f.finds <= 12, "findApp \(h.f.finds) times in 20 s")
+}
+
+// MARK: - Lightly (2.8.9): Teams' switches put back, nothing asked while off, idle looks backed off
+
+do { // Teams with no meeting window: no switch turned on, nothing walked
+    let h = Harness()
+    h.f.zoomPid = 0
+    h.f.teamsWindows = [h.f.window("Chat | Mickey Curbishley | Microsoft Teams", h.f.group(h.f.text("Hello from chat")))]
+    h.run(60)
+    expect(h.f.switchSets.isEmpty, "no meeting window: no switch set: \(h.f.switchSets)")
+    expect(h.f.windowLists <= 8, "no meeting window: its windows listed less and less often (\(h.f.windowLists) times in 60 s)")
+}
+
+do { // a meeting: AXManualAccessibility on to read it, and off again once it and its survey watch are over
+    let h = Harness()
+    h.f.zoomPid = 0
+    let (win, _, _) = h.meeting("Unmute mic")
+    h.run(3)
+    expect(h.teams.inMeeting && h.f.switches[4242]?[.manual] == true, "in a meeting: switched on: \(h.f.switches)")
+    expect(h.f.switches[4242]?[.full] != true, "its page showed: not asked as VoiceOver asks")
+    win.gone = true
+    h.run(30)
+    expect(!h.teams.inMeeting && h.f.switches[4242]?[.manual] == true, "the survey watch: still on")
+    h.run(60)
+    expect(h.f.switches[4242]?[.manual] == false, "over, and its survey watch: put back off: \(h.f.switches)")
+    let sets = h.f.switchSets.count
+    h.run(60)
+    expect(h.f.switchSets.count == sets, "not touched again with no meeting")
+    // the next meeting switches it on again, and finds it
+    h.meeting("Mute mic")
+    h.e.hint(onMic: [.teams])
+    h.run(3)
+    expect(h.teams.inMeeting && h.teams.muted == false && h.f.switches[4242]?[.manual] == true, "the next meeting: \(h.teams)")
+}
+
+do { // asked as VoiceOver asks, then put back, both
+    let h = Harness()
+    let f = h.f
+    f.zoomPid = 0
+    let win = f.window("Eagle Dragon crew | Microsoft Teams")
+    win.add((0..<16).map { _ in f.button("", "") })
+    f.teamsWindows = [f.window("Chat | Lydia Morgan | Microsoft Teams"), win]
+    h.e.hint(onMic: [.teams])
+    h.run(3)
+    expect(f.switches[4242]?[.full] == true && f.switches[4242]?[.manual] == true, "no web content: both on")
+    win.add([f.el(MeetingAttrs(role: "AXWebArea"), f.group(f.button("microphone-button", "Unmute mic"), f.button("hangup-button", "Leave")))])
+    h.run(2)
+    expect(h.teams.inMeeting, "found a second after its page showed: \(h.teams)")
+    win.gone = true
+    h.e.hint(onMic: [])
+    h.run(90)
+    expect(f.switches[4242]?[.full] == false && f.switches[4242]?[.manual] == false, "both put back off: \(f.switches)")
+    let order = f.switchSets.filter { !$0.on }.map(\.which)
+    expect(order == [.full, .manual], "put back in the opposite order: \(order)")
+}
+
+do { // a switch something else turned on (VoiceOver) is left on
+    let h = Harness()
+    h.f.zoomPid = 0
+    h.f.switches[4242] = [.manual: true, .full: true]
+    let (win, _, _) = h.meeting("Unmute mic")
+    h.run(3)
+    expect(h.teams.inMeeting && h.f.switchSets.isEmpty, "on already: not set: \(h.f.switchSets)")
+    win.gone = true
+    h.run(90)
+    expect(h.f.switches[4242]?[.manual] == true && h.f.switches[4242]?[.full] == true && h.f.switchSets.isEmpty,
+           "not ours: left on: \(h.f.switches)")
+}
+
+do { // Teams quits mid-meeting: put back on its way out
+    let h = Harness()
+    h.f.zoomPid = 0
+    h.meeting("Unmute mic")
+    h.run(3)
+    h.f.pid = 0
+    h.run(6)
+    expect(!h.teams.running && h.f.switchSets.last.map { $0.which == .manual && !$0.on } == true, "quit: put back: \(h.f.switchSets)")
+}
+
+do { // a copy that quit without putting them back (a crash): the next puts them back
+    let h = Harness()
+    h.f.zoomPid = 0
+    var kept: [Int32: [MeetingAXSwitch]] = [:]
+    h.e.onNoted = { kept = $0 }
+    h.meeting("Unmute mic")
+    h.run(3)
+    expect(kept[4242] == [.manual], "noted: \(kept)")
+    let next = Harness()
+    next.f.zoomPid = 0
+    next.f.switches = h.f.switches                      // the same Teams, its switch still on
+    next.e.noted = kept
+    next.f.teamsWindows = [next.f.window("Chat | Mickey Curbishley | Microsoft Teams")]
+    next.run(5)
+    expect(next.f.switches[4242]?[.manual] == false && next.e.noted.isEmpty, "the next copy put it back: \(next.f.switches)")
+}
+
+do { // switched off: put back, nothing asked of Teams or Zoom at all, no meeting for the keys; on again: found
+    let h = Harness()
+    h.zoomMeeting("Mute audio")
+    h.meeting("Unmute mic")
+    h.run(3)
+    expect(h.teams.inMeeting && h.zoom.inMeeting, "both read")
+    h.e.stop()
+    expect(h.f.switches[4242]?[.manual] == false, "off: put back")
+    expect(!h.last.reading && h.last.active == nil && !h.teams.inMeeting && !h.zoom.inMeeting, "off: no meeting for the keys: \(h.last)")
+    let calls = h.f.axCalls
+    h.run(120)
+    expect(h.f.axCalls == calls, "off: \(h.f.axCalls - calls) Accessibility calls in 2 minutes")
+    expect(h.e.inspect().contains("isn't reading") && h.e.capture().contains("isn't reading") && h.f.axCalls == calls,
+           "off: Inspect and Capture ask nothing")
+    expect(h.e.press(.mute).error == "no meeting" && h.f.axCalls == calls, "off: a press asks nothing")
+    h.e.resume()
+    h.run(3)
+    expect(h.last.reading && h.teams.inMeeting && h.zoom.inMeeting, "on again: \(h.last)")
+}
+
+do { // Zoom running, no meeting: its menu bar isn't walked but now and then; on the mic, straight away
+    let h = Harness()
+    h.f.pid = 0
+    h.zoomMeeting("Mute audio")
+    let menu = h.f.zoomMenu
+    h.f.zoomMenu = nil
+    h.f.zoomWindows = [h.f.window("Zoom Workplace", h.f.text("chat with Bob"))]
+    h.run(60)
+    expect(h.f.menuWalks <= 3, "no meeting window: the menu walked \(h.f.menuWalks) times in 60 s")
+    // a meeting full screen on another desktop (its window not listed), on the mic: found at once
+    h.f.zoomMenu = menu
+    h.e.hint(onMic: [.zoom])
+    h.run(1)
+    expect(h.zoom.inMeeting && h.zoom.window == "Zoom Meeting", "on the mic, no meeting window listed: found: \(h.zoom)")
+}
+
+do { // the back-off ends as an app takes the mic
+    let h = Harness()
+    h.f.zoomPid = 0
+    h.f.teamsWindows = [h.f.window("Chat | Mickey Curbishley | Microsoft Teams")]
+    h.run(40)
+    h.meeting("Unmute mic")
+    h.e.hint(onMic: [.teams])
+    h.run(1)
+    expect(h.teams.inMeeting, "on the mic: looked at straight away: \(h.teams)")
 }
 
 do { // bundle IDs

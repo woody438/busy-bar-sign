@@ -1281,6 +1281,18 @@ private struct CallAppsTab: View {
             }
         }
         Group {
+            Heading("Teams and Zoom")
+            Card {
+                Row(label: "Read Teams and Zoom meetings (Mute and Leave keys)", divider: false) {
+                    Toggle("Read Teams and Zoom meetings (Mute and Leave keys)", isOn: $meeting.reading)
+                        .labelsHidden().toggleStyle(.switch).tint(.green)
+                }
+            }
+            Note(meeting.reading
+                 ? "Read through Accessibility, for the sign's muted look and the Stream Deck's Mute and Leave keys. Teams is asked for its accessibility tree only while a meeting window is open — as VoiceOver asks, if it shows nothing otherwise — and both are switched off again once there's no meeting to read, and when Teams or Busy Bar Sign quits."
+                 : "Off: nothing at all is asked of Teams or Zoom. The sign can't tell you're muted in them, and the Mute and Leave keys stay dark in their meetings. FaceTime and WhatsApp are still read, and the Leave key's END still ends the calendar event.")
+        }
+        Group {
             Heading("Which apps count, and what the sign can do in them")
             Card {
                 ForEach(Array(MeetingApp.allCases.enumerated()), id: \.element) { i, app in
@@ -1400,6 +1412,7 @@ private struct CallAppsTab: View {
 
     /// One line for an app: its meeting, mute button and state.
     private func line(_ app: MeetingApp) -> String {
+        guard meeting.snapshot.reading else { return "Not read (Read Teams and Zoom meetings is off)" }
         guard let s = meeting.snapshot.apps[app], s.running else { return "Not running" }
         guard s.inMeeting else { return "Not in a meeting" }
         let muted = s.muted.map { $0 ? "muted" : "mic live" } ?? "mute unknown"
