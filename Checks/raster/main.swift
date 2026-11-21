@@ -58,6 +58,7 @@ struct Scenario {
     let name: String, state: BarState, prev: BarState?, from: Double, seconds: Double
     var layout = BarLayout.wide, pitch = 32
     var moment: (Double, BarMoment.Kind)? = nil      // seconds from the start, kind
+    var slot: (Double, Double)? = nil                // the time-left rail's meeting: start and end, seconds from the start
 }
 let scenarios = [
     Scenario(name: "FREE, settled", state: .free, prev: .call, from: 600, seconds: 30),
@@ -77,6 +78,22 @@ let scenarios = [
     Scenario(name: "AWAY, resting", state: .away, prev: .free, from: 2400, seconds: 20),
     Scenario(name: "FREE, resting, the scroll", state: .free, prev: .call,
              from: BarEngine.Timing.settled + 2 * BarEngine.Scroll.every - 4, seconds: 10),
+    // the time-left rail on its meeting's seconds (out of step with the moment's and the clock's), the
+    // last two minutes' sweep, and CALL SOON's big countdown, as they start and once they've started
+    Scenario(name: "ON A CALL, the time-left rail", state: .call, prev: .free, from: 300, seconds: 20,
+             moment: (1234.567, .countdown), slot: (-1765.2, 834.81)),
+    Scenario(name: "ON A CALL, its last two minutes", state: .call, prev: .free, from: 300, seconds: 12,
+             moment: (1234.567, .countdown), slot: (-1700.4, 95.43)),
+    Scenario(name: "MEETING, into its last two minutes", state: .meeting, prev: .free, from: 300, seconds: 10,
+             moment: (2000.1, .countdown), slot: (-1500.6, 125.3)),
+    Scenario(name: "CALL IN, the big countdown", state: .callIn, prev: .free, from: 30, seconds: 20,
+             moment: (101.2, .countdown)),
+    Scenario(name: "CALL IN, into its last two minutes", state: .callIn, prev: .free, from: 30, seconds: 10,
+             moment: (124.7, .countdown)),
+    Scenario(name: "MEETING, stacked, the sweep", state: .meeting, prev: .free, from: 300, seconds: 10,
+             layout: .stacked, pitch: 11, moment: (900.3, .countdown), slot: (-1700.2, 100.4)),
+    Scenario(name: "CALL IN, stacked, the sweep", state: .callIn, prev: .free, from: 30, seconds: 10,
+             layout: .stacked, pitch: 11, moment: (100.6, .countdown)),
 ]
 
 /// What drawing every frame cost before 2.8.8: engine, raster, and the frame copied into an image.
@@ -102,7 +119,11 @@ for sc in scenarios {
     let cols = sc.layout.cols, rows = sc.layout.rows
     let raster = LEDRaster(pitch: sc.pitch, cols: cols, rows: rows, bgra: true)
     let since = 5000.0, t0 = since + sc.from, end = t0 + sc.seconds
-    let moment = sc.moment.map { BarMoment(at: Date(timeIntervalSince1970: wall0 + t0 + $0.0), kind: $0.1) }
+    let moment = sc.moment.map { m in
+        BarMoment(at: Date(timeIntervalSince1970: wall0 + t0 + m.0), kind: m.1,
+                  slot: sc.slot.map { DateInterval(start: Date(timeIntervalSince1970: wall0 + t0 + $0.0),
+                                                   end: Date(timeIntervalSince1970: wall0 + t0 + $0.1)) })
+    }
     let rests = true                                    // the wall's, wide or stacked
     var frame = LEDFrame(w: cols, h: rows)
     func keysAt(_ t: Double, into out: UnsafeMutableBufferPointer<UInt64>) {

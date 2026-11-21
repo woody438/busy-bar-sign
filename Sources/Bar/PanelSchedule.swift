@@ -2,11 +2,13 @@ import Foundation
 
 /// The moment the right of the pill is about: a countdown to it (Do Not
 /// Disturb, a call's end, CALL IN), a count up from it (LATE), or just its
-/// time (FREE TILL, CALL TBC once it's on).
+/// time (FREE TILL, CALL TBC once it's on). On a call or in a meeting, `slot`
+/// is the meeting you're in, for the time-left rail.
 struct BarMoment: Equatable {
     enum Kind { case countdown, countUp, fixed }
     let at: Date
     let kind: Kind
+    var slot: DateInterval? = nil
 
     /// The engine's timer, at `date`.
     func timer(at date: Date) -> BarTimer {
@@ -17,18 +19,20 @@ struct BarMoment: Equatable {
         case .countUp: left = date.timeIntervalSince(at)
         case .fixed: left = 0
         }
-        return BarTimer(left: left, h: c.hour ?? 0, m: c.minute ?? 0)
+        return BarTimer(left: left, h: c.hour ?? 0, m: c.minute ?? 0,
+                        slot: slot.map { BarSlot(left: $0.end.timeIntervalSince(date), total: $0.duration) })
     }
 }
 
 /*
  * When the LED panel has to draw. The engine is a function of time, but most
  * of the time it only changes as the clock turns: the time and the colon on
- * the wall clock's whole seconds, a countdown on its moment's. So the panel
- * draws on every display frame only while something moves — a change of
- * state, the scroll, the LEDs easing down to rest, the muted mic's flash,
- * LATE's breathing, the sheen crossing the pill (which stops while the LEDs
- * rest) — and otherwise once a turn.
+ * the wall clock's whole seconds, a countdown on its moment's, the time-left
+ * rail on its meeting's. So the panel draws on every display frame only while
+ * something moves — a change of state, the scroll, the LEDs easing down to
+ * rest, the muted mic's flash, LATE's breathing, the sheen crossing the pill
+ * (which stops while the LEDs rest), the last two minutes' sweep and CALL
+ * SOON's big countdown — and otherwise once a turn.
  *
  * Foundation only, so Checks/raster runs the panel's own schedule against
  * drawing every frame and finds no LED that differs.
@@ -50,9 +54,11 @@ enum PanelSchedule {
      * Otherwise the scene changes only as the clock turns until the time
      * returned (on the `now` clock; .infinity: not until something changes).
      * `rests`: the panel eases its LEDs down after half an hour (the wall's).
+     * `timer`: the moment's, for the last two minutes (alertStill).
      * The world clocks have their own timings: the panel draws them every frame.
      */
-    static func stillUntil(now: Double, state: BarState, since: Double, layout: BarLayout, rests: Bool) -> Double? {
+    static func stillUntil(now: Double, state: BarState, since: Double, layout: BarLayout, rests: Bool,
+                           timer: BarTimer? = nil) -> Double? {
         let e = now - since
         // a change of state: the wave, the announcement, the pill drawing back
         guard e >= BarEngine.Timing.settled else { return nil }
@@ -78,6 +84,9 @@ enum PanelSchedule {
                 if e < from { until = min(until, since + from) }
             }
         }
+        // the last two minutes: the sweep, or CALL SOON's big countdown
+        guard let alert = alertStill(now: now, state: state, layout: layout, timer: timer) else { return nil }
+        until = min(until, alert)
         // the sheen, crossing the pill every 8 s — stopped while the LEDs rest
         if rests && BarEngine.sheenRests(now, state, since: since) { return until }
         guard let sheen = sheenStill(now: now, layout: layout) else { return nil }
@@ -104,13 +113,37 @@ enum PanelSchedule {
         return now + (p < from ? from - p : cycle - p + from)
     }
 
+    /*
+     * nil while the last two minutes move: a sweep crossing the bar every 3 s for the
+     * time-left rail's meeting (and stacked, CALL SOON's), or CALL SOON's big countdown,
+     * 3.3 s in every 9 (BarEngine.sweepAt, bigAt). Else when they next move; .infinity: not.
+     */
+    static func alertStill(now: Double, state: BarState, layout: BarLayout, timer: BarTimer?) -> Double? {
+        guard let timer else { return .infinity }
+        let soon = state == .callIn || state == .busyIn ? timer.left : nil
+        // how often it moves, for how long, and the seconds left of what it's about
+        let moves: (every: Double, lasts: Double, left: Double)
+        if let slot = BarEngine.slotOf(state, timer) {
+            moves = (BarEngine.Slot.sweepEvery, BarEngine.Slot.sweepFor, slot.left)
+        } else if let soon {
+            moves = layout == .wide ? (BarEngine.Slot.bigEvery, BarEngine.Slot.bigFor, soon)
+                                    : (BarEngine.Slot.sweepEvery, BarEngine.Slot.sweepFor, soon)
+        } else {
+            return .infinity
+        }
+        guard moves.left > 0 else { return .infinity }
+        if moves.left > BarEngine.Slot.alert { return now + moves.left - BarEngine.Slot.alert }
+        let p = now.truncatingRemainder(dividingBy: moves.every)
+        return p < moves.lasts ? nil : now + moves.every - p
+    }
+
     /// The next turn after `date`: a whole second on the clock, or on the moment's (a countdown
-    /// counts down its moment's seconds, not the clock's).
+    /// counts down its moment's seconds, not the clock's), or the time-left rail's meeting's.
     static func nextTurn(after date: Date, moment: BarMoment?) -> Date {
         let t = date.timeIntervalSince1970
         var next = t.rounded(.down) + 1
-        if let at = moment?.at.timeIntervalSince1970 {
-            let frac = (t - at) - (t - at).rounded(.down)            // 0..<1 past the moment's last whole second
+        for at in [moment?.at, moment?.slot?.end].compactMap({ $0?.timeIntervalSince1970 }) {
+            let frac = (t - at) - (t - at).rounded(.down)            // 0..<1 past its last whole second
             next = min(next, t + (1 - frac))
         }
         return Date(timeIntervalSince1970: next + pastTurn)
@@ -119,7 +152,8 @@ enum PanelSchedule {
     /// When the panel draws next, in seconds from now; nil: on the next display frame.
     static func delay(now: Double, date: Date, state: BarState, since: Double, layout: BarLayout, rests: Bool,
                       moment: BarMoment?, world: Bool) -> Double? {
-        guard !world, let still = stillUntil(now: now, state: state, since: since, layout: layout, rests: rests) else {
+        guard !world, let still = stillUntil(now: now, state: state, since: since, layout: layout, rests: rests,
+                                             timer: moment?.timer(at: date)) else {
             return nil
         }
         let turn = nextTurn(after: date, moment: moment).timeIntervalSince(date)
