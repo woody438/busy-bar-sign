@@ -1140,7 +1140,7 @@ private enum Guide {
         Line(state: .call, how: "Automatic when an app uses your microphone.",
              more: "Counts down to when you're free, through back-to-back meetings; the line beneath shows what's left of the meeting you're in, amber for its last five minutes. Or an event of your own with “call” in the title, e.g. “Call - Linda”, for calls on your phone."),
         Line(state: .meeting, how: "A meeting in your office, a meeting room or one of your company's sites, or with invitees and no Teams, Zoom or Meet link.",
-             more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up."),
+             more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up. One with a link that you joined on the Mac is over when you leave the call: FREE."),
         Line(state: .callIn, how: "10 minutes before a call or a meeting.",
              more: "BUSY IN for a meeting in person. A countdown, then the start time. In the last two minutes, CALL IN 01:42 across the bar every few seconds."),
         Line(state: .late, how: "A call has started and your microphone hasn't.",
@@ -1158,7 +1158,7 @@ private enum Guide {
         Line(state: .ooo, how: "Show As: Out of Office, an all-day busy event, or ✈ in the title.",
              more: "Flight apps such as Flighty put the ✈ in."),
         Line(state: .onSite, how: "A meeting, or an event of your own, somewhere other than your office, a meeting room or your company's sites, or “on site” in the title.",
-             more: "A client, a venue, a restaurant — anywhere with an address, the dentist's too. Or your own event — all-day or Show As Out of Office too — titled “On site”. Dial in to one with a Teams or Zoom link and it's ON A CALL; the Leave key then makes it FREE."),
+             more: "A client, a venue, a restaurant — anywhere with an address, the dentist's too. Or your own event — all-day or Show As Out of Office too — titled “On site”. Dial in to one with a Teams or Zoom link and it's ON A CALL; leaving it makes it FREE."),
         Line(state: nil, how: "Ignored: Show As Free, cancelled meetings, and all-day events that aren't busy.",
              more: "Declined meetings leave your Outlook calendar, so they never count.")
     ]

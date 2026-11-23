@@ -353,7 +353,16 @@ expect('left a call: that call', leftOf(620, [call('c', 600, 660)], [[602, null]
 expect('…free', afterLeave(620, [call('c', 600, 660)], [[602, null]]).state, 'free');
 expect('left a meeting in a room, with a link: that meeting', leftOf(620, [hybrid], [[602, null]]), 'h');
 expect('…free', afterLeave(620, [hybrid], [[602, null]]).state, 'free');
-expect('…not MEETING, as when the mic just stops', decideWith(620, [hybrid], [[602, 620]]).state, 'meeting');
+expect('…left with Teams\' own button too: free', decideWith(620, [hybrid], [[602, 620]]).state, 'free');
+expect('…a call in five minutes: CALL IN', decideWith(645, [hybrid, call('n', 650, 680)], [[602, 640]]).state, 'callIn');
+expect('…back on it: on a call', decideWith(630, [hybrid], [[602, 620], [625, null]]).state, 'call');
+expect('…said to be there in person: in the meeting', decideWith(625, [call('a', 600, 660)], [[604, 620]], { inPerson: ['a'] }).state, 'meeting');
+expect('…a tentative call: free, not CALL TBC', decideWith(620, [call('t', 600, 660, { availability: 'tentative' })], [[602, 615]]).state, 'free');
+expect('…joined early, left before it starts: free', decideWith(599, [call('c', 600, 630)], [[596, 598]]).state, 'free');
+expect('…a meeting in your office with a link: free', decideWith(620, [ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 2,
+  notes: teams, location: "Woody's office" })], [[602, 615]]).state, 'free');
+expect('…one with no link: still in the meeting', decideWith(620, [huddle], [[602, 615]]).state, 'meeting');
+expect('…the mic not for it (started before it): still in the meeting', decideWith(620, [hybrid], [[540, 615]]).state, 'meeting');
 expect('left a phone-call block: free', afterLeave(615, [linda], [[602, null]]).state, 'free');
 expect('…not ON A CALL, as when the mic just stops', decideWith(615, [linda], [[602, 615]]).state, 'call');
 expect('a call in five minutes: CALL IN', afterLeave(645, [hybrid, call('n', 650, 680)], [[602, null]]).state, 'callIn');
@@ -377,7 +386,7 @@ expect('…out on site again', afterLeave(615, [venue], [[601, null]]).state, 'o
 expect('a meeting somewhere else with a link, dialled in: that meeting', leftOf(615, [venueLink], [[601, null]]), 'w');
 expect('…free, not out on site', afterLeave(615, [venueLink], [[601, null]]).state, 'free');
 expect('…a call in five minutes: CALL IN', afterLeave(645, [venueLink, call('n', 650, 680)], [[602, null]]).state, 'callIn');
-expect('…out on site, as when the mic just stops', decideWith(620, [venueLink], [[602, 620]]).state, 'onSite');
+expect('…left with Teams\' own button too: free', decideWith(620, [venueLink], [[602, 620]]).state, 'free');
 expect('…never dialled in: not it', leftOf(615, [venueLink], [[540, null]]), '');
 const siteDay = own('ON SITE', 0, 1440, { id: 'd', allDay: true, attendees: 3, notes: teams });
 expect('a call on a day on site: only the call', leftOf(615, [siteDay, call('c', 600, 630)], [[601, null]]), 'c');

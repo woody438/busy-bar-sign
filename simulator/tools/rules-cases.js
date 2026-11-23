@@ -172,7 +172,19 @@ for (const rooms of [[], ['CA MTL N3.101 - Exec']]) {
   const f = ev(Object.assign({ id: 'f', start: 600 * M, end: 660 * M, rooms: rooms }, forum));
   scenario([f], [], [595, 603, 620], { active: true });
   leave([f], [[601, null]], [615]);
+  scenario([f], [[601, 615]], [620], { active: true });
 }
+// left with the app's own button: the mic just stops, no Leave key
+scenario([hybridCall], [[602, 620]], [625, 659]);
+scenario([hybridCall, call('n', 650, 680)], [[602, 640]], [645, 651]);
+scenario([hybridCall], [[602, 620], [625, null]], [630]);
+scenario([hybridCall], [[540, 615]], [620]);
+scenario([venueLink], [[601, 615]], [620]);
+scenario([call('t', 600, 660, { availability: 'tentative' })], [[602, 615]], [620]);
+scenario([call('c', 600, 630)], [[596, 598]], [599, 601]);
+scenario([ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 2, notes: teamsLink, location: "Woody's office" })],
+  [[602, 615]], [620]);
+scenario([call('a', 600, 660), call('b', 660, 690)], [[600, 665]], [666, 670]);
 for (const t of ['08:40', '09:50', '11:20', '14:20', '16:10']) {
   const at = D.at(0, t);
   const input = { now: at, override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions };

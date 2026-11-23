@@ -170,6 +170,19 @@
   }
 
   /*
+   * A Teams or Zoom meeting you've left with the app's own button: one with a
+   * join link — a call, a meeting in a room or your office with a link, one
+   * somewhere else you dialled into — that you joined on the mic, with the mic
+   * off now. Off the sign, as the Leave key leaves it: FREE, or what's next.
+   * Not one you've said you're at in person (you may be in the room still),
+   * nor a phone-call block or a meeting with no link: the mic wasn't for them.
+   */
+  function hungUp(x, sessions, now, cfg) {
+    const linked = x.kind === 'call' || (x.kind === 'inPerson' && hasJoinLink(x)) || dialIn(x, x.kind);
+    return linked && !x.here && joined(x, sessions, now, cfg);
+  }
+
+  /*
    * The call or meeting you're in and any that follow it back to back, each
    * one carrying on past the last: the run you're busy for. Calls, meetings
    * and calendar phone calls count, tentative ones too; lunch and your own
@@ -244,8 +257,10 @@
     })
       .filter((e) => e.kind !== 'ignore')
       .sort((a, b) => a.start - b.start || a.end - b.end);
-    // an event you've said is over early: gone from the sign, as if it had just ended
-    const evs = all.filter((e) => ended.indexOf(e.id) < 0);
+    const micOn = sessions.some((s) => s.start <= now && (s.end == null || s.end > now));
+    // an event you've said is over early: gone from the sign, as if it had just ended; and, off the
+    // mic, a Teams or Zoom meeting you joined on it: left, with the Leave key or the app's own button
+    const evs = all.filter((e) => ended.indexOf(e.id) < 0 && (micOn || !hungUp(e, sessions, now, cfg)));
     const current = evs.filter((e) => e.start <= now && now < e.end);
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
     const first = (pred) => current.find(pred);
@@ -262,7 +277,7 @@
     if (input.override === 'onCall') return sign('call', 'Forced ON A CALL');
     if (input.override === 'free') return sign('free', 'Forced FREE');
     // 2. the microphone: counting down to the end of the call it's for, if the calendar has one
-    if (sessions.some((s) => s.start <= now && (s.end == null || s.end > now))) {
+    if (micOn) {
       const early = cfg.joinEarlyMinutes * MINUTE;
       const on = evs.filter((x) => (x.kind === 'call' || x.kind === 'inPerson' || x.kind === 'phone' || dialIn(x, x.kind)) &&
         x.start - early <= now && now < x.end);
