@@ -608,7 +608,11 @@ location says where you'll be, a link only that others can dial in.
 - **A meeting room** — a room booked on the invite (whatever it's called),
   a location with **room**, **huddle** or **boardroom** in it, or a code like
   **MTL-210**: MEETING, even with a link, and LATE FOR MTG if you're still at
-  the Mac when it starts.
+  the Mac when it starts. Exchange books a room as a *resource*, which can
+  reach macOS Calendar as a room, a resource or a plain invitee; from 2.9.2
+  all three count, the last when the location names it as Outlook does
+  ("Microsoft Teams Meeting; CA MTL N3.101 - …"). Before, a room named like
+  that, with no room word in it, read as somewhere else: OUT ON SITE.
 - **A company site** — a location with one of the **Company sites** words
   in it: your company's name, so "Acme - Nashville" with **acme** there.
   MEETING, even with a link. Not LATE FOR MTG: it doesn't say which room,
