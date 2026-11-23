@@ -268,16 +268,16 @@ enum StatusRules {
     }
 
     /*
-     * A Teams or Zoom meeting you've left with the app's own button: one with a
-     * join link — a call, a meeting in a room or your office with a link, one
-     * somewhere else you dialled into — that you joined on the mic, with the mic
-     * off now. Off the sign, as the Leave key leaves it: FREE, or what's next.
-     * Not one you've said you're at in person (you may be in the room still),
-     * nor a phone-call block or a meeting with no link: the mic wasn't for them.
+     * A Teams or Zoom call you've left with the app's own button: a call, or a
+     * meeting somewhere else you dialled into, that you joined on the mic, with
+     * the mic off now. Off the sign, as the Leave key leaves it: FREE, or what's
+     * next. Not a meeting with somewhere to be — a room, your office, a company
+     * site, or a call you've said you're at in person: you may be in it still,
+     * so it's MEETING till you press END. Nor a phone-call block: the mic
+     * wasn't for it.
      */
     static func hungUp(_ x: Sorted, _ sessions: [MicSession], _ now: Double, _ cfg: StatusConfig) -> Bool {
-        let linked = x.kind == .call || (x.kind == .inPerson && hasJoinLink(x.ev)) || dialIn(x.ev, x.kind)
-        return linked && !x.here && joined(x, sessions, now, cfg)
+        (x.kind == .call || dialIn(x.ev, x.kind)) && !x.here && joined(x, sessions, now, cfg)
     }
 
     /*
@@ -355,7 +355,7 @@ enum StatusRules {
             .map { $0.s }
         let micOn = sessions.contains(where: { $0.start <= now && ($0.end == nil || $0.end! > now) })
         // an event you've said is over early: gone from the sign, as if it had just ended; and, off the
-        // mic, a Teams or Zoom meeting you joined on it: left, with the Leave key or the app's own button
+        // mic, a Teams or Zoom call you joined on it: left, with the Leave key or the app's own button
         let ended = Set(input.ended)
         let evs = all.filter { !ended.contains($0.ev.id) && (micOn || !hungUp($0, sessions, now, cfg)) }
         let current = evs.filter { $0.start <= now && now < $0.end }
@@ -445,20 +445,23 @@ enum StatusRules {
 
     /*
      * The calendar events a call you've just left was for (the Leave key): the
-     * calls, meetings and phone-call blocks on now — or starting within
-     * joinEarlyMinutes — that you joined on the mic, tentative ones too, and a
-     * meeting somewhere else with a link (dialIn): joined on the mic, you were
-     * on the call, not out on site. Ended (input.ended), they're off the sign,
-     * which moves straight on: FREE, or what's next. One you've overrun into
-     * isn't among them — you never joined it — so it still says LATE; nor is
-     * anything else on the calendar (out of office, a day on site, lunch, a
-     * no-meetings block), which shows again as usual.
+     * calls and phone-call blocks on now — or starting within joinEarlyMinutes
+     * — that you joined on the mic, tentative ones too, and a meeting somewhere
+     * else with a link (dialIn): joined on the mic, you were on the call, not
+     * out on site. Ended (input.ended), they're off the sign, which moves
+     * straight on: FREE, or what's next. Not a meeting with somewhere to be — a
+     * room, your office, a company site, or a call you've said you're at in
+     * person: you may be in it still, so it says MEETING till you press END.
+     * One you've overrun into isn't among them — you never joined it — so it
+     * still says LATE; nor is anything else on the calendar (out of office, a
+     * day on site, lunch, a no-meetings block), which shows again as usual.
      */
     static func leftEvents(_ input: StatusInput) -> [String] {
         let cfg = input.config, now = input.now
         return input.events.filter { e in
-            let c = classify(e, cfg)            // in person or not: a call's either way
-            guard [Kind.call, .inPerson, .phone].contains(c.kind) || dialIn(e, c.kind), !input.ended.contains(e.id), now < e.end
+            let c = classify(e, cfg)
+            guard [Kind.call, .phone].contains(c.kind) || dialIn(e, c.kind), !input.inPerson.contains(e.id),
+                  !input.ended.contains(e.id), now < e.end
             else { return false }
             return joined(Sorted(ev: e, kind: c.kind, tentative: c.tentative, room: c.room, here: false), input.micSessions, now, cfg)
         }.map(\.id)

@@ -185,6 +185,18 @@ scenario([call('c', 600, 630)], [[596, 598]], [599, 601]);
 scenario([ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 2, notes: teamsLink, location: "Woody's office" })],
   [[602, 615]], [620]);
 scenario([call('a', 600, 660), call('b', 660, 690)], [[600, 665]], [666, 670]);
+// a meeting with somewhere to be, left either way: MEETING till you press END
+scenario([hybridCall], [[602, 620]], [621], { ended: ['h'] });
+scenario([hybridCall, call('n', 650, 680)], [[602, 640]], [645], { ended: ['h'] });
+leave([ev({ id: 'o', title: 'o', start: 600 * M, end: 660 * M, attendees: 2, notes: teamsLink, location: "Woody's office" })],
+  [[602, null]], [620]);
+{
+  const input = { now: 615 * M, override: 'auto', dndUntil: null, events: [call('a', 600, 660)], micSessions: mic([[601, null]]),
+    inPerson: ['a'] };
+  add(input);
+  add(Object.assign({}, input, { ended: R.leftEvents(input), micSessions: mic([[601, 615]]) }));
+  add(Object.assign({}, input, { ended: ['a'], micSessions: mic([[601, 615]]) }));
+}
 for (const t of ['08:40', '09:50', '11:20', '14:20', '16:10']) {
   const at = D.at(0, t);
   const input = { now: at, override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions };

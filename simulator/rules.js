@@ -170,16 +170,16 @@
   }
 
   /*
-   * A Teams or Zoom meeting you've left with the app's own button: one with a
-   * join link — a call, a meeting in a room or your office with a link, one
-   * somewhere else you dialled into — that you joined on the mic, with the mic
-   * off now. Off the sign, as the Leave key leaves it: FREE, or what's next.
-   * Not one you've said you're at in person (you may be in the room still),
-   * nor a phone-call block or a meeting with no link: the mic wasn't for them.
+   * A Teams or Zoom call you've left with the app's own button: a call, or a
+   * meeting somewhere else you dialled into, that you joined on the mic, with
+   * the mic off now. Off the sign, as the Leave key leaves it: FREE, or what's
+   * next. Not a meeting with somewhere to be — a room, your office, a company
+   * site, or a call you've said you're at in person: you may be in it still,
+   * so it's MEETING till you press END. Nor a phone-call block: the mic
+   * wasn't for it.
    */
   function hungUp(x, sessions, now, cfg) {
-    const linked = x.kind === 'call' || (x.kind === 'inPerson' && hasJoinLink(x)) || dialIn(x, x.kind);
-    return linked && !x.here && joined(x, sessions, now, cfg);
+    return (x.kind === 'call' || dialIn(x, x.kind)) && !x.here && joined(x, sessions, now, cfg);
   }
 
   /*
@@ -259,7 +259,7 @@
       .sort((a, b) => a.start - b.start || a.end - b.end);
     const micOn = sessions.some((s) => s.start <= now && (s.end == null || s.end > now));
     // an event you've said is over early: gone from the sign, as if it had just ended; and, off the
-    // mic, a Teams or Zoom meeting you joined on it: left, with the Leave key or the app's own button
+    // mic, a Teams or Zoom call you joined on it: left, with the Leave key or the app's own button
     const evs = all.filter((e) => ended.indexOf(e.id) < 0 && (micOn || !hungUp(e, sessions, now, cfg)));
     const current = evs.filter((e) => e.start <= now && now < e.end);
     const lead = cfg.leadMinutes * MINUTE, late = cfg.lateMinutes * MINUTE;
@@ -351,21 +351,23 @@
 
   /*
    * The calendar events a call you've just left was for (the Leave key): the
-   * calls, meetings and phone-call blocks on now — or starting within
-   * joinEarlyMinutes — that you joined on the mic, tentative ones too, and a
-   * meeting somewhere else with a link (dialIn): joined on the mic, you were
-   * on the call, not out on site. Ended (input.ended), they're off the sign,
-   * which moves straight on: FREE, or what's next. One you've overrun into
-   * isn't among them — you never joined it — so it still says LATE; nor is
-   * anything else on the calendar (out of office, a day on site, lunch, a
-   * no-meetings block), which shows again as usual.
+   * calls and phone-call blocks on now — or starting within joinEarlyMinutes
+   * — that you joined on the mic, tentative ones too, and a meeting somewhere
+   * else with a link (dialIn): joined on the mic, you were on the call, not
+   * out on site. Ended (input.ended), they're off the sign, which moves
+   * straight on: FREE, or what's next. Not a meeting with somewhere to be — a
+   * room, your office, a company site, or a call you've said you're at in
+   * person: you may be in it still, so it says MEETING till you press END.
+   * One you've overrun into isn't among them — you never joined it — so it
+   * still says LATE; nor is anything else on the calendar (out of office, a
+   * day on site, lunch, a no-meetings block), which shows again as usual.
    */
   function leftEvents(input) {
     const cfg = settings(input), now = input.now;
-    const sessions = input.micSessions || [], ended = input.ended || [];
+    const sessions = input.micSessions || [], ended = input.ended || [], marked = input.inPerson || [];
     return (input.events || []).filter((e) => {
-      const kind = classify(e, cfg).kind;     // in person or not: a call's either way
-      return (kind === 'call' || kind === 'inPerson' || kind === 'phone' || dialIn(e, kind)) && ended.indexOf(e.id) < 0 &&
+      const kind = classify(e, cfg).kind;
+      return (kind === 'call' || kind === 'phone' || dialIn(e, kind)) && marked.indexOf(e.id) < 0 && ended.indexOf(e.id) < 0 &&
         now < e.end && joined(e, sessions, now, cfg);
     }).map((e) => e.id);
   }

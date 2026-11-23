@@ -133,10 +133,10 @@ final class StatusModel: ObservableObject {
     /// call had ended there and then —
     /// FREE, or what's next: CALL IN for one soon, LATE FOR one you've overrun
     /// into. The calendar events the call was for are over (a phone-call block
-    /// would otherwise say ON A CALL till its slot ended; a meeting with a
-    /// Teams link would be over anyway, once the mic let go); the mic's done
-    /// with now, not ten seconds on; Do Not Disturb ends, and Force ON A CALL
-    /// goes back to Automatic.
+    /// would otherwise say ON A CALL till its slot ended) — but not a meeting in
+    /// a room, your office or a company site, which says MEETING till END, as
+    /// you may be in it still; the mic's done with now, not ten seconds on; Do
+    /// Not Disturb ends, and Force ON A CALL goes back to Automatic.
     func leftCall() {
         var input = StatusInput(now: Date().timeIntervalSince1970 * 1000)
         input.micSessions = detector.micSessions

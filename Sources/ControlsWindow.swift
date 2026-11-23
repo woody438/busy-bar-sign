@@ -1140,7 +1140,7 @@ private enum Guide {
         Line(state: .call, how: "Automatic when an app uses your microphone.",
              more: "Counts down to when you're free, through back-to-back meetings; the line beneath shows what's left of the meeting you're in, amber for its last five minutes. Or an event of your own with “call” in the title, e.g. “Call - Linda”, for calls on your phone."),
         Line(state: .meeting, how: "A meeting in your office, a meeting room or one of your company's sites, or with invitees and no Teams, Zoom or Meet link.",
-             more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up. One with a link that you joined on the Mac is over when you leave the call: FREE."),
+             more: "A link doesn't matter with the room or your office as the location. Or a call never joined, once LATE gives up. Still MEETING after you leave its Teams or Zoom call — you may be in the room — till you press END on the Stream Deck or choose End Now."),
         Line(state: .callIn, how: "10 minutes before a call or a meeting.",
              more: "BUSY IN for a meeting in person. A countdown, then the start time. In the last two minutes, CALL IN 01:42 across the bar every few seconds."),
         Line(state: .late, how: "A call has started and your microphone hasn't.",
