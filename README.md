@@ -491,10 +491,11 @@ agree:
   or meeting in the next ten minutes, **LATE FOR** one you'd overrun into —
   at once, not ten seconds later when the mic's let go. The
   calendar event the call was for is over, so a meeting in a room with a
-  Teams link doesn't go on saying MEETING, nor a "Call – …" block ON A CALL;
-  the rest of your calendar (lunch, out of office, a no-meetings block)
-  shows as usual. A Do Not Disturb ends too, and **Sign ▸ Force ON A CALL**
-  goes back to Automatic. If the meeting's still on after all — the mic
+  Teams link doesn't go on saying MEETING, nor a "Call – …" block ON A CALL,
+  nor a meeting somewhere else with a Teams or Zoom link that you dialled
+  into OUT ON SITE (from 2.9.2); the rest of your calendar (lunch, out of
+  office, a day on site, a no-meetings block) shows as usual. A Do Not
+  Disturb ends too, and **Sign ▸ Force ON A CALL** goes back to Automatic. If the meeting's still on after all — the mic
   still held 20 seconds on, or Teams or Zoom showing a meeting again — the
   sign says ON A CALL again (from 2.9.1).
 - **Outside a Teams or Zoom meeting**, while the sign shows a meeting or
@@ -578,13 +579,13 @@ account's own "Calendar" by itself.
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. In the last two minutes, **CALL IN 01:42** across the bar ([Time left](#time-left)). |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
-| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. Left with the Stream Deck's **Leave** key, at once — a meeting in a room with a link included ([above](#mute-and-leave-keys-for-teams-and-zoom)). |
+| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. Left with the Stream Deck's **Leave** key, at once — a meeting in a room with a link included, and one somewhere else with a link that you dialled into ([above](#mute-and-leave-keys-for-teams-and-zoom)). |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees) with no location, or one that says nothing about where (TBC, a dial-in, a call app, your office, a meeting room): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office** (except your own lunch), an all-day busy event, or **✈** in the title (flight apps put it there). |
-| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. An event of your own with a location like that too, unless its title says lunch, focus or call — the dentist's included: anywhere with an address. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. An event of your own with a location like that too, unless its title says lunch, focus or call — the dentist's included: anywhere with an address. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. Dial in to one with a Teams or Zoom link and it's the call: **ON A CALL**, counting down to its end, and **FREE** once you leave it with the Leave key (from 2.9.2). |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
@@ -986,7 +987,7 @@ errors or warnings in its code.
   same brightness at the same moments, and stop the sheen on a resting wall
   after the same pass. What you see in the
   simulator is what the app draws.
-- **The Swift status rules decide exactly what the simulator's do** in 3,232
+- **The Swift status rules decide exactly what the simulator's do** in 3,259
   cases, down to the meeting each call's time-left line is for, and pick the
   same events for the Leave key to end: a scripted working day every 15 seconds — a call joined late and
   left early with nothing after it, one left early with a call straight
@@ -1000,7 +1001,8 @@ errors or warnings in its code.
   keys and a locked Mac across the day, your own appointments elsewhere,
   events ended early, and calls left with the Leave key (a meeting in a room
   with a link, a phone-call block, one joined early, an overrun into the next,
-  a call inside lunch). The rules themselves have 291 hand-checked cases (`simulator/tools/rules-check.js`).
+  a call inside lunch, a meeting somewhere else you dialled into, a call on a
+  day on site). The rules themselves have 317 hand-checked cases (`simulator/tools/rules-check.js`).
 - **The wall's hours** (`Checks/hours`): in hours from 07:30 to just before
   19:00 on weekdays, out all weekend, the same either side of the clocks
   going back; dark only out of hours and only with nothing going on; a span

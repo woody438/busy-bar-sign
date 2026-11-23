@@ -149,6 +149,16 @@
   }
 
   /*
+   * A meeting somewhere else with a Teams or Zoom link (OUT ON SITE): you may
+   * be there, or dialled in. On the mic, it's the call you're on — counted
+   * down, and over when you leave it with the Leave key. Not an all-day or
+   * Out of Office one: that's a day away, whatever calls it has.
+   */
+  function dialIn(ev, kind) {
+    return kind === 'onSite' && ev.attendees > 0 && !ev.allDay && ev.availability !== 'ooo' && hasJoinLink(ev);
+  }
+
+  /*
    * Whether you've been on the mic for this event: a mic session that began
    * between a few minutes before it and now. A session already running from
    * the previous call doesn't count, so overrunning one call into the next
@@ -254,7 +264,7 @@
     // 2. the microphone: counting down to the end of the call it's for, if the calendar has one
     if (sessions.some((s) => s.start <= now && (s.end == null || s.end > now))) {
       const early = cfg.joinEarlyMinutes * MINUTE;
-      const on = evs.filter((x) => (x.kind === 'call' || x.kind === 'inPerson' || x.kind === 'phone') &&
+      const on = evs.filter((x) => (x.kind === 'call' || x.kind === 'inPerson' || x.kind === 'phone' || dialIn(x, x.kind)) &&
         x.start - early <= now && now < x.end);
       if (!on.length) return sign('call', 'Microphone in use');
       const anchor = on.reduce((a, b) => (busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a));
@@ -327,18 +337,20 @@
   /*
    * The calendar events a call you've just left was for (the Leave key): the
    * calls, meetings and phone-call blocks on now — or starting within
-   * joinEarlyMinutes — that you joined on the mic, tentative ones too. Ended
-   * (input.ended), they're off the sign, which moves straight on: FREE, or
-   * what's next. One you've overrun into isn't among them — you never joined
-   * it — so it still says LATE; nor is anything else on the calendar (out of
-   * office, lunch, a no-meetings block), which shows again as usual.
+   * joinEarlyMinutes — that you joined on the mic, tentative ones too, and a
+   * meeting somewhere else with a link (dialIn): joined on the mic, you were
+   * on the call, not out on site. Ended (input.ended), they're off the sign,
+   * which moves straight on: FREE, or what's next. One you've overrun into
+   * isn't among them — you never joined it — so it still says LATE; nor is
+   * anything else on the calendar (out of office, a day on site, lunch, a
+   * no-meetings block), which shows again as usual.
    */
   function leftEvents(input) {
     const cfg = settings(input), now = input.now;
     const sessions = input.micSessions || [], ended = input.ended || [];
     return (input.events || []).filter((e) => {
       const kind = classify(e, cfg).kind;     // in person or not: a call's either way
-      return (kind === 'call' || kind === 'inPerson' || kind === 'phone') && ended.indexOf(e.id) < 0 &&
+      return (kind === 'call' || kind === 'inPerson' || kind === 'phone' || dialIn(e, kind)) && ended.indexOf(e.id) < 0 &&
         now < e.end && joined(e, sessions, now, cfg);
     }).map((e) => e.id);
   }
@@ -352,5 +364,5 @@
   }
 
   root.BusyRules = { DEFAULTS: DEFAULTS, classify: classify, decide: decide, leftEvents: leftEvents, hasJoinLink: hasJoinLink,
-    matches: matches, placeOf: placeOf };
+    matches: matches, placeOf: placeOf, dialIn: dialIn };
 })(typeof window !== 'undefined' ? window : globalThis);

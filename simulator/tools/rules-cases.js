@@ -154,6 +154,25 @@ leave([call('a', 600, 660), call('b', 600, 630)], [[601, null]], [615]);
 leave([call('a', 600, 660)], [[540, null]], [610]);
 leave([venue], [[601, null]], [615]);
 leave([], [[601, null]], [610]);
+// a meeting somewhere else with a Teams link: dialled in on the mic, it's the call — counted down, and left
+const teamsLink = 'https://teams.microsoft.com/l/x';
+const venueLink = ev({ id: 'w', title: 'w', start: 600 * M, end: 660 * M, attendees: 3, notes: teamsLink, location: 'Live Nation, Beverly Hills' });
+scenario([venueLink], [[597, null]], [595, 598, 610, 659.9]);
+scenario([venueLink, call('c', 615, 640)], [[620, null]], [625]);
+leave([venueLink], [[601, null]], [603, 615]);
+leave([venueLink, call('n', 650, 680)], [[602, null]], [645]);
+leave([venueLink], [[540, null]], [610]);
+leave([ev({ id: 'd', title: 'ON SITE', start: 0, end: 1440 * M, allDay: true, attendees: 3, notes: teamsLink }), call('c', 600, 630)],
+  [[601, null]], [615]);
+leave([ev({ id: 'o', title: 'On site Coldplay', start: 590 * M, end: 700 * M, availability: 'ooo', attendees: 3, notes: teamsLink })],
+  [[601, null]], [615]);
+// a town hall: Teams and a room booked as a resource, read with the room booked and without
+const forum = { attendees: 77, notes: teamsLink, location: 'Microsoft Teams Meeting; CA MTL N3.101 - Exec' };
+for (const rooms of [[], ['CA MTL N3.101 - Exec']]) {
+  const f = ev(Object.assign({ id: 'f', start: 600 * M, end: 660 * M, rooms: rooms }, forum));
+  scenario([f], [], [595, 603, 620], { active: true });
+  leave([f], [[601, null]], [615]);
+}
 for (const t of ['08:40', '09:50', '11:20', '14:20', '16:10']) {
   const at = D.at(0, t);
   const input = { now: at, override: 'auto', dndUntil: null, events: day.events, micSessions: day.micSessions };

@@ -235,6 +235,16 @@ enum StatusRules {
         return out(.away)
     }
 
+    /*
+     * A meeting somewhere else with a Teams or Zoom link (OUT ON SITE): you may
+     * be there, or dialled in. On the mic, it's the call you're on — counted
+     * down, and over when you leave it with the Leave key. Not an all-day or
+     * Out of Office one: that's a day away, whatever calls it has.
+     */
+    static func dialIn(_ ev: CalEvent, _ kind: Kind) -> Bool {
+        kind == .onSite && ev.attendees > 0 && !ev.allDay && ev.availability != .ooo && hasJoinLink(ev)
+    }
+
     /// An event with what it means.
     struct Sorted {
         let ev: CalEvent
@@ -352,7 +362,7 @@ enum StatusRules {
         // 2. the microphone: counting down to the end of the call it's for, if the calendar has one
         if sessions.contains(where: { $0.start <= now && ($0.end == nil || $0.end! > now) }) {
             let early = cfg.joinEarlyMinutes * minute
-            let on = evs.filter { ($0.kind == .call || $0.kind == .inPerson || $0.kind == .phone) &&
+            let on = evs.filter { ($0.kind == .call || $0.kind == .inPerson || $0.kind == .phone || dialIn($0.ev, $0.kind)) &&
                                   $0.start - early <= now && now < $0.end }
             guard let firstOn = on.first else { return sign("call", "Microphone in use") }
             let anchor = on.dropFirst().reduce(firstOn) { a, b in busyUntil(b, evs, cfg) > busyUntil(a, evs, cfg) ? b : a }
@@ -421,17 +431,20 @@ enum StatusRules {
     /*
      * The calendar events a call you've just left was for (the Leave key): the
      * calls, meetings and phone-call blocks on now — or starting within
-     * joinEarlyMinutes — that you joined on the mic, tentative ones too. Ended
-     * (input.ended), they're off the sign, which moves straight on: FREE, or
-     * what's next. One you've overrun into isn't among them — you never joined
-     * it — so it still says LATE; nor is anything else on the calendar (out of
-     * office, lunch, a no-meetings block), which shows again as usual.
+     * joinEarlyMinutes — that you joined on the mic, tentative ones too, and a
+     * meeting somewhere else with a link (dialIn): joined on the mic, you were
+     * on the call, not out on site. Ended (input.ended), they're off the sign,
+     * which moves straight on: FREE, or what's next. One you've overrun into
+     * isn't among them — you never joined it — so it still says LATE; nor is
+     * anything else on the calendar (out of office, a day on site, lunch, a
+     * no-meetings block), which shows again as usual.
      */
     static func leftEvents(_ input: StatusInput) -> [String] {
         let cfg = input.config, now = input.now
         return input.events.filter { e in
             let c = classify(e, cfg)            // in person or not: a call's either way
-            guard [.call, .inPerson, .phone].contains(c.kind), !input.ended.contains(e.id), now < e.end else { return false }
+            guard [Kind.call, .inPerson, .phone].contains(c.kind) || dialIn(e, c.kind), !input.ended.contains(e.id), now < e.end
+            else { return false }
             return joined(Sorted(ev: e, kind: c.kind, tentative: c.tentative, room: c.room, here: false), input.micSessions, now, cfg)
         }.map(\.id)
     }
