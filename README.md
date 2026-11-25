@@ -907,14 +907,16 @@ So from 2.8.9 the app asks as lightly as it can:
 
 ## On camera
 
+![CAMERA ON across the bar, then ON A CALL with the green tally light lit in the case's sensor notch, then CAMERA OFF and the tally out](docs/busy-bar-camera.gif)
+
 From 2.10. With people in the room on a video call, they need to know
 they're in shot. The sign follows the camera — any camera on the Mac, from
 any app, by the signal that lights the green light beside the lens
 (`CameraProbe`, no permission needed). In a Teams meeting it follows Teams'
-own camera button instead, as it reads Teams' mute: in the 2.10 preview,
-on a real Mac, turning video off in Teams never brought CAMERA OFF — the
-camera signal stayed on, most likely Teams keeping the camera open — so the
-button is the truth there. If the
+own camera button instead, as it reads Teams' mute: in a Teams test call
+with Settings ▸ Devices open, its camera preview kept the camera running
+with your video off, so the first 2.10 preview never said CAMERA OFF (found
+on a real Mac). The button is the truth whatever else has the camera open. If the
 button can't be found, the camera itself is used, and Settings ▸ Call apps
 ▸ **Inspect meeting controls** shows Teams' camera reading.
 
@@ -948,9 +950,9 @@ pixels on a 4K screen, about 7 cm by 7 mm on a 65-inch TV, plus its glow.
 CAMERA ON is what catches the eye; the tally is the reminder. Its breathing
 runs in Core Animation, on the case, so it doesn't make the LED panel
 redraw. An app other than Teams that kept the camera open with your
-video off would keep the tally lit: Zoom lets it go (checked on a real Mac
-in the 2.10 preview); Meet, FaceTime and WhatsApp haven't been checked
-yet.
+video off would keep the tally lit: Zoom lets it go, and so does Teams in
+a real call (both checked on a real Mac); Meet, FaceTime and WhatsApp
+haven't been checked yet.
 
 ## How the display works
 
@@ -1242,14 +1244,18 @@ Calendar.app and an Elgato Stream Deck:
 - The settings window's sidebar and its sections, World clocks with its
   preview, and the Call apps page, through the preview builds.
 
-**Not yet checked on a real Mac (2.10):** everything about the camera —
-CAMERA ON and OFF and the tally on the wall, the stacked dot, and the
-Camera key in each app. In particular: Teams' camera button's id
-(`video-button` is expected; a button named "Turn camera on/off" is found
-either way), Zoom's Meeting menu items, FaceTime's and WhatsApp's camera
-buttons, Meet's in each browser, and whether each app lets go of the camera
-when you turn video off. **Inspect meeting controls** during a call lists
-what the Camera key would press. And the bold announcements on the wall.
+**Checked on a real Mac (25 Nov 2026, 2.10 preview):** CAMERA ON and
+CAMERA OFF and the tally on a real Zoom meeting and a real Teams call,
+turning video on and off with each app's own button. In a Teams test call
+with Settings ▸ Devices open, the first preview never said CAMERA OFF: the
+camera preview there kept the camera running. From build 120 Teams is read
+from its own camera button, and the same test call says CAMERA OFF. The
+Camera key on a real Stream Deck in Teams: grey OFF with no call, green ON
+and red OFF in a call. And the bold announcements. **Not yet:** the Camera
+key in FaceTime, WhatsApp and Meet (their camera buttons' names are
+expected, not seen — **Inspect meeting controls** during a call lists what
+the key would press), the stacked layout's dot and the screen saver on a
+real call, and the tally on the floating window.
 
 **Checked on a real Mac (21 Nov 2026, 2.9.1):** the Leave key on a real
 Stream Deck putting the sign straight back. In a Teams call in the
