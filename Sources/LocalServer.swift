@@ -110,6 +110,8 @@ final class LocalServer: ObservableObject {
             return press(.leave, on: connection)
         case .meetingEnd:
             return press(.end, on: connection)
+        case .meetingCamera:
+            return pressCamera(on: connection)
         case .eventEnd:
             // the Leave key outside a Teams or Zoom meeting: the event on the sign is over
             let event = status.endableEvent
@@ -146,6 +148,19 @@ final class LocalServer: ObservableObject {
         }
     }
 
+    /// The Camera key: answers once the call app's camera control has been pressed, with how it went.
+    private func pressCamera(on connection: NWConnection) {
+        status.meeting.pressCamera(call: status.cameraCall) { [weak self] report in
+            guard let self else { return connection.cancel() }
+            self.status.evaluate()
+            var answer = self.current
+            // the camera as the press left it, before the sign's next reading of it
+            if let on = report.camera, answer.video != nil { answer.video?.on = on }
+            answer.pressed = LocalAPI.Status.Pressed(ok: report.ok, message: report.message)
+            self.send(LocalAPI.response(200, body: LocalAPI.encode(answer)), on: connection)
+        }
+    }
+
     private var current: LocalAPI.Status {
         let ms = { (date: Date) in Int64((date.timeIntervalSince1970 * 1000).rounded()) }
         let moment = status.moment.map { m in
@@ -170,10 +185,14 @@ final class LocalServer: ObservableObject {
         let wall = self.wall.displayNumber.map { LocalAPI.Status.Wall(display: $0, layout: DisplayWindow.layout.rawValue) }
         // what the sign says in place of NEARBY, for the Stream Deck and the screen saver
         let nearby = BarEngine.nearbyWord == BarEngine.nearbyDefault ? nil : BarEngine.nearbyWord
+        // the camera: the sign's tally, its last announced change, and for the Camera key, a call to act on
+        let cue = status.cameraCue.map { LocalAPI.Status.CameraCue(cue: $0.cue.rawValue, n: $0.serial) }
+        let video = meeting != nil || status.cameraCall != nil ? LocalAPI.Status.Video(on: status.cameraRunning) : nil
         return LocalAPI.Status(state: muted ? BarState.call.rawValue : status.state.rawValue, moment: moment,
                                dnd: detector.dndUntil != nil, muted: muted ? true : nil, meeting: meeting, away: away, wall: wall,
                                nearbyWord: nearby, dark: status.wallDark ? true : nil,
-                               canEnd: meeting == nil && status.endableEvent != nil ? true : nil)
+                               canEnd: meeting == nil && status.endableEvent != nil ? true : nil,
+                               camera: status.camera ? true : nil, cameraCue: cue, video: video)
     }
 
     private func send(_ response: Data, on connection: NWConnection) {

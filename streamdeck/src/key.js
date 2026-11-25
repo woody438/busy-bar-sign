@@ -5,8 +5,8 @@
  *
  * The lit pill holds the status in a word or two, cut to fit; beneath it,
  * white on black, what the right of the bar shows — the countdown, or the
- * time with its colon blinking. The Mute, Leave, Nearby and Lunch keys are
- * drawn the same way: an icon in the pill, its word beneath. The Nearby
+ * time with its colon blinking. The Mute, Leave, Camera, Nearby and Lunch
+ * keys are drawn the same way: an icon in the pill, its word beneath. The Nearby
  * key's word is the app's: NEARBY, or the one it's been given in Settings.
  */
 import '../../simulator/fonts.js';
@@ -160,6 +160,37 @@ export const KEY_ICONS = {
     '......#.....#',
     '....#####....'
   ],
+  // a video camera, as every meeting app draws its camera button; slashed, it's off
+  camera: [
+    '.############......',
+    '##############....#',
+    '##############...##',
+    '##############..###',
+    '##############.####',
+    '###################',
+    '###################',
+    '##############.####',
+    '##############..###',
+    '##############...##',
+    '##############....#',
+    '.############......'
+  ],
+  cameraOff: [
+    '...#................',
+    '..###.########......',
+    '.#####.########....#',
+    '.######.#######...##',
+    '.#######.######..###',
+    '.########.#####.####',
+    '.#########.#########',
+    '.##########.########',
+    '.###########.##.####',
+    '.############.#..###',
+    '.#############....##',
+    '.##############....#',
+    '..############.#....',
+    '................#...'
+  ],
   handset: [
     '....#######....',
     '..###########..',
@@ -226,7 +257,18 @@ export function leaveFace(view) {
   return view.canEnd ? 'end' : 'idle';
 }
 
-/* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE. */
+/* What the Camera key shows: 'off' when the app isn't answering, 'idle'
+   with no call it can act on (a Teams or Zoom meeting, or a call app on the
+   mic), else 'live' or 'dark' — whether a camera on the Mac is on. */
+export function cameraFace(view) {
+  if (!view) return 'off';
+  if (!view.video) return 'idle';
+  return view.video.on ? 'live' : 'dark';
+}
+
+/* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE, VIDEO.
+   The Camera key's colours are Mute's: green when you can be seen, red when
+   you can't. */
 const FACES = {
   'mute:live': { state: 'free', icon: 'mic', word: 'LIVE' },
   'mute:muted': { state: 'call', icon: 'micMuted', word: 'MUTED' },
@@ -234,7 +276,10 @@ const FACES = {
   'mute:idle': { state: 'away', icon: 'mic', word: 'MUTE', dim: 0.62 },
   'leave:active': { state: 'call', icon: 'handset', word: 'LEAVE' },
   'leave:end': { state: 'call', icon: 'handset', word: 'END' },
-  'leave:idle': { state: 'away', icon: 'handset', word: 'LEAVE', dim: 0.62 }
+  'leave:idle': { state: 'away', icon: 'handset', word: 'LEAVE', dim: 0.62 },
+  'camera:live': { state: 'free', icon: 'camera', word: 'ON' },
+  'camera:dark': { state: 'call', icon: 'cameraOff', word: 'OFF' },
+  'camera:idle': { state: 'away', icon: 'camera', word: 'VIDEO', dim: 0.62 }
 };
 export const MEETING_FACES = Object.keys(FACES);
 
@@ -262,7 +307,7 @@ function drawIconKey(f, rows, state, word, dimmed, wordDimmed = dimmed) {
   E.drawText(f, font, word, Math.round((N - E.textWidth(font, word)) / 2), DETAIL_BASE, WHITE, { alpha: wordDimmed ? 0.5 : 1 });
 }
 
-/* A Mute or Leave key as LEDs; `hold` says HOLD under the pill. */
+/* A Mute, Leave or Camera key as LEDs; `hold` says HOLD under the pill. */
 export function drawMeetingKey(kind, face, hold) {
   const f = new E.Frame(N, N);
   const spec = FACES[kind + ':' + face];
@@ -377,7 +422,7 @@ export function awayKeyImage(kind, view, date) {
   return dataURL(drawAwayKey(kind, view, date));
 }
 
-/* A Mute or Leave key's picture; the same face gives the same picture. */
+/* A Mute, Leave or Camera key's picture; the same face gives the same picture. */
 const meetingImages = new Map();
 export function meetingKeyImage(kind, face, hold) {
   const key = kind + ':' + face + (hold ? ':hold' : '');

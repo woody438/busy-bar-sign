@@ -165,6 +165,21 @@ const RESTING_CASES = [
   ['stacked', 'free', 'call', 1802.5], ['stacked', 'away', 'free', 3600.7], ['wide', 'nearby', 'free', 7200.3], ['wide', 'call', 'free', 7200.3]
 ];
 
+// a camera in the call: CAMERA ON and CAMERA OFF announced through every phase of the change, as a
+// call starts with it on, and stacked, the green dot breathing, steady while muted, rising with the
+// clock (keep in step with main.swift): [layout, state, prev, t, timer, cue, on]
+const CAMERA_CASES = [
+  ['wide', 'call', 'call', 0.05, 'slot', 'cameraOn', true], ['wide', 'call', 'call', 2.0, 'slot', 'cameraOn', true],
+  ['wide', 'call', 'call', 3.75, 'slot', 'cameraOn', true], ['wide', 'call', 'call', 9.0, 'slot', 'cameraOn', true],
+  ['wide', 'call', 'call', 2.0, 'slot', 'cameraOff', false], ['wide', 'callMuted', 'callMuted', 2.0, 'slot', 'cameraOff', false],
+  ['wide', 'call', 'free', 2.0, 'slot', 'cameraOn', true], ['wide', 'free', 'call', 2.0, null, 'cameraOn', false],
+  ['stacked', 'call', 'call', 0.05, 'slot', 'cameraOn', true], ['stacked', 'call', 'call', 2.0, 'slot', 'cameraOn', true],
+  ['stacked', 'call', 'call', 3.8, 'slot', 'cameraOn', true], ['stacked', 'call', 'call', 9.0, 'slot', 'cameraOn', true],
+  ['stacked', 'call', 'call', 9.6, 'slot', null, true], ['stacked', 'callMuted', 'call', 9.0, 'slot', null, true],
+  ['stacked', 'call', 'call', 0.05, 'slot', 'cameraOff', false], ['stacked', 'call', 'call', 2.0, 'slot', 'cameraOff', false],
+  ['stacked', 'call', 'free', 2.0, 'slot', 'cameraOn', true], ['stacked', 'free', 'call', 9.0, null, null, true]
+];
+
 const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(STACKED_CASES.map((c) => ['stacked', ...c, timer]))
   .concat(CALENDAR_CASES.map(([s, p, e, k]) => ['wide', s, p, e, k ? TIMERS[k] : undefined]))
@@ -172,7 +187,9 @@ const JOBS = CASES.map((c) => ['wide', ...c, timer])
   .concat(NEARBY_CASES.map(([word, layout, e]) => [layout, 'nearby', 'free', e, undefined, word]))
   .concat(WORLD_CASES.map(([layout, plan, e]) => [layout, 'free', 'call', e, undefined, undefined, { plan, prevFor: 0 }]))
   .concat(WORLD_PRESSES.map(([layout, plan, up]) => [layout, 'call', 'free', 0.05, timer, undefined, { plan, prevFor: up }]))
-  .concat(RESTING_CASES.map(([layout, state, prev, e]) => [layout, state, prev, e, undefined, undefined, undefined, true]));
+  .concat(RESTING_CASES.map(([layout, state, prev, e]) => [layout, state, prev, e, undefined, undefined, undefined, true]))
+  .concat(CAMERA_CASES.map(([layout, state, prev, e, k, cue, on]) =>
+    [layout, state, prev, e, k ? TIMERS[k] : undefined, undefined, undefined, false, { cue: cue || undefined, on: on }]));
 const size = (layout) => (layout === 'wide' ? E.COLS * E.ROWS : E.STACKED.cols * E.STACKED.rows) * 3;
 
 const buf = fs.readFileSync(process.argv[2]);
@@ -180,7 +197,7 @@ const total = JOBS.reduce((sum, [layout]) => sum + size(layout), 0);
 if (buf.length !== total * 8) { console.error('size mismatch', buf.length, 'expected', total * 8); process.exit(2); }
 
 let worst = 0, failed = 0, offset = 0;
-JOBS.forEach(([layout, state, prev, e, tm, word, world, rests]) => {
+JOBS.forEach(([layout, state, prev, e, tm, word, world, rests, camera]) => {
   const stacked = layout === 'stacked';
   const f = stacked ? new E.Frame(E.STACKED.cols, E.STACKED.rows) : new E.Frame();
   // a word of its own must be the one drawn, not NEARBY in its place
@@ -188,7 +205,7 @@ JOBS.forEach(([layout, state, prev, e, tm, word, world, rests]) => {
   if (world) {
     (stacked ? E.renderStackedWorld : E.renderWorld)(f, 1000 + e, state, prev, 1000, clock, tm, WORLD_PLANS[world.plan], world.prevFor);
   } else {
-    (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm, rests);
+    (stacked ? E.renderStacked : E.render)(f, 1000 + e, state, prev, 1000, clock, tm, rests, camera);
   }
   const n = size(layout);
   let maxd = 0, at = -1, bad = 0;
@@ -201,7 +218,7 @@ JOBS.forEach(([layout, state, prev, e, tm, word, world, rests]) => {
   offset += n;
   worst = Math.max(worst, maxd);
   const led = at >= 0 ? `x${Math.floor(at / 3) % f.w} y${Math.floor(at / 3 / f.w)}` : '';
-  console.log(`${layout.padEnd(8)} ${((world ? 'world ' + world.plan + ' ' : '') + (rests ? 'resting ' : '') + (word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
+  console.log(`${layout.padEnd(8)} ${((world ? 'world ' + world.plan + ' ' : '') + (rests ? 'resting ' : '') + (camera ? 'camera ' + (camera.on ? 'on ' : 'off ') + (camera.cue || '') + ' ' : '') + (word ? word + ' ' : '') + state + ' <- ' + (prev || '-')).padEnd(14)} t=${String(e).padEnd(5)} max diff ${(maxd * 255).toFixed(4)}/255 ${bad ? 'FAIL ' + bad + ' LEDs ' + led : 'ok'}`);
   if (bad) failed++;
 });
 console.log(failed ? `\n${failed} of ${JOBS.length} frames differ` : `\nall ${JOBS.length} frames match (worst ${(worst * 255).toFixed(5)}/255)`);

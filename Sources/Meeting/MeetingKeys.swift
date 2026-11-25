@@ -17,6 +17,11 @@ import Combine
  * the press instead (CallAppKeys): its own mute or end button, found by what
  * it says, and no shortcut — Teams is never brought forward for it.
  *
+ * The Camera key (CameraKey) works the same way: the Teams or Zoom meeting's
+ * own camera control, then its shortcut (⌘⇧O, ⌘⇧V); with neither, the
+ * camera control of the call app on the mic — FaceTime, WhatsApp, Google
+ * Meet in a browser — found by what it says, and no shortcut.
+ *
  * The patterns it reads Teams' labels and surveys with can be changed in
  * ~/Library/Application Support/Busy Bar Sign/meeting-ui.json (Teams
  * Meeting Keys' teams-ui.json works as it is).
@@ -34,6 +39,17 @@ struct MeetingPressReport: Equatable {
     /// FaceTime or WhatsApp: the mute the call app showed after the press,
     /// for the answer to the key before the sign's next reading.
     var muted: Bool?
+    /// The Camera key: the camera, once it was seen to change.
+    var camera: Bool?
+}
+
+/// The call the Camera key acts on when there's no Teams or Zoom meeting:
+/// the call app on the mic (FaceTime, WhatsApp, a browser with Google Meet).
+struct CameraCall: Equatable {
+    var name: String
+    var bundleIDs: [String]
+    /// FaceTime: its call buttons show only under the pointer.
+    var hover: Bool
 }
 
 /// A popup met after a call, and when.
@@ -48,6 +64,7 @@ final class MeetingWorker: @unchecked Sendable {
     private let backend = AXMeetingBackend()
     private let engine: MeetingEngine
     private let callKeys: CallAppKeys
+    private let cameraKey: CameraKey
     private var started = false
     private var reading: Bool
     private var looping = false
@@ -62,7 +79,10 @@ final class MeetingWorker: @unchecked Sendable {
     init(patterns: MeetingPatterns, dismissSurveys: Bool, reading: Bool) {
         engine = MeetingEngine(backend: backend, patterns: patterns)
         callKeys = CallAppKeys(backend: backend)
+        cameraKey = CameraKey(backend: backend)
         self.reading = reading
+        // a press is done once the Mac's camera starts or stops: the green light's signal
+        cameraKey.cameraRunning = { CameraProbe.anyCameraRunning() }
         engine.dismissSurveys = dismissSurveys
         engine.log = { NSLog("Busy Bar Sign meeting keys: %@", $0) }
         // what a copy that quit without putting back (a crash) left on in Teams
@@ -148,9 +168,22 @@ final class MeetingWorker: @unchecked Sendable {
             var text = self.engine.inspect()
             if self.backend.trusted() {
                 for app in LabelledCallApp.allCases { text += self.callKeys.report(app, pid: Self.pid(of: app)) }
+                // what the Camera key would press in each
+                let snap = self.engine.snapshot()
+                for app in MeetingApp.allCases where self.reading && snap.apps[app]?.inMeeting == true {
+                    text += self.cameraKey.report(.meeting(app, window: snap.apps[app]?.window ?? ""), pid: self.backend.findApp(app))
+                }
+                for app in LabelledCallApp.allCases {
+                    text += self.cameraKey.report(.app(name: app.label, hover: app.hoverControls), pid: Self.pid(of: app))
+                }
             }
             done(text)
         }
+    }
+
+    /// The Camera key: the camera in the Teams or Zoom meeting, else in `call`, the call app on the mic.
+    func pressCamera(call: CameraCall?, then done: @escaping (MeetingPressReport) -> Void) {
+        queue.async { done(self.runCamera(call: call)) }
     }
     func capture(then done: @escaping (String) -> Void) { queue.async { done(self.engine.capture()) } }
 
@@ -218,6 +251,69 @@ final class MeetingWorker: @unchecked Sendable {
             }
             return report(true, "Sent \(to.label)'s shortcut to “\(window)”.")
         }
+    }
+
+    private func runCamera(call: CameraCall?) -> MeetingPressReport {
+        guard backend.trusted() else {
+            return report(false, "Busy Bar Sign isn't allowed to use Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility.")
+        }
+        let snap = engine.snapshot()
+
+        // a Teams or Zoom meeting: its own camera control, then its shortcut
+        if let app = snap.active {
+            guard reading else {
+                return report(false, "Busy Bar Sign isn't reading Teams or Zoom meetings: Settings ▸ Call apps ▸ Read Teams and Zoom meetings.")
+            }
+            let hint = snap.apps[app]?.window ?? ""
+            let pid = backend.findApp(app)
+            var tried = ""
+            if pid != 0 {
+                let r = cameraKey.press(.meeting(app, window: hint), pid: pid)
+                if r.ok {
+                    var out = report(true, r.message)
+                    out.camera = r.camera
+                    return out
+                }
+                tried = r.message + " "
+                engine.log("camera: \(r.message) Sending the shortcut.")
+            }
+            // a press that reached the app has had its 2.5 s to show: the shortcut can't toggle it twice
+            let was = CameraProbe.anyCameraRunning()
+            switch backend.sendCameraShortcut(to: app, hint: hint) {
+            case .failure(let f):
+                return report(false, tried + f.message)
+            case .success(let window):
+                let end = Date().addingTimeInterval(2)
+                while Date() < end {
+                    if CameraProbe.anyCameraRunning() != was {
+                        var out = report(true, "Sent \(app.label)'s camera shortcut to “\(window)”: camera \(was ? "off" : "on").")
+                        out.camera = !was
+                        return out
+                    }
+                    Thread.sleep(forTimeInterval: 0.1)
+                }
+                return report(false, "Sent \(app.label)'s camera shortcut to “\(window)”, but the camera didn't change.")
+            }
+        }
+
+        // FaceTime, WhatsApp or another call app on the mic: its own camera control, no shortcut
+        guard let call else { return report(false, "No call on the Mac to turn the camera on or off in.") }
+        let pid = Self.pid(bundleIDs: call.bundleIDs)
+        guard pid != 0 else { return report(false, "\(call.name) isn't running, so there's nothing to press.") }
+        let r = cameraKey.press(.app(name: call.name, hover: call.hover), pid: pid)
+        var out = report(r.ok, r.message)
+        out.camera = r.camera
+        return out
+    }
+
+    /// The process running the first of these apps, or 0.
+    private static func pid(bundleIDs: [String]) -> Int32 {
+        for id in bundleIDs {
+            if let running = NSRunningApplication.runningApplications(withBundleIdentifier: id).first(where: { !$0.isTerminated }) {
+                return running.processIdentifier
+            }
+        }
+        return 0
     }
 
     /// The process showing a FaceTime or WhatsApp call, or 0.
@@ -311,6 +407,19 @@ final class MeetingKeys: ObservableObject {
     /// meeting, else `call`, the FaceTime or WhatsApp call on the mic.
     func press(_ what: MeetingControl, call: LabelledCallApp? = nil, then done: @escaping (MeetingPressReport) -> Void = { _ in }) {
         worker.press(what, call: call) { [weak self] r in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.lastPress = r
+                    done(r)
+                }
+            }
+        }
+    }
+
+    /// The Camera key: turns the camera on or off in the Teams or Zoom meeting,
+    /// else in `call`, the call app on the mic.
+    func pressCamera(call: CameraCall?, then done: @escaping (MeetingPressReport) -> Void = { _ in }) {
+        worker.pressCamera(call: call) { [weak self] r in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self?.lastPress = r

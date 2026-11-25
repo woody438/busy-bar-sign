@@ -300,7 +300,7 @@
     statusX: 1, statusW: 80,
     clockX: 84, clockW: 33,
     heroX: 1, heroW: COLS - 2,
-    heroFont: 'busy_regular_14',   // 14-row capitals: the announcement
+    heroFont: 'busy_bold_10',      // the announcement: the pill's own face, across the bar
     statusFont: 'busy_bold_10',    // the face of the firmware's BUSY pill
     timeFont: 'busy_bold_7',       // the firmware's clock app face
     dateFont: 'busy_regular_5',
@@ -325,32 +325,38 @@
     nearby: 'NEARBY',                                            // in the building, not at your desk (or your word: setNearbyWord)
     backIn: 'BACK IN'                                            // + the countdown on the right
   };
-  /* The announcement. DO NOT DISTURB is too wide for the 14-row face, so it's
-     set in the status face across the whole bar. */
+  /* The announcement: the status face, the pill's own, across the whole bar —
+     every state alike (busy_bold_10, one-step shadow). */
+  const heroOf = (word) => ({ word: word, font: 'busy_bold_10', base: 12, depth: 1, space: undefined });
   const HERO = {
-    call: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    free: { word: 'FREE', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    dnd:  { word: 'DO NOT DISTURB', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    callMuted: { word: 'ON A CALL', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    meeting:   { word: 'MEETING', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    callIn:    { word: 'CALL SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    busyIn:    { word: 'BUSY SOON', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    late:      { word: 'LATE FOR CALL', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    lateMtg:   { word: 'LATE FOR MTG', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    freeTil:   { word: 'FREE TILL {t}', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    callTbc:   { word: 'CALL TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    busyTbc:   { word: 'BUSY TBC', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    away:      { word: 'AWAY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    lunch:     { word: 'LUNCH', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    ooo:       { word: 'OUT OF OFFICE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    onSite:    { word: 'OUT ON SITE', font: 'busy_bold_10', base: 12, depth: 1, space: undefined },
-    nearby: { word: 'NEARBY', font: 'busy_regular_14', base: 14, depth: 2, space: 6 },
-    backIn:    { word: 'BACK IN', font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
+    call: heroOf('ON A CALL'), free: heroOf('FREE'), dnd: heroOf('DO NOT DISTURB'),
+    callMuted: heroOf('ON A CALL'),
+    meeting:   heroOf('MEETING'),
+    callIn:    heroOf('CALL SOON'),
+    busyIn:    heroOf('BUSY SOON'),
+    late:      heroOf('LATE FOR CALL'),
+    lateMtg:   heroOf('LATE FOR MTG'),
+    freeTil:   heroOf('FREE TILL {t}'),
+    callTbc:   heroOf('CALL TBC'),
+    busyTbc:   heroOf('BUSY TBC'),
+    away:      heroOf('AWAY'),
+    lunch:     heroOf('LUNCH'),
+    ooo:       heroOf('OUT OF OFFICE'),
+    onSite:    heroOf('OUT ON SITE'),
+    nearby:    heroOf('NEARBY'),
+    backIn:    heroOf('BACK IN')
   };
+  /* A cue: a change on a call that isn't a change of state — the camera coming
+     on or going off — announced as one, in its own words. While a call starts
+     with the camera already on, its announcement is CAMERA ON. */
+  const CUES = { cameraOn: heroOf('CAMERA ON'), cameraOff: heroOf('CAMERA OFF') };
+  const onCall = (state) => state === 'call' || state === 'callMuted';
+  /* The announcement for a change to `state`, with its cue if it has one (on a call only). */
+  const heroSpec = (state, cue) => (cue && CUES[cue] && onCall(state) ? CUES[cue] : HERO[state]);
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
   /* An announcement's words; {t} is the time the state is about (FREE TILL 11:00). */
-  function heroWord(state, timer) {
-    const w = HERO[state].word;
+  function heroWord(state, timer, cue) {
+    const w = heroSpec(state, cue).word;
     if (w.indexOf('{t}') < 0) return w;
     return timer ? w.replace('{t}', pad2(timer.h) + ':' + pad2(timer.m)) : w.replace(' TILL {t}', '').replace('{t}', '');
   }
@@ -556,14 +562,16 @@
     freeTil: 1, callTbc: 0, busyTbc: 0, lunch: -1, away: 0, ooo: -1, onSite: -1, backIn: 0, nearby: 0
   };   // rows above the baseline for the icon's bottom row
 
-  /* busy_regular_14 is busy_regular_7 doubled, so everything about it is at
-     twice the scale: a two-step shadow, and word spaces trimmed to match. */
-  function heroStyle(state, pal, alpha) {
+  /* The announcement's shadow and word space: the status face's. */
+  function heroStyle(state, pal, alpha, cue) {
     const a = alpha === undefined ? 1 : alpha;
-    const h = HERO[state];
+    const h = heroSpec(state, cue);
     return { shadow: pal.shadow, shadowDepth: h.depth, space: h.space, alpha: a, shadowAlpha: 0.9 * a };
   }
-  function heroWidth(state, timer) { return textWidth(HERO[state].font, heroWord(state, timer), 0, HERO[state].space); }
+  function heroWidth(state, timer, cue) {
+    const h = heroSpec(state, cue);
+    return textWidth(h.font, heroWord(state, timer, cue), 0, h.space);
+  }
 
   function drawIcon(f, rows, x, bottomY, colour, shadow, alpha, clip) {
     const h = rows.length;
@@ -718,8 +726,12 @@
    *           time), shown in place of the clock while the state is 'dnd';
    *           on a call or in a meeting, `slot: { left, total }` for the rail
    */
-  function render(f, now, state, prev, since, clock, timer, rests) {
+  /* camera — { on, cue }: whether a camera's on in the call (the wide bar's
+     tally is on the case, not the LEDs), and the cue the change at `since`
+     announces: 'cameraOn', 'cameraOff', or none. */
+  function render(f, now, state, prev, since, clock, timer, rests, camera) {
     f.px.fill(0);
+    const cue = camera ? camera.cue : undefined;
     const pal = palOf(state);
     const e = now - since;
     const collapseStart = T.swap + T.hold;
@@ -732,7 +744,7 @@
         shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
       }
     } else if (e < collapseStart) {
-      drawHero(f, now, state, pal, timer);
+      drawHero(f, now, state, pal, timer, cue);
       // ...and the new one springs back up
       const r = (e - T.swap) / T.swap;
       if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
@@ -749,9 +761,9 @@
       const inn = smooth(0.14, 0.4, k);         // overlapping, so the pill is never empty
       const clip = [LAYOUT.heroX + 1, Math.floor(edge) - 1];
       if (out > 0) {
-        const hw = heroWidth(state, timer);
-        drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
-          HERO[state].base, PALETTE.white, Object.assign(heroStyle(state, pal, out), { clip: clip }));
+        const hw = heroWidth(state, timer, cue), h = heroSpec(state, cue);
+        drawText(f, h.font, heroWord(state, timer, cue), LAYOUT.heroX + (Math.max(w, hw + 6) - hw) / 2 + 0.5,
+          h.base, PALETTE.white, Object.assign(heroStyle(state, pal, out, cue), { clip: clip }));
       }
       if (inn > 0) drawStatusContent(f, now, state, pal, LAYOUT.heroX, w, inn, clip, Math.round(lift * k));
       // the time slides in from the right as the pill makes room, as the
@@ -810,11 +822,11 @@
     return (p - 1.8) / 0.2;
   }
 
-  function drawHero(f, now, state, pal, timer) {
+  function drawHero(f, now, state, pal, timer, cue) {
     drawPill(f, LAYOUT.heroX, LAYOUT.heroW, pal, { sheen: sheenAt(now), dim: pulseAt(now, state) });
-    const w = heroWidth(state, timer);
-    drawText(f, HERO[state].font, heroWord(state, timer), LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
-      HERO[state].base, PALETTE.white, heroStyle(state, pal));
+    const w = heroWidth(state, timer, cue), h = heroSpec(state, cue);
+    drawText(f, h.font, heroWord(state, timer, cue), LAYOUT.heroX + (LAYOUT.heroW - w) / 2 + 0.5,
+      h.base, PALETTE.white, heroStyle(state, pal, 1, cue));
   }
 
   /* scroll: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
@@ -970,20 +982,19 @@
     heroGap: 4,                    // rows between the announcement's lines
     slotRows: [17, 18]             // the time-left rail, between the pill and the clock
   };
-  /* The announcement fills the panel, a word or two per line. */
-  /* A line is a string in the 14-row face, or { t, font, tracking } where
-     a line won't fit the 82-LED pill in it. */
+  /* The announcement fills the panel, a word or two per line, in the status
+     face as on the wide bar. A line is a string, or { t, tracking }. */
   const STACKED_HERO = {
     call: ['ON A', 'CALL'],
     callMuted: ['ON A', 'CALL'],
     free: ['FREE'],
     dnd: ['DO NOT', 'DISTURB'],
-    meeting: [{ t: 'MEETING', tracking: -1 }],
+    meeting: ['MEETING'],
     callIn: ['CALL', 'SOON'],
     busyIn: ['BUSY', 'SOON'],
-    late: ['LATE', { t: 'FOR CALL', font: 'busy_bold_10' }],
-    lateMtg: ['LATE', { t: 'FOR MTG', font: 'busy_bold_10' }],
-    freeTil: ['FREE', { t: 'TILL {t}', font: 'busy_bold_10' }],
+    late: ['LATE', 'FOR CALL'],
+    lateMtg: ['LATE', 'FOR MTG'],
+    freeTil: ['FREE', 'TILL {t}'],
     callTbc: ['CALL', 'TBC'],
     busyTbc: ['BUSY', 'TBC'],
     away: ['AWAY'],
@@ -993,6 +1004,7 @@
     nearby: ['NEARBY'],
     backIn: ['BACK', 'IN']
   };
+  const STACKED_CUES = { cameraOn: ['CAMERA', 'ON'], cameraOff: ['CAMERA', 'OFF'] };
   const LINE_FONT = {
     busy_regular_14: { h: 14, depth: 2, space: 6 },
     busy_bold_10: { h: 10, depth: 1, space: undefined }
@@ -1029,30 +1041,12 @@
     return w !== '' && nearbyProblem(w) === null ? w : NEARBY;
   }
 
-  /* Its announcement on the wide bar: the 14-row face where it fits, as
-     BUSY SOON does, else the status face, as DO NOT DISTURB. */
-  function nearbyHero(word) {
-    return textWidth('busy_regular_14', word, 0, 6) <= LAYOUT.heroW - 6
-      ? { word: word, font: 'busy_regular_14', base: 14, depth: 2, space: 6 }
-      : { word: word, font: 'busy_bold_10', base: 12, depth: 1, space: undefined };
-  }
+  /* Its announcement on the wide bar, as every state's. */
+  function nearbyHero(word) { return heroOf(word); }
 
-  /* ...and stacked: one line in the 14-row face, set a step tighter if it
-     needs it, as MEETING is; else two, broken at the space that leaves the
-     longer line shortest; else one in the 10-row face. */
-  function nearbyStackedHero(word) {
-    const room = STACKED.pillW - 2;                  // DISTURB's width
-    const wide = (t, tracking) => textWidth('busy_regular_14', t, tracking, 6);
-    if (wide(word, 0) <= room) return [word];
-    if (wide(word, -1) <= room) return [{ t: word, tracking: -1 }];
-    let best = null, longest = Infinity;
-    for (let i = word.indexOf(' '); i >= 0; i = word.indexOf(' ', i + 1)) {
-      const a = word.slice(0, i), b = word.slice(i + 1);
-      const l = Math.max(wide(a, 0), wide(b, 0));
-      if (l <= room && l < longest) { best = [a, b]; longest = l; }
-    }
-    return best || [{ t: word, font: 'busy_bold_10' }];
-  }
+  /* ...and stacked: one line. A word the sign takes fits the pill beside the
+     walker in the status face (nearbyProblem), so it fits the panel in it. */
+  function nearbyStackedHero(word) { return [word]; }
 
   /* Sets the word everywhere the bar says NEARBY. Call it after setFonts:
      the announcement is laid out by the word's width. */
@@ -1064,21 +1058,26 @@
     return w;
   }
 
-  function renderStacked(f, now, state, prev, since, clock, timer, rests) {
+  /* camera — { on, cue }, as render's: here a camera on in the call shows as
+     a green dot right of the countdown, in place of the case's tally light. */
+  function renderStacked(f, now, state, prev, since, clock, timer, rests, camera) {
     f.px.fill(0);
     const S = STACKED, pal = palOf(state);
+    const cue = camera ? camera.cue : undefined, on = !!(camera && camera.on);
+    // the screen before the change: with the camera as it was
+    const before = cue === 'cameraOff' ? true : cue === 'cameraOn' ? false : on;
     const e = now - since;
     const collapseStart = T.swap + T.hold;
     const collapseEnd = collapseStart + T.collapse;
 
     if (e < T.swap) {
       if (prev) {
-        drawStackedSteady(f, now, prev, clock, timer, 0);
+        drawStackedSteady(f, now, prev, clock, timer, 0, 0, true, before);
         shiftDown(f, Math.round(T.press * easeIn(e / T.swap)));
       }
     } else if (e < collapseStart) {
       drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: f.h, dim: pulseAt(now, state) });
-      drawStackedHero(f, state, pal, 1, null, timer);
+      drawStackedHero(f, state, pal, 1, null, timer, cue);
       const r = (e - T.swap) / T.swap;
       if (r < 1) shiftDown(f, Math.round(T.press * (1 - easeOut(r))));
     } else if (e < collapseEnd) {
@@ -1088,16 +1087,17 @@
       drawPill(f, S.pillX, S.pillW, pal, { sheen: sheenAt(now, f.w), h: h, dim: pulseAt(now, state) });
       const out = 1 - smooth(0.08, 0.34, k);
       const inn = smooth(0.14, 0.4, k);
-      if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer);
+      if (out > 0) drawStackedHero(f, state, pal, out, [1, h - 1], timer, cue);
       if (inn > 0) drawStatusContent(f, now, state, pal, S.pillX, S.pillW, inn);
       // ...and the clock rises into the space it leaves, the time-left rail filling in above it
       const p = easeOut((e - collapseStart) / T.collapse);
       const slide = Math.round(S.slideIn * (1 - p));
       drawStackedClock(f, state, clock, timer, slide, h + 2);
+      if (on) drawStackedTally(f, now, state, slide, h + 2);
       const slot = slotOf(state, timer);
       if (slot) drawSlot(f, slot, S.pillX, S.pillW, S.slotRows.filter((y) => y > h), p);
     } else {
-      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW), !(rests && sheenRests(now, state, since)));
+      drawStackedSteady(f, now, state, clock, timer, 0, scrollAt(now, state, since, S.pillW), !(rests && sheenRests(now, state, since)), on);
       // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
       const slot = slotOf(state, timer);
       const soon = (state === 'callIn' || state === 'busyIn') && timer ? timer.left : null;
@@ -1107,29 +1107,49 @@
     if (e < T.wave) drawShockwave(f, e / T.wave, pal);
   }
 
-  function drawStackedSteady(f, now, state, clock, timer, slide, scroll, sheen) {
+  function drawStackedSteady(f, now, state, clock, timer, slide, scroll, sheen, camera) {
     const S = STACKED, pal = palOf(state);
     drawPill(f, S.pillX, S.pillW, pal, { sheen: sheen !== false ? sheenAt(now, f.w) : undefined, h: S.pillH, dim: pulseAt(now, state) });
     const clip = scroll ? [S.pillX + 1, S.pillX + S.pillW - 1] : undefined;
     drawStatusContent(f, now, state, pal, S.pillX + (scroll || 0), S.pillW, 1, clip);
     drawStackedClock(f, state, clock, timer, slide, 0);
+    if (camera) drawStackedTally(f, now, state, slide, 0);
     const slot = slotOf(state, timer);
     if (slot) drawSlot(f, slot, S.pillX, S.pillW, S.slotRows, 1);
   }
 
-  function drawStackedHero(f, state, pal, alpha, clipY, timer) {
+  /* The stacked layout's tally: a round green dot right of the countdown,
+     level with its top, while a camera's on in the call. It breathes as the
+     case's light does on the wide bar — full to a third and back every 4 s,
+     never blinking — and holds steady while you're muted, when the slashed
+     mic flashes. It rises with the clock; nothing above row minY. */
+  const TALLY = { dot: ['.###.', '#####', '#####', '#####', '.###.'], x: 76, y: 20, colour: [0.22, 0.89, 0.44], breath: 4 };
+  function tallyAt(now, state) {
+    if (state === 'callMuted') return 1;
+    return 0.65 + 0.35 * Math.cos(2 * Math.PI * (now % TALLY.breath) / TALLY.breath);
+  }
+  function drawStackedTally(f, now, state, slide, minY) {
+    if (!onCall(state)) return;
+    const a = tallyAt(now, state);
+    TALLY.dot.forEach((row, r) => {
+      const y = TALLY.y + r + slide;
+      if (y < minY) return;
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') f.blend(TALLY.x + c, y, TALLY.colour, a);
+    });
+  }
+
+  function drawStackedHero(f, state, pal, alpha, clipY, timer, cue) {
     const S = STACKED;
     const at = timer ? pad2(timer.h) + ':' + pad2(timer.m) : '';
-    const lines = STACKED_HERO[state]
+    const lines = (cue && STACKED_CUES[cue] && onCall(state) ? STACKED_CUES[cue] : STACKED_HERO[state])
       .map((l) => (typeof l === 'string' ? { t: l } : l))
-      .map((l) => ({ t: l.t.replace('{t}', at), font: l.font || 'busy_regular_14', tracking: l.tracking || 0 }))
+      .map((l) => ({ t: l.t.replace('{t}', at), font: l.font || 'busy_bold_10', tracking: l.tracking || 0 }))
       .filter((l) => l.t.trim() !== '' && !/^TILL ?$/.test(l.t));
     let block = (lines.length - 1) * S.heroGap;
     for (const l of lines) block += LINE_FONT[l.font].h;
     let top = Math.round((f.h - block) / 2);
     for (const l of lines) {
-      // set as the wide bar's announcement: the 14-row face with a two-step
-      // shadow and trimmed spaces, the 10-row face with a one-step shadow
+      // set as the wide bar's announcement: the status face, a one-step shadow
       const lf = LINE_FONT[l.font];
       const style = { shadow: pal.shadow, shadowDepth: lf.depth, space: lf.space, tracking: l.tracking,
         alpha: alpha, shadowAlpha: 0.9 * alpha, clipY: clipY };
@@ -1468,7 +1488,7 @@
    * it, and, as FREE gives way, its face pressed down as the wave hits it.
    * prevFor: how long FREE had been up when it ended.
    */
-  function renderWorld(f, now, state, prev, since, clock, timer, world, prevFor) {
+  function renderWorld(f, now, state, prev, since, clock, timer, world, prevFor, camera) {
     const e = now - since;
     if (state === 'free') { f.px.fill(0); worldAt(f, now, e - SETTLED, clock, world, prev); return; }
     if (prev === 'free' && e < T.swap) {
@@ -1478,7 +1498,7 @@
       drawShockwave(f, e / T.wave, palOf(state));
       return;
     }
-    render(f, now, state, prev, since, clock, timer);
+    render(f, now, state, prev, since, clock, timer, undefined, camera);
   }
 
   /* ---- the same, stacked: the big clock stays local; the day line beneath takes each city in turn ---- */
@@ -1598,7 +1618,7 @@
     drawStackedWorldBase(f, now, s, clock, world, dx, false);
     return dx ? 'scroll' : 'base';
   }
-  function renderStackedWorld(f, now, state, prev, since, clock, timer, world, prevFor) {
+  function renderStackedWorld(f, now, state, prev, since, clock, timer, world, prevFor, camera) {
     const e = now - since;
     if (state === 'free') { f.px.fill(0); worldAtStacked(f, now, e - SETTLED, clock, world, prev); return; }
     if (prev === 'free' && e < T.swap) {
@@ -1608,7 +1628,7 @@
       drawShockwave(f, e / T.wave, palOf(state));
       return;
     }
-    renderStacked(f, now, state, prev, since, clock, timer);
+    renderStacked(f, now, state, prev, since, clock, timer, undefined, camera);
   }
 
   root.BusyEngine = {
@@ -1623,6 +1643,7 @@
     REST: REST, SCROLL: SCROLL, SETTLED: SETTLED, quiet: quiet, restAt: restAt, scrollAt: scrollAt,
     NEARBY: NEARBY, signWord: signWord, nearbyProblem: nearbyProblem, nearbyWordOf: nearbyWordOf, setNearbyWord: setNearbyWord,
     WORLD: WORLD, renderWorld: renderWorld, renderStackedWorld: renderStackedWorld, worldAt: worldAt, worldAtStacked: worldAtStacked,
-    worldSchedule: worldSchedule
+    worldSchedule: worldSchedule,
+    CUES: CUES, STACKED_CUES: STACKED_CUES, TALLY: TALLY, tallyAt: tallyAt
   };
 })(typeof window !== 'undefined' ? window : globalThis);

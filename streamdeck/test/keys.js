@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { AWAY_KINDS, awayFace, awayKeyImage, drawAwayKey, N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText,
+import { AWAY_KINDS, awayFace, awayKeyImage, cameraFace, drawAwayKey, N, SIZE, STATES, clockOf, drawKey, drawMeetingKey, keyImage, keyText,
   leaveFace, MEETING_FACES, meetingKeyImage, muteFace, nearbyLines, nearbyWordOf, timerOf } from '../src/key.js';
 import { viewOf } from '../src/app.js';
 
@@ -98,7 +98,12 @@ check(() => assert.doesNotThrow(() => keyImage({ state: 'notAState', moment: nul
 
 // the app's answer, as the keys read it
 check(() => assert.deepEqual(viewOf({ state: 'call', muted: true, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true } }),
-  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null, nearbyWord: null, canEnd: false }));
+  { state: 'callMuted', moment: null, dnd: false, meeting: { app: 'teams', muted: true, canLeave: true }, away: null, nearbyWord: null, canEnd: false,
+    video: null }));
+// a call the Camera key can act on, and whether a camera on the Mac is on
+check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, video: { on: true } }).video, { on: true }));
+check(() => assert.deepEqual(viewOf({ state: 'call', dnd: false, video: { on: false } }).video, { on: false }));
+check(() => assert.equal(viewOf({ state: 'call', dnd: false, video: { on: 'yes' } }).video, null));
 check(() => assert.equal(viewOf({ state: 'meeting', dnd: false, canEnd: true }).canEnd, true));
 check(() => assert.equal(viewOf({ state: 'meeting', dnd: false }).canEnd, false));
 check(() => assert.equal(viewOf({ state: 'nearby', dnd: false, nearbyWord: 'W HOUSE' }).nearbyWord, 'W HOUSE'));
@@ -156,6 +161,13 @@ check(() => assert.equal(leaveFace(inMeeting(false, false)), 'active'));   // a 
 check(() => assert.equal(leaveFace({ state: 'free', moment: null, dnd: false, meeting: null }), 'idle'));
 check(() => assert.equal(leaveFace({ state: 'meeting', moment: null, dnd: false, meeting: null, canEnd: true }), 'end'));
 check(() => assert.equal(leaveFace(Object.assign(inMeeting(false), { canEnd: true })), 'active'));   // a meeting to leave comes first
+// the Camera key: green ON, red OFF, VIDEO in grey with no call, APP OFF with no app
+check(() => assert.equal(cameraFace(null), 'off'));
+check(() => assert.equal(cameraFace({ state: 'free', moment: null, dnd: false, meeting: null, video: null }), 'idle'));
+check(() => assert.equal(cameraFace({ state: 'call', moment: null, dnd: false, meeting: null, video: { on: true } }), 'live'));
+check(() => assert.equal(cameraFace({ state: 'call', moment: null, dnd: false, meeting: null, video: { on: false } }), 'dark'));
+check(() => assert.ok(MEETING_FACES.includes('camera:live') && MEETING_FACES.includes('camera:dark') && MEETING_FACES.includes('camera:idle')));
+check(() => assert.notEqual(meetingKeyImage('camera', 'live'), meetingKeyImage('camera', 'dark')));
 for (const face of [...MEETING_FACES.map((f) => f.split(':')), ['leave', 'active', true], ['mute', 'off']]) {
   const frame = drawMeetingKey(...face);
   let lit = 0;

@@ -23,7 +23,7 @@ const timeout = (ms, what) => new Promise((_, reject) => setTimeout(() => reject
 
 // ---- the fake app: the API in Sources/LocalAPI.swift
 const app = { state: 'free', moment: null, dnd: false, meeting: null, away: null, nearbyWord: null, canEnd: false, pressWorks: true,
-  requests: [] };
+  video: null, requests: [] };
 const AWAY_KEYS = { '/away/nearby': 'nearby', '/away/lunch': 'lunch', '/away/back-in': 'backIn' };
 function appHandler(req, res) {
   app.requests.push({ method: req.method, url: req.url, headers: req.headers, at: Date.now() });
@@ -37,6 +37,9 @@ function appHandler(req, res) {
   } else if (req.method === 'POST' && (req.url === '/meeting/leave' || req.url === '/meeting/end')) {
     pressed = { ok: !!app.meeting, message: req.url === '/meeting/end' ? 'Ended it for everyone.' : 'Pressed Teams’s own leave button.' };
     app.meeting = null;
+  } else if (req.method === 'POST' && req.url === '/meeting/camera') {
+    pressed = { ok: !!app.video, message: app.video ? 'Pressed Teams’s “Turn camera off”: camera off.' : 'No call on the Mac.' };
+    if (app.video) app.video = { on: !app.video.on };
   } else if (req.method === 'POST' && req.url === '/event/end') {
     pressed = { ok: app.canEnd, message: app.canEnd ? 'Ended “Weekly review” early.' : 'Nothing on the sign to end.' };
     if (app.canEnd) { app.canEnd = false; app.state = 'free'; }
@@ -55,7 +58,7 @@ function appHandler(req, res) {
   }
   const body = JSON.stringify(Object.assign({ dnd: app.dnd, state: app.state }, app.moment ? { moment: app.moment } : {},
     app.meeting ? { meeting: app.meeting } : {}, app.away ? { away: app.away } : {}, pressed ? { pressed } : {},
-    app.nearbyWord ? { nearbyWord: app.nearbyWord } : {}, app.canEnd ? { canEnd: true } : {}));
+    app.nearbyWord ? { nearbyWord: app.nearbyWord } : {}, app.canEnd ? { canEnd: true } : {}, app.video ? { video: app.video } : {}));
   res.writeHead(200, { 'Content-Type': 'application/json', Connection: 'close' }).end(body);
 }
 let appServer = http.createServer(appHandler);
@@ -194,6 +197,21 @@ try {
   app.pressWorks = true;
   console.log('ok  a press that didn\'t take warns');
 
+  // the Camera key: dark with no call; in one, green ON, and a press turns the camera off: red OFF
+  const camera = meetingKey('camera', 'c1', {});
+  app.video = null;
+  toPlugin(Object.assign({ event: 'willAppear' }, camera));
+  await imageOn('c1', 'dark', 3000, 'Camera key with no call');
+  const camOn = sent.length;
+  app.video = { on: true };
+  await imageOn('c1', 'green', 3000, 'Camera key ON in a call', camOn);
+  const camPress = sent.length;
+  toPlugin(Object.assign({ event: 'keyDown' }, camera));
+  await imageOn('c1', 'red', 2000, 'Camera key OFF after a press', camPress);
+  assert.ok(app.requests.some((r) => r.method === 'POST' && r.url === '/meeting/camera' && r.headers.origin === undefined));
+  app.video = null;
+  console.log('ok  the Camera key: dark with no call, ON in a call, and a press turns the camera off');
+
   // Leave, set to hold: a tap doesn't leave; a hold does
   toPlugin(Object.assign({ event: 'keyDown' }, leave));
   await wait(100);
@@ -249,6 +267,7 @@ try {
   toPlugin(Object.assign({ event: 'willDisappear' }, mute));
   toPlugin(Object.assign({ event: 'willDisappear' }, leave));
   toPlugin(Object.assign({ event: 'willDisappear' }, quick));
+  toPlugin(Object.assign({ event: 'willDisappear' }, camera));
   app.state = 'free';
   app.meeting = null;
 

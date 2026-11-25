@@ -1,5 +1,5 @@
 /*
- * The Mute and Leave keys, for the Teams or Zoom meeting you're in. The app
+ * The Mute, Leave and Camera keys, for the Teams or Zoom meeting you're in. The app
  * does the pressing (Sources/Meeting/MeetingKeys.swift): the meeting's own
  * button through Accessibility, or failing that its keyboard shortcut sent
  * to the meeting window. These keys only ask, and show what it says:
@@ -14,13 +14,17 @@
  *          calendar event that can be ended early (a call taken on your
  *          phone, a meeting that finished early): a press — or a hold, set
  *          to "hold" — says it's over, and the sign moves on. Dark otherwise
+ *   Camera green ON while a camera on the Mac is on, red OFF while it isn't,
+ *          in a Teams or Zoom meeting or a call on the mic (FaceTime,
+ *          WhatsApp, Google Meet in a browser); a press turns it off or on
+ *          with the call app's own camera button. Dark with no call
  *
  * A press while the last one is still going is ignored, so mute can't
  * toggle twice. One the app couldn't do shows the warning triangle.
  */
 import streamDeck, { SingletonAction } from '@elgato/streamdeck';
-import { pressEnd, pressEndEvent, pressLeave, pressMute } from './app.js';
-import { leaveFace, meetingKeyImage, muteFace } from './key.js';
+import { pressCamera, pressEnd, pressEndEvent, pressLeave, pressMute } from './app.js';
+import { cameraFace, leaveFace, meetingKeyImage, muteFace } from './key.js';
 import { latest, lost, ready, share, watch } from './live.js';
 
 const LEAVE_HOLD_MS = 600;                       // set to "hold": leaves once held this long
@@ -59,13 +63,18 @@ class MeetingAction extends SingletonAction {
       const ok = !!(answer.pressed && answer.pressed.ok);
       if (answer.pressed) streamDeck.logger.info(`${this.kind}: ${answer.pressed.message}`);
       if (!ok) await action.showAlert();
-      else if (!(before && before.meeting)) await action.showOk();   // no meeting showed: say it went
+      else if (!(before && this.inCall(before))) await action.showOk();   // no meeting showed: say it went
     } catch (e) {
       lost(e);
       await action.showAlert();
     } finally {
       this.busy = false;
     }
+  }
+
+  /* Whether the key showed a meeting or call to act on. */
+  inCall(view) {
+    return !!view.meeting;
   }
 
   /* This key's picture now. */
@@ -98,6 +107,23 @@ export class MuteAction extends MeetingAction {
 
   onKeyDown(ev) {
     return this.press(ev.action, pressMute);
+  }
+}
+
+export class CameraAction extends MeetingAction {
+  manifestId = 'com.woodall.busybarsign.camera';
+  kind = 'camera';
+
+  inCall(view) {
+    return !!view.video;
+  }
+
+  image(view) {
+    return meetingKeyImage('camera', cameraFace(view));
+  }
+
+  onKeyDown(ev) {
+    return this.press(ev.action, pressCamera);
   }
 }
 

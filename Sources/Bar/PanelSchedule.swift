@@ -31,8 +31,9 @@ struct BarMoment: Equatable {
  * rail on its meeting's. So the panel draws on every display frame only while
  * something moves — a change of state, the scroll, the LEDs easing down to
  * rest, the muted mic's flash, LATE's breathing, the sheen crossing the pill
- * (which stops while the LEDs rest), the last two minutes' sweep and CALL
- * SOON's big countdown — and otherwise once a turn.
+ * (which stops while the LEDs rest), the last two minutes' sweep, CALL
+ * SOON's big countdown and, stacked, the camera's dot breathing — and
+ * otherwise once a turn.
  *
  * Foundation only, so Checks/raster runs the panel's own schedule against
  * drawing every frame and finds no LED that differs.
@@ -55,13 +56,16 @@ enum PanelSchedule {
      * returned (on the `now` clock; .infinity: not until something changes).
      * `rests`: the panel eases its LEDs down after half an hour (the wall's).
      * `timer`: the moment's, for the last two minutes (alertStill).
+     * `camera`: a camera on in the call — stacked, its dot breathes (BarEngine.tallyAt).
      * The world clocks have their own timings: the panel draws them every frame.
      */
     static func stillUntil(now: Double, state: BarState, since: Double, layout: BarLayout, rests: Bool,
-                           timer: BarTimer? = nil) -> Double? {
+                           timer: BarTimer? = nil, camera: Bool = false) -> Double? {
         let e = now - since
         // a change of state: the wave, the announcement, the pill drawing back
         guard e >= BarEngine.Timing.settled else { return nil }
+        // stacked, a camera on in the call: its dot breathes all the time — steady while muted
+        if camera && layout == .stacked && state == .call { return nil }
         // LATE breathes all the time
         if state == .late || state == .lateMtg { return nil }
         var until = Double.infinity
@@ -151,9 +155,9 @@ enum PanelSchedule {
 
     /// When the panel draws next, in seconds from now; nil: on the next display frame.
     static func delay(now: Double, date: Date, state: BarState, since: Double, layout: BarLayout, rests: Bool,
-                      moment: BarMoment?, world: Bool) -> Double? {
+                      moment: BarMoment?, world: Bool, camera: Bool = false) -> Double? {
         guard !world, let still = stillUntil(now: now, state: state, since: since, layout: layout, rests: rests,
-                                             timer: moment?.timer(at: date)) else {
+                                             timer: moment?.timer(at: date), camera: camera) else {
             return nil
         }
         let turn = nextTurn(after: date, moment: moment).timeIntervalSince(date)
