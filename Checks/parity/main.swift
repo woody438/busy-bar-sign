@@ -247,7 +247,35 @@ for (stacked, state, prev, e) in restingCases {
         f.px.withUnsafeBytes { out.append(contentsOf: $0) }
     }
 }
+// a camera in the call: CAMERA ON and CAMERA OFF announced through every phase of the change, as a
+// call starts with it on, and stacked, the green dot breathing, steady while muted, rising with the
+// clock (keep in step with parity.js)
+let cameraCases: [(stacked: Bool, BarState, BarState?, Double, String?, BarCue?, Bool)] = [
+    (false, .call, .call, 0.05, "slot", .cameraOn, true), (false, .call, .call, 2.0, "slot", .cameraOn, true),
+    (false, .call, .call, 3.75, "slot", .cameraOn, true), (false, .call, .call, 9.0, "slot", .cameraOn, true),
+    (false, .call, .call, 2.0, "slot", .cameraOff, false), (false, .callMuted, .callMuted, 2.0, "slot", .cameraOff, false),
+    (false, .call, .free, 2.0, "slot", .cameraOn, true), (false, .free, .call, 2.0, nil, .cameraOn, false),
+    (true, .call, .call, 0.05, "slot", .cameraOn, true), (true, .call, .call, 2.0, "slot", .cameraOn, true),
+    (true, .call, .call, 3.8, "slot", .cameraOn, true), (true, .call, .call, 9.0, "slot", .cameraOn, true),
+    (true, .call, .call, 9.6, "slot", nil, true), (true, .callMuted, .call, 9.0, "slot", nil, true),
+    (true, .call, .call, 0.05, "slot", .cameraOff, false), (true, .call, .call, 2.0, "slot", .cameraOff, false),
+    (true, .call, .free, 2.0, "slot", .cameraOn, true), (true, .free, .call, 9.0, nil, nil, true)
+]
+for (stacked, state, prev, e, key, cue, on) in cameraCases {
+    let since = 1000.0, camera = BarCamera(on: on, cue: cue), t = key.flatMap { timers[$0] }
+    if stacked {
+        var f = LEDFrame(w: BarEngine.Stacked.cols, h: BarEngine.Stacked.rows)
+        BarEngine.renderStacked(into: &f, now: since + e, state: state, prev: prev, since: since, clock: clock, timer: t,
+                                camera: camera)
+        f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+    } else {
+        var f = LEDFrame()
+        BarEngine.render(into: &f, now: since + e, state: state, prev: prev, since: since, clock: clock, timer: t,
+                         camera: camera)
+        f.px.withUnsafeBytes { out.append(contentsOf: $0) }
+    }
+}
 try! out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
 print("frames:", cases.count + stackedCases.count + calendarCases.count + stackedCalendarCases.count + nearbyCases.count
-      + worldCases.count + worldPresses.count + restingCases.count,
+      + worldCases.count + worldPresses.count + restingCases.count + cameraCases.count,
       "bytes:", out.count)

@@ -17,8 +17,11 @@ SITE** and **OUT OF OFFICE**, and on a call counts down to when you're free,
 with a line along the bottom for what's left of the meeting
 ([Time left](#time-left)). [More below](#your-calendar). When you're **muted** on a call, the mic on the
 sign gets a slash and flashes, so the room knows it can talk
-([below](#muted-on-a-call)). On a **Stream Deck**, a **Status** key shows the
-sign and starts Do Not Disturb, and **Mute** and **Leave** keys work your
+([below](#muted-on-a-call)). When your **camera** comes on in a call, the
+sign says **CAMERA ON** across the bar, then a green tally light on its case
+breathes for as long as it's on; turn it off and it says **CAMERA OFF**
+([below](#on-camera)). On a **Stream Deck**, a **Status** key shows the
+sign and starts Do Not Disturb, and **Mute**, **Leave** and **Camera** keys work your
 Teams or Zoom meeting from anywhere ([below](#stream-deck)). Leaving your
 desk, a **Nearby** (or a word of your own for it, such as **W HOUSE**),
 **Lunch** or **Back In** key (Back In counts down: ten minutes a press) locks the Mac and the sign stays up on every screen,
@@ -382,7 +385,7 @@ Worth knowing:
 
 ## Stream Deck
 
-Six keys for an Elgato Stream Deck, in one plugin, drawn by the bar's own
+Seven keys for an Elgato Stream Deck, in one plugin, drawn by the bar's own
 engine and fonts:
 
 - **Status** — the bar on a key, live: its colour, its words, and beneath
@@ -395,6 +398,8 @@ engine and fonts:
 - **Mute** and **Leave** — for the Teams or Zoom meeting you're in, wherever
   its window is, or your FaceTime or WhatsApp call
   ([below](#mute-and-leave-keys-for-teams-and-zoom)).
+- **Camera** — turns your camera on or off in the same meeting or call, or
+  your Google Meet call in a browser ([below](#the-camera-key)).
 - **Nearby**, **Lunch** and **Back In** — where you've gone when you
   leave your desk, and the Mac locked behind you ([above](#while-youre-away)).
   Nearby and Lunch are pictures with their word beneath, as Mute and Leave
@@ -410,7 +415,7 @@ engine and fonts:
    later.) When there's a newer one, Busy Bar Sign offers it (Settings ▸
    Stream Deck).
 2. In Stream Deck, drag **Busy Bar Sign ▸ Status**, **▸ Mute**, **▸ Leave**,
-   **▸ Nearby**, **▸ Lunch** and **▸ Back In** onto keys — on as many keys,
+   **▸ Camera**, **▸ Nearby**, **▸ Lunch** and **▸ Back In** onto keys — on as many keys,
    pages and Stream Decks as you like.
 
 - If double-clicking doesn't install it, quit Stream Deck, unzip the file
@@ -469,7 +474,7 @@ node and Pillow).
 
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute and Leave keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting](docs/stream-deck-meeting-keys.png)
+![Mute, Leave and Camera keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting; the camera ON in green, OFF in red with a slash, and OFF in grey with no call](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in.
 The app does the pressing, so the keys, the sign and the settings always
@@ -496,7 +501,7 @@ agree:
   out of office, a day on site, a no-meetings block) shows as usual.
   **A meeting with somewhere to be** — a room, your office, a company site,
   or a call you've said you're at in person — **says MEETING** after you
-  leave (from 2.9.2; 2.9.1 made it FREE), as you may be walking into it:
+  leave (from 2.10.1; before, the Leave key made it FREE), as you may be walking into it:
   the key then says **END**, and a second press makes it FREE. Left with
   Teams' or Zoom's own button, it's MEETING too, once the mic's let go. A Do
   Not Disturb ends too, and **Sign ▸ Force ON A CALL** goes back to
@@ -569,6 +574,39 @@ agree:
   you're muted in them. FaceTime and WhatsApp are still read, and END still
   ends the calendar event.
 
+### The Camera key
+
+From 2.10 (plugin 1.7 or later). macOS has no switch that turns the camera
+off for whichever app is using it, so the Camera key presses the call app's
+own camera button, as Mute presses its mute:
+
+- **It shows** green **ON** while you're on camera, red **OFF** (a slashed
+  camera) while you aren't, in a Teams or Zoom meeting or a call on the mic;
+  with no call, dimmed, **OFF** in grey — the picture says it's the camera, as
+  the Mute key's mic does. In a Teams meeting, ON and OFF
+  come from Teams' own camera button, as the sign's do; elsewhere from the
+  camera itself — the signal that lights the green light by the lens — so
+  they're right whichever app has it.
+- **A press** turns it off or on:
+  - **Teams**: the meeting window's camera button (its id `video-button`,
+    or one named "Turn camera on" or "Turn camera off"); if that doesn't
+    take in 2.5 seconds, its shortcut, ⌘⇧O, sent to the meeting window.
+  - **Zoom**: its Meeting menu's **Start Video** or **Stop Video**; else ⌘⇧V.
+  - **FaceTime**: the call's **Camera** button, shown under the pointer as
+    the Leave key shows FaceTime's End.
+  - **WhatsApp**, **Google Meet** in Chrome, Edge, Arc or Safari, and any
+    other call app on the mic: a button named for the camera — "Turn off
+    camera", "Turn on camera (⌘ + e)", "Stop video", "Camera" — in the
+    app's windows or menu bar. No shortcut: one sent to the wrong tab or
+    window could do anything.
+- A press is done once the camera starts or stops, or the button's name
+  flips. If nothing changes, the key shows the warning triangle and says
+  why in the log; **Inspect meeting controls** lists what the key would
+  press in each app.
+- It never presses a button named for camera settings, options, effects or
+  backgrounds, for choosing or switching a camera, or for a call ("Start
+  video call" in a WhatsApp chat would start one).
+
 ## Your calendar
 
 The sign follows the calendar macOS Calendar shows — for Outlook, add your
@@ -584,13 +622,13 @@ account's own "Calendar" by itself.
 | **CALL IN** / **BUSY IN** · *09:41 AT 11:00* | Ten minutes before a call, or a meeting in person. Amber. In the last two minutes, **CALL IN 01:42** across the bar ([Time left](#time-left)). |
 | **LATE FOR** · *CALL +01:20* | A call has started and your microphone hasn't. It pulses, for up to ten minutes, then shows MEETING: you're in it in person, or busy anyway. Someone come to your office for it? Press the Status key, double-click the bar or choose **In Person** and it's MEETING at once. |
 | **LATE FOR** · *MTG +01:20* | A meeting in a meeting room has started and you're still at the Mac (it's unlocked and was used in the last two minutes). It pulses for up to ten minutes, or until you leave the Mac, then shows MEETING. |
-| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. Left with the Stream Deck's **Leave** key, at once; with the app's own button, once the mic's let go (about ten seconds). A meeting somewhere else with a link that you dialled into too (from 2.9.2). Not a meeting in a room, your office or a company site, or a call you've said you're at in person: that says MEETING till you press END ([above](#mute-and-leave-keys-for-teams-and-zoom)). |
+| **FREE** after leaving early | You left a call before its slot ended, or pressed END: just **FREE**, whatever's next. Ten minutes before the next call or meeting it warns as usual. Left with the Stream Deck's **Leave** key, at once; with the app's own button, once the mic's let go (about ten seconds). A meeting somewhere else with a link that you dialled into too (from 2.10.1). Not a meeting in a room, your office or a company site, or a call you've said you're at in person: that says MEETING till you press END ([above](#mute-and-leave-keys-for-teams-and-zoom)). |
 | **CALL TBC** / **BUSY TBC** | Show As **Tentative**: a countdown to the start, then the end time. Never LATE — you may not be going. |
 | **DND** | An event titled **No meetings** or **Focus**. Warnings for calls inside it still show. |
 | **LUNCH** · *38:12 TILL 13:25* | An event of your own with **lunch** in the title — Show As Out of Office too, since you're coming back. It counts down to when you're back (the Lunch key alone shows the clock), and beats any meeting over it, warnings included. |
 | **AWAY** | Any other event of your own (no invitees) with no location, or one that says nothing about where (TBC, a dial-in, a call app, your office, a meeting room): "Gym", "Drive home". |
 | **OUT OF OFFICE** | Show As **Out of Office** (except your own lunch), an all-day busy event, or **✈** in the title (flight apps put it there). |
-| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. An event of your own with a location like that too, unless its title says lunch, focus or call — the dentist's included: anywhere with an address. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. Dial in to one with a Teams or Zoom link and it's the call: **ON A CALL**, counting down to its end, and **FREE** once you leave it (from 2.9.2). |
+| **OUT ON SITE** | With a client: a meeting somewhere other than your office, a meeting room or your company's sites — a venue, a client's office, a restaurant — Teams link or not. An event of your own with a location like that too, unless its title says lunch, focus or call — the dentist's included: anywhere with an address. Or **on site** in the title of your own event, an all-day one or one Show As Out of Office. No warning before it: you've already gone. Dial in to one with a Teams or Zoom link and it's the call: **ON A CALL**, counting down to its end, and **FREE** once you leave it (from 2.10.1). |
 
 Ignored: Show As **Free**, cancelled meetings ("Canceled: …"), and all-day
 events that aren't busy. Declined meetings leave Outlook, so they never count.
@@ -615,7 +653,7 @@ location says where you'll be, a link only that others can dial in.
   a location with **room**, **huddle** or **boardroom** in it, or a code like
   **MTL-210**: MEETING, even with a link, and LATE FOR MTG if you're still at
   the Mac when it starts. Exchange books a room as a *resource*, which can
-  reach macOS Calendar as a room, a resource or a plain invitee; from 2.9.2
+  reach macOS Calendar as a room, a resource or a plain invitee; from 2.10.1
   all three count, the last when the location names it as Outlook does
   ("Microsoft Teams Meeting; CA MTL N3.101 - …"). Before, a room named like
   that, with no room word in it, read as somewhere else: OUT ON SITE.
@@ -878,6 +916,55 @@ So from 2.8.9 the app asks as lightly as it can:
 - The Stream Deck key still reads a muted call as ON A CALL; the local API
   adds `"muted": true` for it.
 
+## On camera
+
+![CAMERA ON across the bar, then ON A CALL with the green tally light lit in the case's sensor notch, then CAMERA OFF and the tally out](docs/busy-bar-camera.gif)
+
+From 2.10. With people in the room on a video call, they need to know
+they're in shot. The sign follows the camera — any camera on the Mac, from
+any app, by the signal that lights the green light beside the lens
+(`CameraProbe`, no permission needed). In a Teams meeting it follows Teams'
+own camera button instead, as it reads Teams' mute: in a Teams test call
+with Settings ▸ Devices open, its camera preview kept the camera running
+with your video off, so the first 2.10 preview never said CAMERA OFF (found
+on a real Mac). The button is the truth whatever else has the camera open. If the
+button can't be found, the camera itself is used, and Settings ▸ Call apps
+▸ **Inspect meeting controls** shows Teams' camera reading.
+
+- **ON A CALL stays the resting state**, as before, camera or not.
+- **The camera comes on during a call**: the sign says **CAMERA ON** across
+  the bar for about 3.4 seconds, with the usual wave, then goes back to ON A
+  CALL. A green **tally light** in the case's sensor notch, at the top,
+  comes on with it, and breathes — full to a third and back, once every 4
+  seconds, never blinking — for as long as the camera's on. While you're
+  muted it holds steady, as the slashed mic flashes.
+- **Join with the camera already on**: the call's own announcement says
+  CAMERA ON rather than ON A CALL, so you don't get two.
+- **The camera goes off mid-call**: **CAMERA OFF** across the bar, the tally
+  fades out, and it's ON A CALL again. Every change is announced, however
+  often.
+- **Leaving never says CAMERA OFF.** Teams and Zoom let go of the camera
+  and the mic together as you hang up, but the sign waits up to 10 seconds
+  before it believes the mic's free. So a camera that's gone off is followed
+  after 2 seconds, and announced only if the mic is still in use then.
+- **Not outside a call**: a preview before you join, or Photo Booth, lights
+  nothing.
+- **Stacked layout**: no case, so the tally is a round green dot of LEDs to
+  the right of the countdown, breathing the same way. The screen saver,
+  which draws the LEDs without a case, shows the dot stacked, and the
+  announcements either way.
+- The local API says it too: `"camera": true` while the tally's lit, and
+  `"cameraCue"` for the last change announced.
+
+Worth knowing: the tally is small by design — the sensor notch is 180 × 18
+pixels on a 4K screen, about 7 cm by 7 mm on a 65-inch TV, plus its glow.
+CAMERA ON is what catches the eye; the tally is the reminder. Its breathing
+runs in Core Animation, on the case, so it doesn't make the LED panel
+redraw. An app other than Teams that kept the camera open with your
+video off would keep the tally lit: Zoom lets it go, and so does Teams in
+a real call (both checked on a real Mac); Meet, FaceTime and WhatsApp
+haven't been checked yet.
+
 ## How the display works
 
 The bar is **118 × 16 LEDs**. Sixteen rows is what gives the BUSY Bar's type its
@@ -888,8 +975,9 @@ spans a 4K screen exactly: full width, 31% tall, every LED on whole pixels.
 Almost everything comes from the BUSY Bar's own open-source firmware:
 
 - **Pixel fonts** — decoded from the firmware (OFL-licensed): `busy_bold_10`
-  for the status, `busy_regular_14` for the announcement, `busy_bold_7` and
-  `busy_regular_5` for the clock, as the firmware's clock app uses them.
+  for the status and the announcement, `busy_bold_7` and
+  `busy_regular_5` for the clock, as the firmware's clock app uses them,
+  and `busy_regular_14` for the stacked layout's big clock.
 - **Colours** — sampled from its animation frames: the pill's red and green
   gradients, highlight row and rim.
 - **Dots** — Flipper's own preview shader: rounded squares at 85% of the
@@ -899,8 +987,10 @@ Almost everything comes from the BUSY Bar's own open-source firmware:
   to the right, day beneath at half brightness; colon dimming on odd seconds.
 - **A change of state** — as the device does it: the old screen presses down,
   a ring bursts from the top edge and floods the panel, and the new screen
-  springs up. The status fills the bar in 14-row capitals for a few seconds,
-  then the pill draws back and the time slides in beside it.
+  springs up. The status fills the bar for a few seconds, in the pill's own
+  bold face across the whole bar (from 2.10; before, most states announced in
+  the firmware's 14-row face), then the pill draws back and the time slides
+  in beside it.
 
 The words are **ON A CALL** rather than the firmware's own "ON CALL", which in
 British English means on standby. The mic pictogram echoes the firmware's
@@ -956,7 +1046,8 @@ In the code:
 | `Sources/StatusRules.swift` | Decides what the sign says from the controls, the mic and the calendar. A line-for-line port of `simulator/rules.js`. |
 | `Sources/CalendarSource.swift` | Reads the calendar from macOS Calendar (EventKit). |
 | `Sources/MuteDetector.swift`, `MuteLabels.swift` | Whether you're muted, from the call app's own mute button (Accessibility). |
-| `Sources/Meeting/` | Teams and Zoom through Accessibility, for the sign and the Mute and Leave keys: `MeetingEngine` (a port of Teams Meeting Keys' helper), `MeetingPatterns` (the words it reads), `AXMeetingBackend` (the Mac's side, and the shortcut fallback), `MeetingKeys` (a key press, start to finish). |
+| `Sources/Meeting/` | Teams and Zoom through Accessibility, for the sign and the Mute and Leave keys: `MeetingEngine` (a port of Teams Meeting Keys' helper), `MeetingPatterns` (the words it reads), `AXMeetingBackend` (the Mac's side, and the shortcut fallback), `MeetingKeys` (a key press, start to finish); `CameraKey` (the Camera key's press, in any call app). |
+| `Sources/CameraFollower.swift` | The camera as the sign follows it: the tally, and CAMERA ON and OFF announced mid-call, never as you hang up. |
 | `Sources/StatusModel.swift` | Runs the rules once a second and on every change; everything that shows the sign reads it. |
 | `Sources/DisplayWindow.swift` | The full-screen window, and keeping the Mac and its displays awake (or letting them sleep, out of hours). |
 | `Sources/FloatingWindow.swift` | The floating window. |
@@ -980,7 +1071,7 @@ errors or warnings in its code.
 
 **Verified by running**, on macOS by GitHub Actions on every build (`Checks/run.sh`):
 
-- **The Swift engine matches the simulator LED for LED** across 226 moments —
+- **The Swift engine matches the simulator LED for LED** across 244 moments —
   every state, wide and stacked, through the press, shockwave, announcement,
   collapse, slide-in, LATE FOR CALL's and MTG's pulse and the muted call's glow and flashing mic,
   the time-left line filling in, white, amber and swept, and CALL SOON's
@@ -1118,6 +1209,23 @@ errors or warnings in its code.
   nothing is pressed outside a call — not WhatsApp's chat "Mute" or a
   group's "Leave", not a lone "End" away from a mic button, not FaceTime's
   recents. Inspect shows what each key would press and leaves chat names out.
+- **The camera, as the sign follows it** (`Checks/camera`): CAMERA ON at
+  once as it comes on mid-call; none for a camera already on as a call
+  starts; CAMERA OFF 2 seconds after it goes off mid-call, but not as you
+  hang up (camera and mic let go together, or a second apart), nor after the
+  Leave key; every change announced, however often; a half-second dropout
+  ignored; nothing outside a call. And CAMERA ON and OFF through every phase
+  of the change, wide and stacked, and the stacked dot breathing and steady
+  while muted, LED for LED with the simulator (above).
+- **The Camera key presses the right thing** (`Checks/camerakey`) against
+  scripted Teams (its `video-button`, beside "Camera options"), Zoom (Stop
+  Video, never Video Settings…), FaceTime (its Camera button shown by a
+  pointer nudge, never the camera's name in its Video menu, the pointer left
+  where it was), WhatsApp (the call's "Turn off camera", never a chat's
+  "Start video call") and Google Meet in Chrome (not its options or
+  settings): each pressed, and checked by the camera starting or stopping.
+  Nothing pressed where there's no camera button, and a press that changes
+  nothing reported as not done.
 - **The web server's request handling** (`Checks/http`): requests read
   whole when they arrive in pieces, anything from a web page (an Origin, or
   a Host that isn't 127.0.0.1 or localhost) turned away, and the exact JSON
@@ -1149,6 +1257,19 @@ Calendar.app and an Elgato Stream Deck:
   you're back).
 - The settings window's sidebar and its sections, World clocks with its
   preview, and the Call apps page, through the preview builds.
+
+**Checked on a real Mac (25 Nov 2026, 2.10 preview):** CAMERA ON and
+CAMERA OFF and the tally on a real Zoom meeting and a real Teams call,
+turning video on and off with each app's own button. In a Teams test call
+with Settings ▸ Devices open, the first preview never said CAMERA OFF: the
+camera preview there kept the camera running. From build 120 Teams is read
+from its own camera button, and the same test call says CAMERA OFF. The
+Camera key on a real Stream Deck in Teams: grey OFF with no call, green ON
+and red OFF in a call. And the bold announcements. **Not yet:** the Camera
+key in FaceTime, WhatsApp and Meet (their camera buttons' names are
+expected, not seen — **Inspect meeting controls** during a call lists what
+the key would press), the stacked layout's dot and the screen saver on a
+real call, and the tally on the floating window.
 
 **Checked on a real Mac (21 Nov 2026, 2.9.1):** the Leave key on a real
 Stream Deck putting the sign straight back. In a Teams call in the
@@ -1192,7 +1313,7 @@ Network code — `DisplayWindow`, `FloatingWindow`, `ControlsWindow`,
 `CameraProbe`, `CalendarSource`, `StatusModel`, `LocalServer`, `Updater`,
 and the Accessibility side of `MuteDetector` and `Sources/Meeting/`
 (`AXMeetingBackend`, `MeetingKeys`) — has no automated checks of its own;
-the meeting logic beneath it does (`Checks/meeting`, `Checks/callkeys`). If something
+the meeting logic beneath it does (`Checks/meeting`, `Checks/callkeys`, `Checks/camerakey`). If something
 misbehaves on another Mac, these are the likeliest places:
 
 1. `AudioProbe.swift` — the Core Audio process properties: does the menu's

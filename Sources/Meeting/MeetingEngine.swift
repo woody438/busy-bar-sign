@@ -8,7 +8,10 @@ import Foundation
  * tests Checks/meeting carries across.
  *
  *   Teams  its meeting window's toolbar: the HTML ids microphone-button and
- *          hangup-button, read as Chromium exposes them (AXDOMIdentifier)
+ *          hangup-button, read as Chromium exposes them (AXDOMIdentifier),
+ *          and its camera button (video-button, or one named "Turn camera
+ *          on/off"): with video off in Teams the camera signal stayed on
+ *          (2.10 preview), so the sign believes the button over the camera
  *   Zoom   its menu bar: Meeting ▸ Mute audio / Unmute audio / Join audio,
  *          there only in a meeting
  *
@@ -39,6 +42,10 @@ struct MeetingAppState: Equatable {
     var canLeave = false
     var window = ""
     var muteLabel = ""
+    /// Teams: what its own camera button says — on, off — or nil if it can't be read.
+    /// (Zoom's isn't read: the camera itself is, and that's right in Zoom.)
+    var camera: Bool?
+    var cameraLabel = ""
 }
 
 /// Both apps, and which one the keys act on.
@@ -79,6 +86,9 @@ enum MeetingControl: String { case mute, leave, end }
 final class MeetingEngine {
     static let micID = "microphone-button"
     static let hangupID = "hangup-button"
+    static let videoID = "video-button"
+    /// How often to look again for Teams' camera button while it isn't found, in a meeting.
+    static let cameraLookEvery = 15.0
 
     // seconds
     static let pollInMeeting = 0.5
@@ -147,6 +157,10 @@ final class MeetingEngine {
 
         var mute: AnyObject?        // Teams: the toolbar buttons; Zoom: the Meeting-menu item
         var leave: AnyObject?
+        var video: AnyObject?       // Teams: its camera button
+        var camera: Bool?
+        var cameraLabel = ""
+        var nextCameraLook = Date.distantPast
         var inMeeting = false
         var startedAt = Date.distantPast
         var muted: Bool?
@@ -225,6 +239,10 @@ final class MeetingEngine {
         } else if t.app == .teams && t.mute != nil && t.leave == nil && now >= t.nextDiscovery {
             // Teams can redraw its hang-up button mid-call while the mute button reads on
             t.nextDiscovery = now.addingTimeInterval(findLeave(t) ? Self.discoverEvery : Self.slowWalkEvery)
+        } else if t.app == .teams && t.mute != nil && t.video == nil && now >= t.nextCameraLook {
+            // ...and its camera button: looked for now and then, as it may not have one
+            t.nextCameraLook = now.addingTimeInterval(Self.cameraLookEvery)
+            findCamera(t)
         }
         if now < t.confirmUntil { confirmZoomLeave(t, now) }
 
@@ -337,6 +355,9 @@ final class MeetingEngine {
     private func dropControls(_ t: Tracker) {
         t.mute = nil
         t.leave = nil
+        t.video = nil
+        t.camera = nil
+        t.cameraLabel = ""
     }
 
     /// Re-reads an app's controls, found already.
@@ -379,6 +400,44 @@ final class MeetingEngine {
                 t.canLeave = false
             }
         }
+        if let video = t.video {
+            do {
+                let v = try backend.read(video)
+                if v.role.isEmpty { dropCamera(t) } else { applyCamera(t, v) }
+            } catch MeetingAXError.busy {
+            } catch {
+                dropCamera(t)
+            }
+        }
+    }
+
+    /// What Teams' camera button says: the camera on or off, by its name (or a toggle's state).
+    private func applyCamera(_ t: Tracker, _ a: MeetingAttrs) {
+        t.cameraLabel = a.label
+        t.camera = CameraLabels.camera(a)
+    }
+
+    /// The camera button's gone (redrawn): looked for again straight away, then now and then.
+    private func dropCamera(_ t: Tracker) {
+        t.video = nil
+        t.camera = nil
+        t.cameraLabel = ""
+        t.nextCameraLook = .distantPast
+    }
+
+    /// Looks for Teams' camera button in the meeting window, the mute button found already.
+    private func findCamera(_ t: Tracker) {
+        guard let w = windows(t).first(where: { $0.title == t.window }) else { return }
+        var cam: MeetingNode?
+        _ = MeetingNode.walk(backend, w.element, maxNodes: Self.meetingWalkCap) { n in
+            if n.attrs.id == Self.videoID { cam = n; return true }
+            if cam == nil && CameraLabels.isCameraButton(n.attrs) { cam = n }
+            return false
+        }
+        guard let cam else { return }
+        t.video = cam.element
+        applyCamera(t, cam.attrs)
+        log("found Teams' camera button: “\(t.cameraLabel)”")
     }
 
     private func applyMute(_ t: Tracker, _ a: MeetingAttrs) {
@@ -451,12 +510,15 @@ final class MeetingEngine {
 
         for w in candidates.prefix(4) {
             if let next = t.slowWalk[w.title], now < next { continue }
-            var mic: MeetingNode?, hang: MeetingNode?
+            var mic: MeetingNode?, hang: MeetingNode?, cam: MeetingNode?
             var web = false
             let (tree, read, _) = MeetingNode.walk(backend, w.element, maxNodes: Self.meetingWalkCap) { n in
                 if n.attrs.role == "AXWebArea" { web = true }
                 if n.attrs.id == Self.micID { mic = n }
                 if n.attrs.id == Self.hangupID { hang = n }
+                // its camera button: by id, else by name (it comes before the mic in the toolbar)
+                if n.attrs.id == Self.videoID { cam = n }
+                else if cam == nil && CameraLabels.isCameraButton(n.attrs) { cam = n }
                 return mic != nil && hang != nil
             }
             if let mic {
@@ -466,6 +528,10 @@ final class MeetingEngine {
                 if let hang {
                     t.leave = hang.element
                     t.canLeave = hang.attrs.isEnabled
+                }
+                if let cam {
+                    t.video = cam.element
+                    applyCamera(t, cam.attrs)
                 }
                 meetingStarted(t, now, window: w.title)
                 applyMute(t, mic.attrs)
@@ -706,7 +772,8 @@ final class MeetingEngine {
         var s = MeetingSnapshot(trusted: trusted, reading: reading)
         for t in trackers {
             s.apps[t.app] = MeetingAppState(running: t.pid != 0, inMeeting: t.inMeeting, muted: t.muted,
-                                            canLeave: t.canLeave, window: t.window, muteLabel: t.label)
+                                            canLeave: t.canLeave, window: t.window, muteLabel: t.label,
+                                            camera: t.camera, cameraLabel: t.cameraLabel)
         }
         s.active = active?.app
         return s
@@ -887,6 +954,10 @@ final class MeetingEngine {
             for w in wins { out += "  [\(w.kind.rawValue)] “\(w.title)”\n" }
             let muted = t.muted.map { $0 ? "yes" : "no" } ?? "unknown"
             out += "in meeting: \(t.inMeeting)  muted: \(muted)  label: “\(t.label)”  can leave: \(t.canLeave)\n"
+            if t.app == .teams {
+                let camera = t.camera.map { $0 ? "on" : "off" } ?? (t.video == nil ? "no button found" : "unknown")
+                out += "camera: \(camera)  label: “\(t.cameraLabel)”\n"
+            }
             if t.app == .zoom {
                 out += zoomMenuReport(t)
             } else {

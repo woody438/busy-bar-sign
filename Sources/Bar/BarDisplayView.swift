@@ -1,3 +1,5 @@
+import AppKit
+import QuartzCore
 import SwiftUI
 
 /*
@@ -49,7 +51,14 @@ struct BarDisplayView: View {
                     Color.clear
                 }
                 // the stacked layout is just the LEDs: small screens have their own bezel
-                if layout == .wide { DeviceBody(g: g, castsShadow: style == .wall) }
+                if layout == .wide {
+                    DeviceBody(g: g, castsShadow: style == .wall)
+                    // a camera on during the call: the tally, in the sensor notch
+                    let tally: TallyLight.Mode = !bar.camera.on ? .off : bar.state == .callMuted ? .steady : .breathing
+                    TallyLight(mode: tally, u: g.u)
+                        .frame(width: g.rect(1838, 10, 164, 15).width, height: g.rect(1838, 10, 164, 15).height)
+                        .offset(x: g.rect(1838, 10, 164, 15).minX, y: g.rect(1838, 10, 164, 15).minY)
+                }
                 // the wall's LEDs move inside the case on rounded corners, and rest when nothing's going on
                 LEDPanelView(model: bar, pitchPixels: g.pitchPixels, layout: layout, rests: style == .wall, paused: dark,
                              cornerRadius: style == .wall && layout == .wide ? BarGeometry.fieldCorner * g.u : 0,
@@ -66,6 +75,10 @@ struct BarDisplayView: View {
         .onAppear { show(status.state, status.moment) }
         .onChange(of: status.state) { _, state in show(state, status.moment) }
         .onChange(of: status.moment) { _, moment in bar.moment = moment }
+        .onChange(of: status.camera) { _, on in bar.update(status.state, cameraOn: on) }
+        .onChange(of: status.cameraCue) { _, event in
+            if let event { bar.cue(event.cue, cameraOn: status.camera) }
+        }
         .onReceive(orbitTimer) { date in
             if style == .wall { clock = date.timeIntervalSince1970 }
         }
@@ -75,7 +88,101 @@ struct BarDisplayView: View {
 extension BarDisplayView {
     private func show(_ state: BarState, _ moment: BarMoment?) {
         bar.moment = moment
-        bar.update(state)
+        bar.update(state, cameraOn: status.camera)
+    }
+}
+
+/*
+ * The camera's tally light, in the case's sensor notch at top centre: green,
+ * as the light beside a Mac's camera, while a camera's on during the call.
+ * It fades in and out over 0.9 s, and breathes — full to a third and back,
+ * one breath every 4 s, never blinking — or holds steady while you're muted,
+ * when the slashed mic flashes. Core Animation runs it in the window server,
+ * so it never wakes the LED panel. (The stacked layout has no case: there
+ * the tally is a dot in the LEDs, BarEngine.drawStackedTally.)
+ */
+struct TallyLight: NSViewRepresentable {
+    enum Mode: Equatable { case off, breathing, steady }
+    let mode: Mode
+    /// Points per 4K pixel (BarGeometry.u).
+    let u: CGFloat
+
+    func makeNSView(context: Context) -> TallyLightView { TallyLightView() }
+    func updateNSView(_ view: TallyLightView, context: Context) { view.show(mode, u: u) }
+}
+
+final class TallyLightView: NSView {
+    /// Fades in and out; the lamp inside it breathes.
+    private let glow = CALayer()
+    private let lamp = CALayer()
+    private var mode: TallyLight.Mode = .off
+    private static let green = NSColor(srgbRed: 0.224, green: 0.894, blue: 0.435, alpha: 1).cgColor
+    static let breath: CFTimeInterval = 4, fade: CFTimeInterval = 0.9, low: Float = 0.3
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        glow.opacity = 0
+        glow.masksToBounds = false
+        lamp.backgroundColor = Self.green
+        lamp.shadowColor = Self.green
+        lamp.shadowOpacity = 1
+        lamp.shadowOffset = .zero
+        // its bottom corners rounded, as the notch's (a layer's y runs up)
+        lamp.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        glow.addSublayer(lamp)
+        layer?.addSublayer(glow)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }       // double-clicks reach the bar
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        glow.frame = bounds
+        lamp.frame = glow.bounds
+        CATransaction.commit()
+    }
+
+    func show(_ next: TallyLight.Mode, u: CGFloat) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        lamp.cornerRadius = 8 * u
+        lamp.shadowRadius = 22 * u
+        CATransaction.commit()
+        guard next != mode else { return }
+        let was = mode
+        mode = next
+
+        // in or out
+        if (was == .off) != (next == .off) {
+            let to: Float = next == .off ? 0 : 1
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = glow.presentation()?.opacity ?? glow.opacity
+            fade.toValue = to
+            fade.duration = Self.fade
+            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            glow.opacity = to
+            glow.add(fade, forKey: "fade")
+        }
+        // breathing, or steady
+        if next == .breathing {
+            let breathe = CABasicAnimation(keyPath: "opacity")
+            breathe.fromValue = 1
+            breathe.toValue = Self.low
+            breathe.duration = Self.breath / 2
+            breathe.autoreverses = true
+            breathe.repeatCount = .infinity
+            breathe.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            lamp.add(breathe, forKey: "breathe")
+        } else if next == .steady {
+            lamp.removeAnimation(forKey: "breathe")
+        }
+        // off: the lamp keeps breathing as the light fades out
     }
 }
 

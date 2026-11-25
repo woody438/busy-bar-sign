@@ -18,28 +18,51 @@ final class BarModel: ObservableObject {
     var moment: BarMoment? {
         didSet { if moment != oldValue { objectWillChange.send() } }
     }
+    /// A camera on during the call (the tally: the light in the case, or
+    /// stacked, a dot), and the cue the change at `since` announces: CAMERA
+    /// ON as a call starts with it on, or as it comes on or goes off mid-call.
+    @Published private(set) var camera = BarCamera.off
     private var hasReading = false
 
     /// The first reading sets the state without a transition, so the app
     /// opens with its announcement rather than a flash from the wrong colour.
-    func update(_ next: BarState) {
+    /// `cameraOn`: a camera's on during the call (StatusModel.camera).
+    func update(_ next: BarState, cameraOn: Bool = false) {
         guard hasReading else {
             hasReading = true
             state = next
+            camera = BarCamera(on: cameraOn)
             return
         }
-        guard next != state else { return }
+        guard next != state else {
+            if camera.on != cameraOn { camera.on = cameraOn }
+            return
+        }
         // muting and unmuting mid-call change the bar quietly, with no announcement
         let onCall: Set<BarState> = [.call, .callMuted]
         if onCall.contains(state) && onCall.contains(next) {
             state = next
+            if camera.on != cameraOn { camera.on = cameraOn }
             return
         }
         let now = CACurrentMediaTime()
         prev = state
         prevFor = now - since
+        // a call that starts with the camera on says so: CAMERA ON, in place of ON A CALL
+        camera = BarCamera(on: cameraOn, cue: cameraOn && onCall.contains(next) ? .cameraOn : nil)
         state = next
         since = now
+    }
+
+    /// The camera came on, or went off, mid-call: announced as a change of
+    /// state is, in its own words — CAMERA ON or CAMERA OFF — with the wave.
+    func cue(_ cue: BarCue, cameraOn: Bool) {
+        guard hasReading, state == .call || state == .callMuted else { return }
+        let now = CACurrentMediaTime()
+        prev = state
+        prevFor = now - since
+        since = now
+        camera = BarCamera(on: cameraOn, cue: cue)
     }
 
     /// Plays the change from `from` to `next` again, from its start: the settings' previews.
@@ -47,6 +70,7 @@ final class BarModel: ObservableObject {
         hasReading = true
         prev = from
         prevFor = 0
+        camera.cue = nil
         state = next
         since = CACurrentMediaTime()
     }
@@ -327,16 +351,17 @@ final class LEDPanelNSView: NSView {
         switch (barLayout, plan) {
         case (.wide, let p?):
             BarEngine.renderWorld(into: &frameBuffer, now: now, state: model.state, prev: model.prev, since: model.since,
-                                  clock: clock, timer: timer, world: p, prevFor: model.prevFor)
+                                  clock: clock, timer: timer, world: p, prevFor: model.prevFor, camera: model.camera)
         case (.stacked, let p?):
             BarEngine.renderStackedWorld(into: &frameBuffer, now: now, state: model.state, prev: model.prev, since: model.since,
-                                         clock: clock, timer: timer, world: p, prevFor: model.prevFor)
+                                         clock: clock, timer: timer, world: p, prevFor: model.prevFor, camera: model.camera)
         case (.wide, nil):
             BarEngine.render(into: &frameBuffer, now: now, state: model.state,
-                             prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests)
+                             prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests, camera: model.camera)
         case (.stacked, nil):
             BarEngine.renderStacked(into: &frameBuffer, now: now, state: model.state,
-                                    prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests)
+                                    prev: model.prev, since: model.since, clock: clock, timer: timer, rests: rests,
+                                    camera: model.camera)
         }
         let rest = rests ? BarEngine.restAt(now, model.state, since: model.since) : 1
 
@@ -348,7 +373,7 @@ final class LEDPanelNSView: NSView {
             guard present(raster, keys: keys, dim: rest) else { return nil }    // no buffer free: next frame
         }
         return PanelSchedule.delay(now: now, date: date, state: model.state, since: model.since, layout: barLayout,
-                                   rests: rests, moment: model.moment, world: plan != nil)
+                                   rests: rests, moment: model.moment, world: plan != nil, camera: model.camera.on)
     }
 
     /// Draws the frame into a buffer the window server isn't showing — only

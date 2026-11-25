@@ -4,7 +4,7 @@
  *
  *   node tools/sheet.js out.png
  *   node tools/sheet.js ../docs/stream-deck-keys.png --readme    # six in a row, for the README
- *   node tools/sheet.js ../docs/stream-deck-meeting-keys.png --meeting   # the Mute and Leave keys, for the README
+ *   node tools/sheet.js ../docs/stream-deck-meeting-keys.png --meeting   # the Mute, Leave and Camera keys, for the README
  *   node tools/sheet.js ../docs/stream-deck-away-keys.png --away         # the away keys, for the README
  */
 import fs from 'node:fs';
@@ -45,7 +45,8 @@ if (process.argv.includes('--away')) {
     { state: 'backIn', moment: { at: at + 29 * min + 41000, kind: 'countdown' } });
 } else if (process.argv.includes('--meeting')) {
   // HOLD only shows with the Leave key set to "hold", so it's not in the README's row
-  keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'idle']]
+  keys.splice(0, keys.length, ...[['mute', 'live'], ['mute', 'muted'], ['mute', 'idle'], ['leave', 'active'], ['leave', 'idle'],
+    ['camera', 'live'], ['camera', 'dark'], ['camera', 'idle']]
     .map((m) => ({ meeting: m })));
 } else if (readme) {
   keys.splice(0, keys.length, ...['call', 'free', 'dnd', 'callIn', 'late', 'lunch'].map((s) => keys.find((k) => k && k.state === s)));

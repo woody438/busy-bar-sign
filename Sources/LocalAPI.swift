@@ -21,6 +21,10 @@ import Foundation
  *                         the press went: "pressed":{"ok":true,"message":"…"}.
  *                         Left, the status has already moved on: FREE, or
  *                         what's next (StatusModel.leftCall)
+ *   POST /meeting/camera  turns the camera on or off in the Teams or Zoom
+ *                         meeting — or, with neither, in the call app on the
+ *                         mic (FaceTime, WhatsApp, Google Meet in a browser);
+ *                         answers as the meeting keys do
  *   POST /event/end       the calendar event on the sign is over early (End
  *                         Now): answers as the meeting keys do
  *   POST /away/nearby  the away keys: Nearby or Lunch on, or off if on;
@@ -51,6 +55,12 @@ import Foundation
  * `dark` appears, true, only while the wall's dark out of hours (nothing
  * going on, outside Settings ▸ Screen care ▸ Working hours): the screen saver
  * goes black too. `state` is still what the sign would say.
+ * `camera` appears, true, only while a camera's on during the call: the
+ * sign's tally. `cameraCue` is the last camera change mid-call the sign
+ * announced, {"cue":"cameraOn","n":3} — cameraOn or cameraOff, `n` counting
+ * them — for the screen saver to announce it too. `video` appears while
+ * there's a call the Camera key can act on (a Teams or Zoom meeting, or a
+ * call app on the mic): {"on":true}, whether any camera on the Mac is on.
  *
  * The screen saver adds a header to its GET /status saying where it is:
  *   X-Busy-Bar-Saver: display=4; drawing=1; name=LG HDR 4K
@@ -99,7 +109,7 @@ enum LocalAPI {
     }
 
     enum Route: Equatable {
-        case status, toggleDND, meetingMute, meetingLeave, meetingEnd, eventEnd
+        case status, toggleDND, meetingMute, meetingLeave, meetingEnd, meetingCamera, eventEnd
         case away(String)                       // an away key: nearby, lunch, backIn
         case awayEnd
         case reject(Int)
@@ -117,11 +127,13 @@ enum LocalAPI {
         case ("POST", "/meeting/leave"): return .meetingLeave
         case ("POST", "/event/end"): return .eventEnd
         case ("POST", "/meeting/end"): return .meetingEnd
+        case ("POST", "/meeting/camera"): return .meetingCamera
         case ("POST", "/away/nearby"): return .away("nearby")
         case ("POST", "/away/lunch"): return .away("lunch")
         case ("POST", "/away/back-in"): return .away("backIn")
         case ("POST", "/away/end"): return .awayEnd
-        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"), (_, "/event/end"),
+        case (_, "/status"), (_, "/dnd/toggle"), (_, "/meeting/mute"), (_, "/meeting/leave"), (_, "/meeting/end"),
+             (_, "/meeting/camera"), (_, "/event/end"),
              (_, "/away/nearby"), (_, "/away/lunch"), (_, "/away/back-in"), (_, "/away/end"):
             return .reject(405)
         default: return .reject(404)
@@ -191,6 +203,15 @@ enum LocalAPI {
             var display: UInt32                 // its monitor's CGDirectDisplayID
             var layout: String                  // wide, stacked
         }
+        /// The last camera change mid-call the sign announced.
+        struct CameraCue: Encodable, Equatable {
+            var cue: String                     // cameraOn, cameraOff
+            var n: Int                          // counts them: a new one is a new number
+        }
+        /// A call the Camera key can act on.
+        struct Video: Encodable, Equatable {
+            var on: Bool                        // whether any camera on the Mac is on
+        }
         var state: String
         var moment: Moment?
         var dnd: Bool
@@ -206,6 +227,10 @@ enum LocalAPI {
         var dark: Bool? = nil
         /// Only there, and true, while the calendar event on the sign can be ended early.
         var canEnd: Bool? = nil
+        /// Only there, and true, while a camera's on during the call: the tally.
+        var camera: Bool? = nil
+        var cameraCue: CameraCue? = nil
+        var video: Video? = nil
     }
 
     static func encode(_ status: Status) -> Data {

@@ -222,6 +222,42 @@ do { // live mute state, a press, and a disabled hang-up
     expect(!h.teams.canLeave, "a disabled hang-up can't leave")
 }
 
+do { // Teams' own camera button: read as its mute is, followed as it changes, found again once redrawn
+    let h = Harness()
+    let (win, _, _) = h.meeting("Mute mic")
+    func find(_ e: FakeEl, _ id: String) -> FakeEl? {
+        if e.attrs.id == id { return e }
+        for c in e.children { if let x = find(c, id) { return x } }
+        return nil
+    }
+    h.run(2)
+    expect(h.teams.camera == false && h.teams.cameraLabel == "Turn camera on", "video off, by its button: \(h.teams)")
+    let video = find(win, "video-button")!
+    video.attrs.desc = "Turn camera off"
+    h.run(1)
+    expect(h.teams.camera == true, "video on: \(h.teams)")
+    // redrawn: the old button gone, a new one in its place, found at once
+    video.gone = true
+    video.parent!.add([h.f.button("video-button", "Turn camera on")])
+    h.run(1)
+    expect(h.teams.camera == false && h.teams.inMeeting, "redrawn: the new camera button read at once: \(h.teams)")
+
+    // a toolbar with no camera button yet: unknown (the sign uses the camera itself), and looked for now and then
+    let g = Harness()
+    let (gwin, _, _) = g.meeting("Mute mic")
+    let first = find(gwin, "video-button")!
+    first.gone = true
+    g.run(3)
+    expect(g.teams.camera == nil && g.teams.inMeeting, "no camera button: unknown: \(g.teams)")
+    first.parent!.add([g.f.button("", "Turn camera off")])
+    g.run(MeetingEngine.cameraLookEvery + 1)
+    expect(g.teams.camera == true && g.teams.cameraLabel == "Turn camera off", "found later by its name: \(g.teams)")
+    // never its options
+    expect(!CameraLabels.isCameraButton(g.f.button("", "Camera options").attrs)
+           && CameraLabels.isCameraButton(g.f.button("", "Turn camera off").attrs),
+           "Camera options isn't the camera's button; Turn camera off is")
+}
+
 do { // Teams redraws its hang-up button mid-call, the mic button reading on: found again
     let h = Harness()
     let (_, _, hang) = h.meeting("Mute mic")

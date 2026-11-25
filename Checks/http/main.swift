@@ -46,6 +46,8 @@ expect(route("GET", "/dnd/toggle", here) == .reject(405), "GET can't toggle")
 expect(route("POST", "/meeting/mute", here) == .meetingMute, "POST /meeting/mute")
 expect(route("POST", "/meeting/leave", here) == .meetingLeave, "POST /meeting/leave")
 expect(route("GET", "/meeting/leave", here) == .reject(405), "GET can't leave")
+expect(route("POST", "/meeting/camera", here) == .meetingCamera, "POST /meeting/camera")
+expect(route("GET", "/meeting/camera", here) == .reject(405), "GET can't turn the camera on or off")
 expect(route("POST", "/meeting/end", here) == .meetingEnd, "POST /meeting/end")
 expect(route("POST", "/event/end", here) == .eventEnd, "POST /event/end")
 expect(route("GET", "/event/end", here) == .reject(405), "GET can't end an event")
@@ -120,6 +122,11 @@ expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "nearby", moment:
        == #"{"dark":true,"dnd":false,"state":"nearby"}"#, "the wall dark out of hours")
 expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "meeting", moment: nil, dnd: false, canEnd: true)), as: UTF8.self)
        == #"{"canEnd":true,"dnd":false,"state":"meeting"}"#, "a calendar event that can be ended early")
+expect(String(decoding: LocalAPI.encode(LocalAPI.Status(state: "call", moment: nil, dnd: false, camera: true,
+                                                        cameraCue: LocalAPI.Status.CameraCue(cue: "cameraOn", n: 3),
+                                                        video: LocalAPI.Status.Video(on: true))), as: UTF8.self)
+       == #"{"camera":true,"cameraCue":{"cue":"cameraOn","n":3},"dnd":false,"state":"call","video":{"on":true}}"#,
+       "a camera on during the call: the tally, its last cue, and the Camera key's reading")
 let ok = String(decoding: LocalAPI.response(200, body: bytes("{}")), as: UTF8.self)
 expect(ok == "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{}",
        "a 200 with a body")

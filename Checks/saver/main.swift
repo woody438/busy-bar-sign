@@ -24,6 +24,11 @@ expect(SaverStatus.read(answer(LocalAPI.Status(state: "free", moment: nil, dnd: 
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false, muted: true)))?.state == "callMuted",
        "muted on a call reads as the bar draws it")
 expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false)))?.state == "call", "on a call")
+expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false, camera: true,
+                                               cameraCue: .init(cue: "cameraOn", n: 4), video: .init(on: true))))
+       == SaverStatus(state: "call", camera: true, cameraCue: .init(cue: "cameraOn", n: 4)),
+       "a camera on during the call: the tally, and its last cue")
+expect(SaverStatus.read(answer(LocalAPI.Status(state: "call", moment: nil, dnd: false)))?.camera == false, "no camera: no tally")
 let railed = LocalAPI.Status(state: "call", moment: LocalAPI.Status.Moment(at: 1_760_000_000_000, kind: "countdown",
                              slot: .init(start: 1_759_996_400_000, end: 1_760_000_000_000)), dnd: false)
 expect(SaverStatus.read(answer(railed))?.moment

@@ -77,8 +77,8 @@ function keyPictures(dir, frame) {
 
 keyPictures('status', drawLabel(['BUSY', 'BAR'], 'away'));
 
-// the Mute and Leave keys: their icons in the list, and their faces outside a meeting
-for (const [dir, rows] of [['mute', KEY_ICONS.mic], ['leave', KEY_ICONS.handset]]) {
+// the Mute, Leave and Camera keys: their icons in the list, and their faces outside a meeting
+for (const [dir, rows] of [['mute', KEY_ICONS.mic], ['leave', KEY_ICONS.handset], ['camera', KEY_ICONS.camera]]) {
   write(path.join(imgs, 'actions', dir, 'icon.png'), icon(20, rowsGlyph(rows)));
   write(path.join(imgs, 'actions', dir, 'icon@2x.png'), icon(40, rowsGlyph(rows)));
   keyPictures(dir, drawMeetingKey(dir, 'idle'));
