@@ -168,6 +168,7 @@ check(() => assert.equal(cameraFace({ state: 'call', moment: null, dnd: false, m
 check(() => assert.equal(cameraFace({ state: 'call', moment: null, dnd: false, meeting: null, video: { on: false } }), 'dark'));
 check(() => assert.ok(MEETING_FACES.includes('camera:live') && MEETING_FACES.includes('camera:dark') && MEETING_FACES.includes('camera:idle')));
 check(() => assert.notEqual(meetingKeyImage('camera', 'live'), meetingKeyImage('camera', 'dark')));
+check(() => assert.notEqual(meetingKeyImage('camera', 'idle'), meetingKeyImage('camera', 'dark')));   // grey OFF isn't red OFF
 for (const face of [...MEETING_FACES.map((f) => f.split(':')), ['leave', 'active', true], ['mute', 'off']]) {
   const frame = drawMeetingKey(...face);
   let lit = 0;

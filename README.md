@@ -474,7 +474,7 @@ node and Pillow).
 
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute, Leave and Camera keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting; the camera ON in green, OFF in red with a slash, and CAMERA in grey with no call](docs/stream-deck-meeting-keys.png)
+![Mute, Leave and Camera keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting; the camera ON in green, OFF in red with a slash, and OFF in grey with no call](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in.
 The app does the pressing, so the keys, the sign and the settings always
@@ -576,7 +576,8 @@ own camera button, as Mute presses its mute:
 
 - **It shows** green **ON** while you're on camera, red **OFF** (a slashed
   camera) while you aren't, in a Teams or Zoom meeting or a call on the mic;
-  with no call, dimmed, **CAMERA** in grey. In a Teams meeting, ON and OFF
+  with no call, dimmed, **OFF** in grey — the picture says it's the camera, as
+  the Mute key's mic does. In a Teams meeting, ON and OFF
   come from Teams' own camera button, as the sign's do; elsewhere from the
   camera itself — the signal that lights the green light by the lens — so
   they're right whichever app has it.

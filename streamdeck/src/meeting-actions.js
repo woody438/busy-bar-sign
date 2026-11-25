@@ -17,8 +17,8 @@
  *   Camera green ON while you're on camera, red OFF while you aren't,
  *          in a Teams or Zoom meeting or a call on the mic (FaceTime,
  *          WhatsApp, Google Meet in a browser); a press turns it off or on
- *          with the call app's own camera button. Dark with no call, CAMERA
- *          in grey
+ *          with the call app's own camera button. Dark with no call, OFF in
+ *          grey
  *
  * A press while the last one is still going is ignored, so mute can't
  * toggle twice. One the app couldn't do shows the warning triangle.
