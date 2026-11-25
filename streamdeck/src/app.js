@@ -12,6 +12,8 @@
  *                 leaves); each resolves to { view, pressed: { ok, message } }
  *   pressEndEvent()  the calendar event on the sign is over early (the Leave
  *                 key's END, while "canEnd" is true); resolves as the others
+ *   pressCamera() turns the camera on or off in the Teams or Zoom meeting, or
+ *                 the call app on the mic; resolves as the others
  *   pressAway(k)  an away key: 'nearby' or 'lunch' on or off, 'backIn'
  *                 ten minutes more; resolves to the new status
  *   endAway()     back at your desk
@@ -35,8 +37,11 @@ export function viewOf(status) {
   const nearbyWord = typeof status.nearbyWord === 'string' ? status.nearbyWord : null;
   // a calendar event on the sign that can be ended early, with no meeting to leave: the Leave key says END
   const canEnd = status.canEnd === true;
+  // a call the Camera key can act on, and whether a camera on the Mac is on
+  const v = status.video;
+  const video = v && typeof v.on === 'boolean' ? { on: v.on } : null;
   return { state: state, moment: status.moment || null, dnd: !!status.dnd, meeting: meeting, away: away, nearbyWord: nearbyWord,
-    canEnd: canEnd };
+    canEnd: canEnd, video: video };
 }
 
 function ask(method, path, timeout) {
@@ -70,6 +75,7 @@ export const toggleDND = () => ask('POST', '/dnd/toggle', 800).then((a) => a.vie
 export const pressMute = () => ask('POST', '/meeting/mute', 12000);
 export const pressLeave = () => ask('POST', '/meeting/leave', 12000);
 export const pressEnd = () => ask('POST', '/meeting/end', 12000);
+export const pressCamera = () => ask('POST', '/meeting/camera', 15000);
 export const pressEndEvent = () => ask('POST', '/event/end', 2000);
 const AWAY_PATHS = { nearby: '/away/nearby', lunch: '/away/lunch', backIn: '/away/back-in' };
 export const pressAway = (kind) => ask('POST', AWAY_PATHS[kind], 800).then((a) => a.view);

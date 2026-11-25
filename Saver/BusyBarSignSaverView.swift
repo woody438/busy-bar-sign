@@ -29,6 +29,8 @@ final class BusyBarSignSaverView: ScreenSaverView {
     private var heardAt: Date?
     private var wall: SaverStatus.Wall?
     private var nearbyWord: String?
+    /// The number of the last camera change the app announced (LocalAPI's cameraCue).
+    private var lastCue: Int?
     /// Where the LEDs are in their orbit (BarGeometry.orbit), as on the wall.
     private var orbit = BarGeometry.Offset()
     private var framesReported = 0
@@ -165,7 +167,12 @@ final class BusyBarSignSaverView: ScreenSaverView {
                                                              end: Date(timeIntervalSince1970: s.end / 1000)) : nil
                           })
             }
-            show(state, dark: status.dark)
+            show(state, dark: status.dark, camera: status.camera)
+            // a camera change mid-call the app announced since: announced here too (not the one it had already)
+            if let c = status.cameraCue, c.n != lastCue {
+                if lastCue != nil, let cue = BarCue(rawValue: c.cue) { bar.cue(cue, cameraOn: status.camera) }
+                lastCue = c.n
+            }
         } else if now.timeIntervalSince(heardAt ?? startedAt) > (heardAt == nil ? 2 : 30) {
             // the app isn't answering (or is reopening after an update, which takes a second or two)
             bar.moment = nil
@@ -174,8 +181,9 @@ final class BusyBarSignSaverView: ScreenSaverView {
     }
 
     /// `dark`: out of hours with nothing going on, black, as the wall is.
-    private func show(_ state: BarState, dark: Bool = false) {
-        bar.update(state)
+    /// `camera`: a camera's on during the call (stacked, the tally's dot).
+    private func show(_ state: BarState, dark: Bool = false, camera: Bool = false) {
+        bar.update(state, cameraOn: camera)
         panel.paused = dark
         if dark {
             panel.isHidden = true

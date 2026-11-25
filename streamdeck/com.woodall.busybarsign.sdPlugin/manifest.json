@@ -1,8 +1,8 @@
 {
 	"Name": "Busy Bar Sign",
-	"Version": "1.6.0.0",
+	"Version": "1.7.2.0",
 	"Author": "Ian Woodall",
-	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it. Mute and Leave keys for your Teams or Zoom meeting. Nearby, Lunch and Back In keys for when you leave your desk.",
+	"Description": "Shows what Busy Bar Sign says on a key, and starts or ends Do Not Disturb when you press it. Mute, Leave and Camera keys for your Teams or Zoom meeting, or your FaceTime, WhatsApp or Google Meet call. Nearby, Lunch and Back In keys for when you leave your desk.",
 	"URL": "https://github.com/woody438/busy-bar-sign",
 	"UUID": "com.woodall.busybarsign",
 	"Icon": "imgs/plugin/marketplace",
@@ -69,6 +69,22 @@
 			"States": [
 				{
 					"Image": "imgs/actions/leave/key",
+					"ShowTitle": false
+				}
+			]
+		},
+		{
+			"Name": "Camera",
+			"UUID": "com.woodall.busybarsign.camera",
+			"Icon": "imgs/actions/camera/icon",
+			"Tooltip": "Turns your camera on or off in your Teams or Zoom meeting, or your FaceTime, WhatsApp or Google Meet call. Green ON, red OFF.",
+			"Controllers": [
+				"Keypad"
+			],
+			"SupportedInMultiActions": true,
+			"States": [
+				{
+					"Image": "imgs/actions/camera/key",
 					"ShowTitle": false
 				}
 			]

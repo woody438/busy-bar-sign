@@ -222,6 +222,19 @@ struct BarSlot {
     let total: Double
 }
 
+/// A change on a call that isn't a change of state — the camera coming on or
+/// going off — announced as one, in its own words (BarEngine.cueHero).
+enum BarCue: String { case cameraOn, cameraOff }
+
+/// A camera in the call: whether one's on (the stacked layout's dot; the wide
+/// bar's tally light is on the case, not the LEDs), and the cue the change at
+/// `since` announces.
+struct BarCamera: Equatable {
+    var on = false
+    var cue: BarCue? = nil
+    static let off = BarCamera()
+}
+
 /// What goes right of the pill: a top line in the clock's face and a bottom
 /// line at half brightness. `blink`: whether the colon dims on odd seconds.
 struct RightText {
@@ -260,7 +273,7 @@ enum BarEngine {
         static let statusX = 1.0, statusW = 80.0
         static let clockX = 84, clockW = 33
         static let heroX = 1.0, heroW = Double(LEDFrame.cols - 2)
-        static let heroFont = "busy_regular_14"   // 14-row capitals: the announcement
+        static let heroFont = "busy_bold_10"      // the announcement: the pill's own face, across the bar
         static let statusFont = "busy_bold_10"    // the face of the firmware's BUSY pill
         static let timeFont = "busy_bold_7"       // the firmware's clock app face
         static let dateFont = "busy_regular_5"
@@ -536,38 +549,45 @@ enum BarEngine {
         .freeTil: 1, .callTbc: 0, .busyTbc: 0, .lunch: -1, .away: 0, .ooo: -1, .onSite: -1, .backIn: 0, .nearby: 0
     ]
 
-    /// The announcement. busy_regular_14 is busy_regular_7 doubled, so
-    /// everything about it is at twice the scale: a two-step shadow, and word
-    /// spaces trimmed to match. DO NOT DISTURB is too wide for it, so it's set
-    /// in the status face across the whole bar.
+    /// The announcement: the status face, the pill's own, across the whole
+    /// bar — every state alike (busy_bold_10, one-step shadow).
     struct Hero {
         let word: String, font: String, base: Int, depth: Int, space: Int?
     }
+    static func heroOf(_ word: String) -> Hero { Hero(word: word, font: "busy_bold_10", base: 12, depth: 1, space: nil) }
     static func hero(_ state: BarState) -> Hero {
         switch state {
-        case .call, .callMuted: return Hero(word: "ON A CALL", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .free: return Hero(word: "FREE", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .dnd: return Hero(word: "DO NOT DISTURB", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .meeting: return Hero(word: "MEETING", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .callIn: return Hero(word: "CALL SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .busyIn: return Hero(word: "BUSY SOON", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .late: return Hero(word: "LATE FOR CALL", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .lateMtg: return Hero(word: "LATE FOR MTG", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .freeTil: return Hero(word: "FREE TILL {t}", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .callTbc: return Hero(word: "CALL TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .busyTbc: return Hero(word: "BUSY TBC", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .away: return Hero(word: "AWAY", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .lunch: return Hero(word: "LUNCH", font: "busy_regular_14", base: 14, depth: 2, space: 6)
-        case .ooo: return Hero(word: "OUT OF OFFICE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        case .onSite: return Hero(word: "OUT ON SITE", font: "busy_bold_10", base: 12, depth: 1, space: nil)
+        case .call, .callMuted: return heroOf("ON A CALL")
+        case .free: return heroOf("FREE")
+        case .dnd: return heroOf("DO NOT DISTURB")
+        case .meeting: return heroOf("MEETING")
+        case .callIn: return heroOf("CALL SOON")
+        case .busyIn: return heroOf("BUSY SOON")
+        case .late: return heroOf("LATE FOR CALL")
+        case .lateMtg: return heroOf("LATE FOR MTG")
+        case .freeTil: return heroOf("FREE TILL {t}")
+        case .callTbc: return heroOf("CALL TBC")
+        case .busyTbc: return heroOf("BUSY TBC")
+        case .away: return heroOf("AWAY")
+        case .lunch: return heroOf("LUNCH")
+        case .ooo: return heroOf("OUT OF OFFICE")
+        case .onSite: return heroOf("OUT ON SITE")
         case .nearby: return nearbyHero
-        case .backIn: return Hero(word: "BACK IN", font: "busy_regular_14", base: 14, depth: 2, space: 6)
+        case .backIn: return heroOf("BACK IN")
         }
+    }
+    /// A cue's announcement. While a call starts with the camera already on, its announcement is CAMERA ON.
+    static func cueHero(_ cue: BarCue) -> Hero { heroOf(cue == .cameraOn ? "CAMERA ON" : "CAMERA OFF") }
+    static func onCall(_ state: BarState) -> Bool { state == .call || state == .callMuted }
+    /// The announcement for a change to `state`, with its cue if it has one (on a call only).
+    static func heroSpec(_ state: BarState, _ cue: BarCue?) -> Hero {
+        if let cue, onCall(state) { return cueHero(cue) }
+        return hero(state)
     }
 
     /// An announcement's words; {t} is the time the state is about (FREE TILL 11:00).
-    static func heroWord(_ state: BarState, _ timer: BarTimer?) -> String {
-        let w = hero(state).word
+    static func heroWord(_ state: BarState, _ timer: BarTimer?, cue: BarCue? = nil) -> String {
+        let w = heroSpec(state, cue).word
         guard w.contains("{t}") else { return w }
         if let timer { return w.replacingOccurrences(of: "{t}", with: String(format: "%02d:%02d", timer.h, timer.m)) }
         return w.replacingOccurrences(of: " TILL {t}", with: "").replacingOccurrences(of: "{t}", with: "")
@@ -595,8 +615,10 @@ enum BarEngine {
      *           `slot` for the time-left rail
      */
     static func render(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                       since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false) {
+                       since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false,
+                       camera: BarCamera = .off) {
         f.clear()
+        let cue = camera.cue
         let pal = BarPalette.of(state)
         let e = now - since
         let collapseStart = Timing.swap + Timing.hold
@@ -609,7 +631,7 @@ enum BarEngine {
                 shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
             }
         } else if e < collapseStart {
-            drawHero(&f, now: now, state: state, pal: pal, timer: timer)
+            drawHero(&f, now: now, state: state, pal: pal, timer: timer, cue: cue)
             // ...and the new one springs back up
             let r = (e - Timing.swap) / Timing.swap
             if r < 1 { shiftDown(&f, jsRound(Timing.press * (1 - easeOut(r)))) }
@@ -627,11 +649,11 @@ enum BarEngine {
             let fadeIn = smooth(0.14, 0.4, k)         // overlapping, so the pill is never empty
             let clip = (lo: Int(Layout.heroX) + 1, hi: Int(edge.rounded(.down)) - 1)
             if fadeOut > 0 {
-                let hw = Double(heroWidth(state, timer))
-                var style = heroStyle(state, pal, alpha: fadeOut)
+                let hw = Double(heroWidth(state, timer, cue: cue))
+                var style = heroStyle(state, pal, alpha: fadeOut, cue: cue)
                 style.clip = clip
-                let h = hero(state)
-                drawText(&f, font: h.font, heroWord(state, timer),
+                let h = heroSpec(state, cue)
+                drawText(&f, font: h.font, heroWord(state, timer, cue: cue),
                          x: Layout.heroX + (max(w, hw + 6) - hw) / 2 + 0.5,
                          baseY: h.base, colour: white, style: style)
             }
@@ -754,14 +776,14 @@ enum BarEngine {
         return (now / sheenCycle).rounded(.down) * sheenCycle >= since + Rest.after
     }
 
-    static func heroStyle(_ state: BarState, _ pal: BarPalette, alpha: Double = 1) -> TextStyle {
-        let h = hero(state)
+    static func heroStyle(_ state: BarState, _ pal: BarPalette, alpha: Double = 1, cue: BarCue? = nil) -> TextStyle {
+        let h = heroSpec(state, cue)
         return TextStyle(shadow: pal.shadow, shadowDepth: h.depth, shadowAlpha: 0.9 * alpha, alpha: alpha, space: h.space)
     }
 
-    static func heroWidth(_ state: BarState, _ timer: BarTimer?) -> Int {
-        let h = hero(state)
-        return textWidth(h.font, heroWord(state, timer), space: h.space)
+    static func heroWidth(_ state: BarState, _ timer: BarTimer?, cue: BarCue? = nil) -> Int {
+        let h = heroSpec(state, cue)
+        return textWidth(h.font, heroWord(state, timer, cue: cue), space: h.space)
     }
 
     /// The muted mic flashes, slowly, so a glance tells the room it can talk:
@@ -786,12 +808,13 @@ enum BarEngine {
         return 0.34 * (0.5 - 0.5 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: 1.6) / 1.6))
     }
 
-    static func drawHero(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, timer: BarTimer?) {
+    static func drawHero(_ f: inout LEDFrame, now: Double, state: BarState, pal: BarPalette, timer: BarTimer?,
+                         cue: BarCue? = nil) {
         drawPill(&f, x0: Layout.heroX, w: Layout.heroW, pal: pal, sheen: sheenAt(now), dim: pulseAt(now, state))
-        let w = Double(heroWidth(state, timer))
-        let h = hero(state)
-        drawText(&f, font: h.font, heroWord(state, timer), x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
-                 baseY: h.base, colour: white, style: heroStyle(state, pal))
+        let w = Double(heroWidth(state, timer, cue: cue))
+        let h = heroSpec(state, cue)
+        drawText(&f, font: h.font, heroWord(state, timer, cue: cue), x: Layout.heroX + (Layout.heroW - w) / 2 + 0.5,
+                 baseY: h.base, colour: white, style: heroStyle(state, pal, cue: cue))
     }
 
     /// `scroll`: the icon and word moved this many LEDs (scrollAt), kept inside the pill.
@@ -1146,13 +1169,12 @@ enum BarEngine {
         static let heroGap = 4         // rows between the announcement's lines
         static let slotRows = [17, 18] // the time-left rail, between the pill and the clock
 
-        /// A line of the announcement: the 14-row face, or the 10-row one
-        /// where a line won't fit the 82-LED pill in it.
+        /// A line of the announcement, in the status face as on the wide bar.
         struct Line {
             let t: String
-            var font = "busy_regular_14"
+            var font = "busy_bold_10"
             var tracking = 0
-            init(_ t: String, font: String = "busy_regular_14", tracking: Int = 0) {
+            init(_ t: String, font: String = "busy_bold_10", tracking: Int = 0) {
                 self.t = t; self.font = font; self.tracking = tracking
             }
         }
@@ -1163,12 +1185,12 @@ enum BarEngine {
             case .call, .callMuted: return [Line("ON A"), Line("CALL")]
             case .free: return [Line("FREE")]
             case .dnd: return [Line("DO NOT"), Line("DISTURB")]
-            case .meeting: return [Line("MEETING", tracking: -1)]
+            case .meeting: return [Line("MEETING")]
             case .callIn: return [Line("CALL"), Line("SOON")]
             case .busyIn: return [Line("BUSY"), Line("SOON")]
-            case .late: return [Line("LATE"), Line("FOR CALL", font: "busy_bold_10")]
-            case .lateMtg: return [Line("LATE"), Line("FOR MTG", font: "busy_bold_10")]
-            case .freeTil: return [Line("FREE"), Line("TILL {t}", font: "busy_bold_10")]
+            case .late: return [Line("LATE"), Line("FOR CALL")]
+            case .lateMtg: return [Line("LATE"), Line("FOR MTG")]
+            case .freeTil: return [Line("FREE"), Line("TILL {t}")]
             case .callTbc: return [Line("CALL"), Line("TBC")]
             case .busyTbc: return [Line("BUSY"), Line("TBC")]
             case .away: return [Line("AWAY")]
@@ -1179,6 +1201,9 @@ enum BarEngine {
             case .backIn: return [Line("BACK"), Line("IN")]
             }
         }
+
+        /// A cue's announcement, stacked.
+        static func cueLines(_ cue: BarCue) -> [Line] { [Line("CAMERA"), Line(cue == .cameraOn ? "ON" : "OFF")] }
 
         /// Each face's line height, shadow depth and word space.
         static func lineFont(_ font: String) -> (h: Int, depth: Int, space: Int?) {
@@ -1201,7 +1226,7 @@ enum BarEngine {
     static let nearbyRoom = (pill: 76, key: 34)
 
     private(set) static var nearbyWord = nearbyDefault
-    private(set) static var nearbyHero = Hero(word: nearbyDefault, font: "busy_regular_14", base: 14, depth: 2, space: 6)
+    private(set) static var nearbyHero = heroOf(nearbyDefault)
     private(set) static var nearbyStackedHero = [Stacked.Line(nearbyDefault)]
 
     /// What a word won't go on: a character the fonts don't have, the sign, or the Stream Deck key.
@@ -1229,54 +1254,41 @@ enum BarEngine {
     }
 
     /// Sets the word everywhere the bar says NEARBY, and says which it took.
-    /// Its announcement on the wide bar is in the 14-row face where it fits,
-    /// as BUSY SOON is, else the status face, as DO NOT DISTURB.
+    /// Its announcement is in the status face, as every state's: one line
+    /// stacked, since a word the sign takes fits the pill beside the walker
+    /// in it (nearbyProblem), so it fits the panel.
     @discardableResult
     static func setNearbyWord(_ word: String?) -> String {
         let w = nearbyWordOf(word)
         nearbyWord = w
-        nearbyHero = Double(textWidth("busy_regular_14", w, space: 6)) <= Layout.heroW - 6
-            ? Hero(word: w, font: "busy_regular_14", base: 14, depth: 2, space: 6)
-            : Hero(word: w, font: "busy_bold_10", base: 12, depth: 1, space: nil)
-        nearbyStackedHero = nearbyStackedLines(w)
+        nearbyHero = heroOf(w)
+        nearbyStackedHero = [Stacked.Line(w)]
         return w
     }
 
-    /// Its announcement stacked: one line in the 14-row face, set a step
-    /// tighter if it needs it, as MEETING is; else two, broken at the space
-    /// that leaves the longer line shortest; else one in the 10-row face.
-    private static func nearbyStackedLines(_ word: String) -> [Stacked.Line] {
-        let room = Int(Stacked.pillW) - 2               // DISTURB's width
-        func wide(_ t: String, _ tracking: Int) -> Int { textWidth("busy_regular_14", t, tracking: tracking, space: 6) }
-        if wide(word, 0) <= room { return [Stacked.Line(word)] }
-        if wide(word, -1) <= room { return [Stacked.Line(word, tracking: -1)] }
-        var best: [Stacked.Line]?, longest = Int.max
-        let chars = Array(word)
-        for (i, ch) in chars.enumerated() where ch == " " {
-            let a = String(chars[..<i]), b = String(chars[(i + 1)...])
-            let l = max(wide(a, 0), wide(b, 0))
-            if l <= room && l < longest { best = [Stacked.Line(a), Stacked.Line(b)]; longest = l }
-        }
-        return best ?? [Stacked.Line(word, font: "busy_bold_10")]
-    }
-
+    /// `camera`, as render's: here a camera on in the call shows as a green
+    /// dot right of the countdown, in place of the case's tally light.
     static func renderStacked(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?,
-                              since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false) {
+                              since: Double, clock: ClockReading, timer: BarTimer? = nil, rests: Bool = false,
+                              camera: BarCamera = .off) {
         f.clear()
         let pal = BarPalette.of(state)
+        let cue = camera.cue, on = camera.on
+        // the screen before the change: with the camera as it was
+        let before = cue == .cameraOff ? true : cue == .cameraOn ? false : on
         let e = now - since
         let collapseStart = Timing.swap + Timing.hold
         let collapseEnd = collapseStart + Timing.collapse
 
         if e < Timing.swap {
             if let prev {
-                drawStackedSteady(&f, now: now, state: prev, clock: clock, timer: timer, slide: 0)
+                drawStackedSteady(&f, now: now, state: prev, clock: clock, timer: timer, slide: 0, camera: before)
                 shiftDown(&f, jsRound(Timing.press * easeIn(e / Timing.swap)))
             }
         } else if e < collapseStart {
             drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheenAt(now, cols: f.w), h: f.h,
                      dim: pulseAt(now, state))
-            drawStackedHero(&f, state: state, pal: pal, alpha: 1, clipY: nil, timer: timer)
+            drawStackedHero(&f, state: state, pal: pal, alpha: 1, clipY: nil, timer: timer, cue: cue)
             let r = (e - Timing.swap) / Timing.swap
             if r < 1 { shiftDown(&f, jsRound(Timing.press * (1 - easeOut(r)))) }
         } else if e < collapseEnd {
@@ -1287,7 +1299,7 @@ enum BarEngine {
                      dim: pulseAt(now, state))
             let fadeOut = 1 - smooth(0.08, 0.34, k)
             let fadeIn = smooth(0.14, 0.4, k)
-            if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1), timer: timer) }
+            if fadeOut > 0 { drawStackedHero(&f, state: state, pal: pal, alpha: fadeOut, clipY: (1, h - 1), timer: timer, cue: cue) }
             if fadeIn > 0 {
                 drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX, w: Stacked.pillW, alpha: fadeIn, clip: nil)
             }
@@ -1295,13 +1307,14 @@ enum BarEngine {
             let p = easeOut((e - collapseStart) / Timing.collapse)
             let slide = jsRound(Stacked.slideIn * (1 - p))
             drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: h + 2)
+            if on { drawStackedTally(&f, now: now, state: state, slide: slide, minY: h + 2) }
             if let slot = slotOf(state, timer) {
                 drawSlot(&f, slot, x0: Int(Stacked.pillX), n: Int(Stacked.pillW), rows: Stacked.slotRows.filter { $0 > h }, grow: p)
             }
         } else {
             drawStackedSteady(&f, now: now, state: state, clock: clock, timer: timer, slide: 0,
                               scroll: scrollAt(now, state, since: since, pillW: Stacked.pillW),
-                              sheen: !(rests && sheenRests(now, state, since: since)))
+                              sheen: !(rests && sheenRests(now, state, since: since)), camera: on)
             // the last two minutes, of a call or meeting or before one: the countdown's already large here, so a sweep
             let slot = slotOf(state, timer)
             let soon = state == .callIn || state == .busyIn ? timer?.left : nil
@@ -1312,7 +1325,7 @@ enum BarEngine {
     }
 
     static func drawStackedSteady(_ f: inout LEDFrame, now: Double, state: BarState, clock: ClockReading,
-                                  timer: BarTimer?, slide: Int, scroll: Int = 0, sheen: Bool = true) {
+                                  timer: BarTimer?, slide: Int, scroll: Int = 0, sheen: Bool = true, camera: Bool = false) {
         let pal = BarPalette.of(state)
         drawPill(&f, x0: Stacked.pillX, w: Stacked.pillW, pal: pal, sheen: sheen ? sheenAt(now, cols: f.w) : nil, h: Stacked.pillH,
                  dim: pulseAt(now, state))
@@ -1321,23 +1334,49 @@ enum BarEngine {
         drawStatusContent(&f, now: now, state: state, pal: pal, x0: Stacked.pillX + Double(scroll), w: Stacked.pillW,
                           alpha: 1, clip: clip)
         drawStackedClock(&f, state: state, clock: clock, timer: timer, slide: slide, minY: 0)
+        if camera { drawStackedTally(&f, now: now, state: state, slide: slide, minY: 0) }
         if let slot = slotOf(state, timer) {
             drawSlot(&f, slot, x0: Int(Stacked.pillX), n: Int(Stacked.pillW), rows: Stacked.slotRows, grow: 1)
         }
     }
 
+    /// The stacked layout's tally: a round green dot right of the countdown,
+    /// level with its top, while a camera's on in the call. It breathes as the
+    /// case's light does on the wide bar — full to a third and back every 4 s,
+    /// never blinking — and holds steady while you're muted, when the slashed
+    /// mic flashes. It rises with the clock; nothing above row minY.
+    enum Tally {
+        static let dot = [".###.", "#####", "#####", "#####", ".###."]
+        static let x = 76, y = 20
+        static let colour = RGB(0.22, 0.89, 0.44)
+        static let breath = 4.0
+    }
+    static func tallyAt(_ now: Double, _ state: BarState) -> Double {
+        if state == .callMuted { return 1 }
+        return 0.65 + 0.35 * cos(2 * Double.pi * now.truncatingRemainder(dividingBy: Tally.breath) / Tally.breath)
+    }
+    static func drawStackedTally(_ f: inout LEDFrame, now: Double, state: BarState, slide: Int, minY: Int) {
+        guard onCall(state) else { return }
+        let a = tallyAt(now, state)
+        for (r, row) in Tally.dot.enumerated() {
+            let y = Tally.y + r + slide
+            if y < minY { continue }
+            for (c, ch) in row.enumerated() where ch == "#" { f.blend(Tally.x + c, y, Tally.colour, a) }
+        }
+    }
+
     static func drawStackedHero(_ f: inout LEDFrame, state: BarState, pal: BarPalette, alpha: Double,
-                                clipY: (lo: Int, hi: Int)?, timer: BarTimer?) {
+                                clipY: (lo: Int, hi: Int)?, timer: BarTimer?, cue: BarCue? = nil) {
         let at = timer.map { String(format: "%02d:%02d", $0.h, $0.m) } ?? ""
-        let lines = Stacked.hero(state)
+        let cued = cue.flatMap { onCall(state) ? Stacked.cueLines($0) : nil }
+        let lines = (cued ?? Stacked.hero(state))
             .map { Stacked.Line($0.t.replacingOccurrences(of: "{t}", with: at), font: $0.font, tracking: $0.tracking) }
             .filter { !$0.t.trimmingCharacters(in: .whitespaces).isEmpty && $0.t != "TILL" && $0.t != "TILL " }
         var block = (lines.count - 1) * Stacked.heroGap
         for l in lines { block += Stacked.lineFont(l.font).h }
         var top = jsRound(Double(f.h - block) / 2)
         for l in lines {
-            // set as the bar's announcement: the 14-row face with a two-step
-            // shadow and trimmed spaces, the 10-row face with a one-step shadow
+            // set as the bar's announcement: the status face, a one-step shadow
             let lf = Stacked.lineFont(l.font)
             var style = TextStyle(shadow: pal.shadow, shadowDepth: lf.depth, shadowAlpha: 0.9 * alpha, alpha: alpha,
                                   space: lf.space, tracking: l.tracking)
@@ -1755,7 +1794,8 @@ enum BarEngine {
      * prevFor: how long FREE had been up when it ended.
      */
     static func renderWorld(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?, since: Double,
-                            clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double) {
+                            clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double,
+                            camera: BarCamera = .off) {
         let e = now - since
         if state == .free {
             f.clear()
@@ -1769,7 +1809,7 @@ enum BarEngine {
             drawShockwave(&f, progress: e / Timing.wave, pal: BarPalette.of(state))
             return
         }
-        render(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer)
+        render(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer, camera: camera)
     }
 
     // the same, stacked: the big clock stays local; the day line beneath takes each city in turn
@@ -1934,7 +1974,8 @@ enum BarEngine {
         return dx != 0 ? "scroll" : "base"
     }
     static func renderStackedWorld(into f: inout LEDFrame, now: Double, state: BarState, prev: BarState?, since: Double,
-                                   clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double) {
+                                   clock: ClockReading, timer: BarTimer?, world: WorldPlan, prevFor: Double,
+                                   camera: BarCamera = .off) {
         let e = now - since
         if state == .free {
             f.clear()
@@ -1948,6 +1989,6 @@ enum BarEngine {
             drawShockwave(&f, progress: e / Timing.wave, pal: BarPalette.of(state))
             return
         }
-        renderStacked(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer)
+        renderStacked(into: &f, now: now, state: state, prev: prev, since: since, clock: clock, timer: timer, camera: camera)
     }
 }

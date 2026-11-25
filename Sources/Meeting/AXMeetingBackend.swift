@@ -276,6 +276,17 @@ final class AXMeetingBackend: MeetingBackend {
     /// back to the app you were in, on every path. The meeting window's title
     /// when it went.
     func sendShortcut(_ control: MeetingControl, to app: MeetingApp, hint: String) -> Result<String, ShortcutFailure> {
+        let (code, shift) = Self.key(control, app)
+        return send(code: code, shift: shift, to: app, hint: hint)
+    }
+
+    /// The Camera key's, when the meeting's own camera button didn't take:
+    /// Teams ⌘⇧O, Zoom ⌘⇧V, to the meeting window, as sendShortcut sends.
+    func sendCameraShortcut(to app: MeetingApp, hint: String) -> Result<String, ShortcutFailure> {
+        send(code: app == .teams ? 31 : 9, shift: true, to: app, hint: hint)      // O, V
+    }
+
+    private func send(code: CGKeyCode, shift: Bool, to app: MeetingApp, hint: String) -> Result<String, ShortcutFailure> {
         let pid = findApp(app)
         guard pid != 0 else { return .failure(.notRunning(app)) }
         let appElement = AXUIElementCreateApplication(pid)
@@ -308,7 +319,6 @@ final class AXMeetingBackend: MeetingBackend {
         if minimised { Thread.sleep(forTimeInterval: 0.5) }
 
         // make sure the meeting window really is the one the keystroke will reach
-        let (code, shift) = Self.key(control, app)
         var focused = false
         for _ in 0..<10 {
             if let w = titledWindows(appElement).first(where: { $0.title == title })?.element {

@@ -9,9 +9,18 @@ import SwiftUI
  * StatusRules once a second and whenever one of them changes. On a call, the call app's own mute button
  * (MuteDetector, and MeetingKeys for Teams and Zoom) turns ON A CALL into
  * its muted look. Out of the wall's hours (WallHours), with nothing going
- * on, it says the wall's dark. Every view of the bar, the menus and the
- * controls read it from here.
+ * on, it says the wall's dark. A camera on during a call lights the tally,
+ * and its coming on or going off mid-call is announced, CAMERA ON or CAMERA
+ * OFF (CameraFollower). Every view of the bar, the menus and the controls
+ * read it from here.
  */
+
+/// The camera coming on or going off mid-call, to announce: `serial` counts
+/// them, so every one plays, however often.
+struct CameraCueEvent: Equatable {
+    let cue: BarCue
+    let serial: Int
+}
 @MainActor
 final class StatusModel: ObservableObject {
     @Published private(set) var state: BarState = .free
@@ -36,6 +45,22 @@ final class StatusModel: ObservableObject {
     /// FaceTime or WhatsApp on the mic, surely — by bundle ID, or FaceTime's
     /// audio daemon by name — for the Mute and Leave keys.
     private(set) var keyCallApps: [LabelledCallApp] = []
+    /// A camera's on during a call: the tally (the light in the case, or stacked, a dot).
+    @Published private(set) var camera = false
+    /// The last camera change mid-call to announce: CAMERA ON or CAMERA OFF.
+    @Published private(set) var cameraCue: CameraCueEvent?
+    /// The call app on the mic that isn't Teams or Zoom, for the Camera key: FaceTime,
+    /// WhatsApp, or any other (Google Meet in a browser).
+    private(set) var cameraCall: CameraCall?
+    /// Whether you're on camera: in a Teams meeting, what its own camera button
+    /// says (with video off in Teams the camera signal stayed on); else whether
+    /// any camera on the Mac is streaming, the green light's signal.
+    var cameraRunning: Bool {
+        if let app = meeting.snapshot.active, let camera = meeting.snapshot.apps[app]?.camera { return camera }
+        return detector.detection.cameraActive
+    }
+    private var cameraFollower = CameraFollower()
+    private var cueSerial = 0
     /// What the sign says, in words, for the menus and the controls: the
     /// Nearby key's own word for .nearby.
     var stateName: String { state == .nearby ? away.nearbyName : state.name }
@@ -184,16 +209,26 @@ final class StatusModel: ObservableObject {
         // avconferenced, which has no windows of its own, so FaceTime is read for it
         var callApps: [String] = []
         var keyApps: [LabelledCallApp] = []
+        var camCall: CameraCall?
         for holder in detector.detection.holders where holder.counts {
             var id = holder.bundleID ?? "com.apple.FaceTime"
             if id == "com.apple.avconferenced" { id = "com.apple.FaceTime" }
             if !callApps.contains(id) { callApps.append(id) }
+            // the Camera key, with no Teams or Zoom meeting: FaceTime or WhatsApp, else any app on the mic by bundle ID
+            if camCall == nil && MeetingApp(bundleID: id) == nil {
+                if let app = LabelledCallApp(bundleID: id) {
+                    camCall = CameraCall(name: app.label, bundleIDs: app.appBundleIDs, hover: app.hoverControls)
+                } else if holder.bundleID != nil {
+                    camCall = CameraCall(name: holder.name, bundleIDs: [id], hover: false)
+                }
+            }
             // the keys: not just any tool with no bundle ID — only what's surely FaceTime or WhatsApp
             let byName: LabelledCallApp? = holder.name.lowercased().contains("avconferenced") ? LabelledCallApp.facetime : nil
             let sure: LabelledCallApp? = holder.bundleID.flatMap(LabelledCallApp.init(bundleID:)) ?? byName
             if let sure, !keyApps.contains(sure) { keyApps.append(sure) }
         }
         if keyCallApps != keyApps { keyCallApps = keyApps }
+        if cameraCall != camCall { cameraCall = camCall }
         // Teams or Zoom taking the mic: their meeting's looked for straight away
         meeting.onMic(Set(callApps.compactMap(MeetingApp.init(bundleID:))))
         mute.update(onCall: detector.micOn, apps: callApps)
@@ -214,8 +249,18 @@ final class StatusModel: ObservableObject {
 
         let dark = wallHours.isDark(at: now, quiet: BarEngine.quiet(next))
 
+        // the camera: the tally while one's on during a call, and CAMERA ON or OFF as it changes mid-call
+        let onCall = next == .call || next == .callMuted
+        if let cue = cameraFollower.step(at: ProcessInfo.processInfo.systemUptime, camera: cameraRunning,
+                                         mic: detector.detection.onCall, onCall: onCall) {
+            cueSerial += 1
+            cameraCue = CameraCueEvent(cue: cue == .cameraOn ? .cameraOn : .cameraOff, serial: cueSerial)
+        }
+        let tally = cameraFollower.tally(onCall: onCall)
+
         if decision != d { decision = d }
         if moment != m { moment = m }
+        if camera != tally { camera = tally }
         if state != next { state = next }
         if wallDark != dark { wallDark = dark }
     }

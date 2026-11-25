@@ -42,6 +42,16 @@
     box-shadow:inset 0 calc(var(--u) * 2) calc(var(--u) * 3) rgba(0,0,0,.9)}
   .face::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
     background:linear-gradient(180deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 32%,rgba(255,255,255,0) 80%,rgba(255,255,255,.025) 100%)}
+  /* the camera's tally, in the sensor notch: green while a camera's on during the call, breathing
+     every 4 s, steady while muted (TallyLight in Sources/Bar/BarDisplayView.swift) */
+  .tally{border-radius:0 0 calc(var(--u) * 8) calc(var(--u) * 8);opacity:0;transition:opacity .9s ease;pointer-events:none}
+  .tally.on{opacity:1}
+  .tally i{position:absolute;inset:0;border-radius:inherit;background:#39e46f;
+    box-shadow:0 0 calc(var(--u) * 14) calc(var(--u) * 3) #39e46f,0 0 calc(var(--u) * 70) calc(var(--u) * 14) rgba(57,228,111,.45);
+    animation:breathe 4s ease-in-out infinite}
+  .tally.steady i{animation:none}
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:.3}}
+  @media (prefers-reduced-motion: reduce){.tally i{animation:none}}
   .sensor{background:#0d0d0e;border-radius:0 0 calc(var(--u) * 10) calc(var(--u) * 10);
     box-shadow:inset 0 calc(var(--u) * -1) 0 rgba(255,255,255,.05)}
   .knob{border-radius:calc(var(--u) * 14) calc(var(--u) * 14) 0 0;
@@ -224,6 +234,7 @@
       <div class="case" id="case"></div>
       <div class="face" id="face"></div>
       <div class="sensor" id="sensor"></div>
+      <div class="tally" id="tally"><i></i></div>
       <div class="window" id="window"><canvas id="leds" role="img" aria-label="LED status bar"></canvas></div>
     </div>
   </div>
@@ -235,6 +246,7 @@
     <button class="chip" id="b-dnd" aria-pressed="false">Do not disturb</button>
     <button class="chip" id="b-day" aria-pressed="false">Calendar day</button>
     <button class="chip" id="b-mute" aria-pressed="false">Mic muted</button>
+    <button class="chip" id="b-cam" aria-pressed="false">Camera on</button>
     <button class="chip" id="b-again" aria-pressed="false">Replay change</button>
     <button class="chip" id="b-idle" aria-pressed="false">Quiet hour</button>
     <button class="chip" id="b-night" aria-pressed="false">Out of hours</button>
@@ -541,6 +553,7 @@
     ['case', 0, 0, SCREEN_W, CASE_H],
     ['face', METAL, METAL, SCREEN_W - METAL * 2, CASE_H - METAL * 2],
     ['sensor', SCREEN_W / 2 - 90, METAL, 180, 18],
+    ['tally', SCREEN_W / 2 - 82, METAL, 164, 15],
     ['window', RIM_X, RIM_Y, FIELD_W, FIELD_H]
   ];
 
@@ -656,11 +669,16 @@
   let micMuted = false;
   const shown = (s) => (s === 'call' && micMuted ? 'callMuted' : s);
   const onCall = (s) => s === 'call' || s === 'callMuted';
+  /* A camera on during the call: the tally on the case (stacked, a dot in the LEDs), and its coming on
+     or going off mid-call announced, CAMERA ON or CAMERA OFF; a call that starts with it on says CAMERA ON. */
+  let cameraOn = false, cue;
+  const camera = () => ({ on: cameraOn && onCall(state), cue: cue });
   function setState(next) {
     if (next === state) return;
     // muting and unmuting mid-call change the bar quietly, with no announcement
     if (onCall(state) && onCall(next)) { state = next; spill.style.background = SPILL[next]; return; }
     if (next === 'dnd' && state !== 'dnd' && mode !== 'day') dndUntil = Date.now() + DND_MS;
+    cue = cameraOn && onCall(next) ? 'cameraOn' : undefined;
     prev = state; state = next; since = now();
     spill.style.background = SPILL[next];
   }
@@ -691,6 +709,12 @@
     micMuted = !micMuted;
     ev.currentTarget.setAttribute('aria-pressed', String(micMuted));
     if (onCall(state)) setState(shown('call'));
+  };
+  document.getElementById('b-cam').onclick = (ev) => {
+    cameraOn = !cameraOn;
+    ev.currentTarget.setAttribute('aria-pressed', String(cameraOn));
+    // mid-call: announced as a change of state is
+    if (onCall(state)) { cue = cameraOn ? 'cameraOn' : 'cameraOff'; prev = state; since = now(); lastFlip = now(); }
   };
   // as in the app: double-click the bar for Do Not Disturb, again to end it
   monitor.addEventListener('dblclick', () => {
@@ -937,7 +961,10 @@
     if (mode === 'idle') s = t - (E.SETTLED + 3 * E.SCROLL.every + (t - idleAt) % 6 - 1);
     const L = stacked ? STACK : WIDE;
     // the wall's LEDs rest when nothing's going on (and the sheen with them), and orbit (60x in a quiet hour)
-    (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer, !floating);
+    (stacked ? E.renderStacked : E.render)(L.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer, !floating, camera());
+    const tally = document.getElementById('tally');
+    tally.classList.toggle('on', camera().on);
+    tally.classList.toggle('steady', state === 'callMuted');
     L.painter.paint(L.frame, floating ? 1 : E.restAt(t, state, s));
     const o = floating ? { x: 0, y: 0 } : orbit(mode === 'idle' ? (t - idleAt) * 60 : Date.now() / 1000, stacked ? stackPitch : PITCH);
     win.style.transform = `translate(${o.x * scale}px, ${o.y * scale}px)`;
@@ -946,7 +973,7 @@
     const dark = !floating && E.quiet(state) && (afterHours || (mode === 'day' && (minute < WALL_HOURS.from || minute >= WALL_HOURS.to)));
     device.style.opacity = dark ? '0' : '1';
     // the settings window's preview: always the wide bar
-    E.render(preview.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer);
+    E.render(preview.frame, reduced ? Math.floor(t) : t, state, prev, s, clock, timer, undefined, camera());
     if (preview.canvas.clientWidth) { if (!preview.sized) { sizePreview(); preview.sized = true; } preview.painter.paint(preview.frame); }
     document.getElementById('m-state').textContent = NAMES[state];
     document.getElementById('m-why').textContent = why;

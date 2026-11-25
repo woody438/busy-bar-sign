@@ -6,8 +6,9 @@ import Network
 /*
  * What the screen saver needs from the app: what the sign says, the moment
  * its countdown is about (and the meeting its time-left rail is), which monitor is the wall and how it's laid out,
- * the Nearby key's word if it's been given one, and whether the wall's dark
- * out of hours — read from the app's answer to GET /status
+ * the Nearby key's word if it's been given one, whether the wall's dark
+ * out of hours, and the camera — the tally, and its last change announced
+ * mid-call — read from the app's answer to GET /status
  * (Sources/LocalAPI.swift).
  * The reading is Foundation only, so Checks/saver tests it anywhere Swift
  * runs, against LocalAPI's own answers. (LocalAPI.swift is compiled into
@@ -36,6 +37,15 @@ struct SaverStatus: Equatable {
     var nearbyWord: String? = nil
     /// Out of hours with nothing going on: the wall's black, and the screen saver with it.
     var dark = false
+    /// A camera's on during the call: the tally (stacked, a dot in the LEDs).
+    var camera = false
+    /// The last camera change mid-call the sign announced: CAMERA ON or CAMERA OFF, and its number.
+    var cameraCue: Cue? = nil
+
+    struct Cue: Equatable {
+        var cue: String                 // cameraOn, cameraOff
+        var n: Int
+    }
 
     /// What the screen saver sends: the Host LocalAPI expects, no Origin, and
     /// where it is, so the app can say which monitors it's showing on.
@@ -66,6 +76,10 @@ struct SaverStatus: Equatable {
         }
         status.nearbyWord = o["nearbyWord"] as? String
         status.dark = o["dark"] as? Bool ?? false
+        status.camera = o["camera"] as? Bool ?? false
+        if let c = o["cameraCue"] as? [String: Any], let cue = c["cue"] as? String, let n = (c["n"] as? NSNumber)?.intValue {
+            status.cameraCue = Cue(cue: cue, n: n)
+        }
         return status
     }
 }

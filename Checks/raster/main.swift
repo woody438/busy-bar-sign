@@ -59,8 +59,18 @@ struct Scenario {
     var layout = BarLayout.wide, pitch = 32
     var moment: (Double, BarMoment.Kind)? = nil      // seconds from the start, kind
     var slot: (Double, Double)? = nil                // the time-left rail's meeting: start and end, seconds from the start
+    var camera = BarCamera.off                       // a camera in the call: its cue, and stacked, its dot
 }
 let scenarios = [
+    // a camera in the call: CAMERA ON announced, then the stacked layout's dot breathing, and steady while muted
+    Scenario(name: "CAMERA ON, announced", state: .call, prev: .call, from: 0, seconds: 10, moment: (1800.37, .countdown),
+             camera: BarCamera(on: true, cue: .cameraOn)),
+    Scenario(name: "CAMERA OFF, announced, stacked", state: .call, prev: .call, from: 0, seconds: 10, layout: .stacked, pitch: 11,
+             moment: (1800.37, .countdown), camera: BarCamera(on: false, cue: .cameraOff)),
+    Scenario(name: "ON A CALL, camera on, stacked (the dot)", state: .call, prev: .call, from: 300, seconds: 12, layout: .stacked,
+             pitch: 11, moment: (1234.567, .countdown), camera: BarCamera(on: true, cue: .cameraOn)),
+    Scenario(name: "ON A CALL, muted, camera on, stacked", state: .callMuted, prev: .call, from: 300, seconds: 12, layout: .stacked,
+             pitch: 11, moment: (1234.567, .countdown), camera: BarCamera(on: true)),
     Scenario(name: "FREE, settled", state: .free, prev: .call, from: 600, seconds: 30),
     Scenario(name: "FREE, resting (after half an hour)", state: .free, prev: .call, from: 2400, seconds: 30),
     Scenario(name: "FREE, easing down to rest", state: .free, prev: .call, from: 1795, seconds: 30),
@@ -131,10 +141,10 @@ for sc in scenarios {
         let timer = moment?.timer(at: date), clock = ClockReading(date)
         if sc.layout == .wide {
             BarEngine.render(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer,
-                             rests: rests)
+                             rests: rests, camera: sc.camera)
         } else {
             BarEngine.renderStacked(into: &frame, now: t, state: sc.state, prev: sc.prev, since: since, clock: clock, timer: timer,
-                                    rests: rests)
+                                    rests: rests, camera: sc.camera)
         }
         raster.keys(frame, dim: rests ? BarEngine.restAt(t, sc.state, since: since) : 1, into: out)
     }
@@ -169,7 +179,7 @@ for sc in scenarios {
             }
             let date = Date(timeIntervalSince1970: wall0 + tick)
             let delay = PanelSchedule.delay(now: tick, date: date, state: sc.state, since: since, layout: sc.layout,
-                                            rests: rests, moment: moment, world: false)
+                                            rests: rests, moment: moment, world: false, camera: sc.camera.on)
             work += Date().timeIntervalSince(start)
             if let delay {
                 tick += delay
