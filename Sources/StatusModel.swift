@@ -157,10 +157,11 @@ final class StatusModel: ObservableObject {
     /// or the FaceTime or WhatsApp call: the sign moves straight on, as if the
     /// call had ended there and then —
     /// FREE, or what's next: CALL IN for one soon, LATE FOR one you've overrun
-    /// into. The calendar events the call was for are over (a meeting in a room
-    /// with a Teams link would otherwise say MEETING till its slot ended, and a
-    /// phone-call block ON A CALL); the mic's done with now, not ten seconds
-    /// on; Do Not Disturb ends, and Force ON A CALL goes back to Automatic.
+    /// into. The calendar events the call was for are over (a phone-call block
+    /// would otherwise say ON A CALL till its slot ended) — but not a meeting in
+    /// a room, your office or a company site, which says MEETING till END, as
+    /// you may be in it still; the mic's done with now, not ten seconds on; Do
+    /// Not Disturb ends, and Force ON A CALL goes back to Automatic.
     func leftCall() {
         var input = StatusInput(now: Date().timeIntervalSince1970 * 1000)
         input.micSessions = detector.micSessions

@@ -226,13 +226,27 @@ final class CalendarSource: ObservableObject {
         // one key per occurrence: every instance of a series shares an external ID
         let base = e.calendarItemExternalIdentifier ?? e.eventIdentifier ?? UUID().uuidString
         let occurrence = (e.occurrenceDate ?? start).timeIntervalSince1970
-        // a room booked on the invite: a meeting room, whatever it's called
-        let rooms = (e.attendees ?? []).filter { $0.participantType == .room }.map { $0.name ?? "" }
+        // a room booked on the invite: a meeting room, whatever it's called. Exchange books one as a
+        // resource, which can reach EventKit as a room, a resource or a plain invitee; Outlook names it
+        // in the location too ("Microsoft Teams Meeting; CA MTL N3.101 - …"), so an invitee the location
+        // names counts as well
+        let rooms = (e.attendees ?? []).filter { p in
+            p.participantType == .room || p.participantType == .resource || Self.names(e.location ?? "", p.name ?? "")
+        }.map { $0.name ?? "" }
         return CalEvent(id: "\(base)#\(Int(occurrence))", title: e.title ?? "",
                         start: start.timeIntervalSince1970 * 1000, end: end.timeIntervalSince1970 * 1000,
                         allDay: e.isAllDay, availability: availability, attendees: e.attendees?.count ?? 0, rooms: rooms,
                         notes: e.notes ?? "", location: e.location ?? "", url: e.url?.absoluteString ?? "",
                         cancelled: e.status == .canceled)
+    }
+
+    /// Whether one of a location's places — Outlook joins them with "; " — is `name`, any case.
+    static func names(_ location: String, _ name: String) -> Bool {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty else { return false }
+        return location.components(separatedBy: ";").contains {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(n) == .orderedSame
+        }
     }
 
     private func save(_ value: Any?, _ key: String) {
