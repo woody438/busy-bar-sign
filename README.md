@@ -474,7 +474,7 @@ node and Pillow).
 
 ### Mute and Leave keys, for Teams and Zoom
 
-![Mute, Leave and Camera keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting; the camera ON in green, OFF in red with a slash, and VIDEO in grey with no call](docs/stream-deck-meeting-keys.png)
+![Mute, Leave and Camera keys: LIVE in green, MUTED in red, and MUTE in grey outside a meeting; LEAVE in red, and in grey outside a meeting; the camera ON in green, OFF in red with a slash, and CAMERA in grey with no call](docs/stream-deck-meeting-keys.png)
 
 Two more keys in the same plugin, for the Teams or Zoom meeting you're in.
 The app does the pressing, so the keys, the sign and the settings always
@@ -574,11 +574,12 @@ From 2.10 (plugin 1.7 or later). macOS has no switch that turns the camera
 off for whichever app is using it, so the Camera key presses the call app's
 own camera button, as Mute presses its mute:
 
-- **It shows** green **ON** while a camera on the Mac is on, red **OFF**
-  (a slashed camera) while it isn't, in a Teams or Zoom meeting or a call
-  on the mic; with no call, dimmed, **VIDEO** in grey. ON and OFF come from
-  the camera itself — the signal that lights the green light by the lens —
-  so they're right whichever app has it.
+- **It shows** green **ON** while you're on camera, red **OFF** (a slashed
+  camera) while you aren't, in a Teams or Zoom meeting or a call on the mic;
+  with no call, dimmed, **CAMERA** in grey. In a Teams meeting, ON and OFF
+  come from Teams' own camera button, as the sign's do; elsewhere from the
+  camera itself — the signal that lights the green light by the lens — so
+  they're right whichever app has it.
 - **A press** turns it off or on:
   - **Teams**: the meeting window's camera button (its id `video-button`,
     or one named "Turn camera on" or "Turn camera off"); if that doesn't
@@ -908,7 +909,13 @@ So from 2.8.9 the app asks as lightly as it can:
 From 2.10. With people in the room on a video call, they need to know
 they're in shot. The sign follows the camera — any camera on the Mac, from
 any app, by the signal that lights the green light beside the lens
-(`CameraProbe`, no permission needed):
+(`CameraProbe`, no permission needed). In a Teams meeting it follows Teams'
+own camera button instead, as it reads Teams' mute: in the 2.10 preview,
+on a real Mac, turning video off in Teams never brought CAMERA OFF — the
+camera signal stayed on, most likely Teams keeping the camera open — so the
+button is the truth there. If the
+button can't be found, the camera itself is used, and Settings ▸ Call apps
+▸ **Inspect meeting controls** shows Teams' camera reading.
 
 - **ON A CALL stays the resting state**, as before, camera or not.
 - **The camera comes on during a call**: the sign says **CAMERA ON** across
@@ -939,9 +946,10 @@ Worth knowing: the tally is small by design — the sensor notch is 180 × 18
 pixels on a 4K screen, about 7 cm by 7 mm on a 65-inch TV, plus its glow.
 CAMERA ON is what catches the eye; the tally is the reminder. Its breathing
 runs in Core Animation, on the case, so it doesn't make the LED panel
-redraw. An app that keeps the camera open with your video off would keep
-the tally lit: Teams, Zoom and Meet let it go, as far as is known, but it
-hasn't been checked on a real Mac yet.
+redraw. An app other than Teams that kept the camera open with your
+video off would keep the tally lit: Zoom lets it go (checked on a real Mac
+in the 2.10 preview); Meet, FaceTime and WhatsApp haven't been checked
+yet.
 
 ## How the display works
 

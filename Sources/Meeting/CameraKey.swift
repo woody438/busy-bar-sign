@@ -29,59 +29,6 @@ import Foundation
  * scripts Teams, Zoom, FaceTime, WhatsApp and Meet.
  */
 
-/// What a control's name says about the camera: on now (pressing turns it
-/// off), off now, or just "Camera", a toggle whose state is read from it.
-enum CameraLabels {
-    enum Reading: Equatable { case on, off, toggle }
-
-    /// Words that mean a control is about something else: settings, effects,
-    /// choosing a camera, or starting a call.
-    static let never: Set<String> = [
-        "setting", "settings", "option", "options", "effect", "effects", "background", "backgrounds", "blur",
-        "filter", "filters", "choose", "select", "switch", "preview", "share", "sharing", "studio", "portrait",
-        "center", "centre", "stage", "reaction", "reactions", "gesture", "gestures", "mirror", "resolution", "quality",
-        "spotlight", "pin", "layout", "gallery", "speaker", "call", "calls", "meeting", "record", "recording",
-        "capture", "screen", "photo", "snapshot", "more", "device", "devices", "source", "sources", "hd", "facetime"
-    ]
-
-    /// Named for what pressing it does: the camera's on now.
-    static let turnsOff: Set<String> = [
-        "turn off camera", "turn camera off", "turn off your camera", "turn your camera off", "turn off video",
-        "turn video off", "stop video", "stop my video", "stop camera", "disable camera", "disable video", "hide video"
-    ]
-    /// ...the camera's off now.
-    static let turnsOn: Set<String> = [
-        "turn on camera", "turn camera on", "turn on your camera", "turn your camera on", "turn on video",
-        "turn video on", "start video", "start my video", "start camera", "enable camera", "enable video", "show video"
-    ]
-    /// Named for the camera alone: a toggle, read by whether it shows it's on.
-    static let toggles: Set<String> = [
-        "camera", "video", "camera on", "camera off", "video on", "video off", "toggle camera", "toggle video"
-    ]
-
-    /// A name as compared: lower case, without a shortcut in brackets ("Turn
-    /// off camera (⌘ + e)", "Turn camera off (⌘⇧O)") or after a comma, and
-    /// with anything but letters as single spaces.
-    static func normalise(_ label: String) -> String {
-        var s = label.lowercased()
-        for cut in ["(", ",", " – ", " - ", "\n"] {
-            if let r = s.range(of: cut) { s = String(s[..<r.lowerBound]) }
-        }
-        let letters = s.unicodeScalars.map { CharacterSet.letters.contains($0) ? Character($0) : " " }
-        return String(letters).split(separator: " ").joined(separator: " ")
-    }
-
-    /// What a control's name says, or nil if it isn't the camera's on/off control.
-    static func reading(_ label: String) -> Reading? {
-        let n = normalise(label)
-        guard !n.isEmpty, !n.split(separator: " ").contains(where: { never.contains(String($0)) }) else { return nil }
-        if turnsOff.contains(n) { return .on }
-        if turnsOn.contains(n) { return .off }
-        if toggles.contains(n) { return .toggle }
-        return nil
-    }
-}
-
 /// Where the Camera key presses: a Teams or Zoom meeting (in the window the
 /// meeting keys found), or another call app on the mic.
 enum CameraTarget: Equatable {

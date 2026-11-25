@@ -266,9 +266,10 @@ export function cameraFace(view) {
   return view.video.on ? 'live' : 'dark';
 }
 
-/* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE, VIDEO.
-   The Camera key's colours are Mute's: green when you can be seen, red when
-   you can't. */
+/* Outside a meeting a key says what it's for, in grey: MUTE, LEAVE, CAMERA
+   (in the 5-row face, as NEARBY is: it's too wide for the 7-row one). The
+   Camera key's colours are Mute's: green when you can be seen, red when you
+   can't. */
 const FACES = {
   'mute:live': { state: 'free', icon: 'mic', word: 'LIVE' },
   'mute:muted': { state: 'call', icon: 'micMuted', word: 'MUTED' },
@@ -279,7 +280,7 @@ const FACES = {
   'leave:idle': { state: 'away', icon: 'handset', word: 'LEAVE', dim: 0.62 },
   'camera:live': { state: 'free', icon: 'camera', word: 'ON' },
   'camera:dark': { state: 'call', icon: 'cameraOff', word: 'OFF' },
-  'camera:idle': { state: 'away', icon: 'camera', word: 'VIDEO', dim: 0.62 }
+  'camera:idle': { state: 'away', icon: 'camera', word: 'CAMERA', dim: 0.62 }
 };
 export const MEETING_FACES = Object.keys(FACES);
 

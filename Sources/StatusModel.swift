@@ -52,8 +52,13 @@ final class StatusModel: ObservableObject {
     /// The call app on the mic that isn't Teams or Zoom, for the Camera key: FaceTime,
     /// WhatsApp, or any other (Google Meet in a browser).
     private(set) var cameraCall: CameraCall?
-    /// Whether any camera on the Mac is streaming now: the green light's signal.
-    var cameraRunning: Bool { detector.detection.cameraActive }
+    /// Whether you're on camera: in a Teams meeting, what its own camera button
+    /// says (with video off in Teams the camera signal stayed on); else whether
+    /// any camera on the Mac is streaming, the green light's signal.
+    var cameraRunning: Bool {
+        if let app = meeting.snapshot.active, let camera = meeting.snapshot.apps[app]?.camera { return camera }
+        return detector.detection.cameraActive
+    }
     private var cameraFollower = CameraFollower()
     private var cueSerial = 0
     /// What the sign says, in words, for the menus and the controls: the
@@ -246,7 +251,7 @@ final class StatusModel: ObservableObject {
 
         // the camera: the tally while one's on during a call, and CAMERA ON or OFF as it changes mid-call
         let onCall = next == .call || next == .callMuted
-        if let cue = cameraFollower.step(at: ProcessInfo.processInfo.systemUptime, camera: detector.detection.cameraActive,
+        if let cue = cameraFollower.step(at: ProcessInfo.processInfo.systemUptime, camera: cameraRunning,
                                          mic: detector.detection.onCall, onCall: onCall) {
             cueSerial += 1
             cameraCue = CameraCueEvent(cue: cue == .cameraOn ? .cameraOn : .cameraOff, serial: cueSerial)

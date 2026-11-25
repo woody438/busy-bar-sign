@@ -56,17 +56,18 @@ echo; echo "== mute and leave controls (what MuteDetector reads in the call apps
 
 echo; echo "== meeting keys (Teams and Zoom, scripted: their mute and leave controls, the post-call survey)"
 M=Sources/Meeting
-"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Checks/meeting/main.swift -o "$OUT/meeting"
+"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/CameraLabels.swift $M/MeetingEngine.swift Checks/meeting/main.swift \
+  -o "$OUT/meeting"
 "$OUT/meeting" Checks/meeting/teams-ui.json
 
 echo; echo "== call keys (FaceTime and WhatsApp, scripted: the button each key presses, and what it never presses)"
-"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Sources/MuteLabels.swift $M/CallAppKeys.swift \
-  Checks/callkeys/main.swift -o "$OUT/callkeys"
+"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/CameraLabels.swift $M/MeetingEngine.swift Sources/MuteLabels.swift \
+  $M/CallAppKeys.swift Checks/callkeys/main.swift -o "$OUT/callkeys"
 "$OUT/callkeys"
 
 echo; echo "== camera key (Teams, Zoom, FaceTime, WhatsApp, Meet, scripted: the camera control each presses, and what it never presses)"
-"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/MeetingEngine.swift Sources/MuteLabels.swift $M/CallAppKeys.swift \
-  $M/CameraKey.swift Checks/camerakey/main.swift -o "$OUT/camerakey"
+"$SWIFTC" $M/MeetingPatterns.swift $M/MeetingTree.swift $M/CameraLabels.swift $M/MeetingEngine.swift Sources/MuteLabels.swift \
+  $M/CallAppKeys.swift $M/CameraKey.swift Checks/camerakey/main.swift -o "$OUT/camerakey"
 "$OUT/camerakey"
 
 echo; echo "== the camera (the tally, and CAMERA ON and OFF announced mid-call, never as you hang up)"
